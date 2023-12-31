@@ -37,39 +37,35 @@ Here is the structure of the whole repository at the moment:
 
 <pre>
 \---pc
-    +---emulators
-    |   +---caloric
-    |   \---euphoric
     +---shared_libraries
     |   +---freeimage
     |   \---unittestcpp
-    \---tools
-        +---oric
-        |   +---4k8
-        |   +---Bin2Tap
-        |   +---dsk
-        |   +---old2mfm
-        |   +---tap2dsk
-        |   \---txt2bas
-        \---osdk
-            +---main
-            |   +---bas2tap
-            |   +---bin2txt
-            |   +---common
-            |   +---compiler
-            |   +---DskTool
-            |   +---filepack
-            |   +---header
-            |   +---link65
-            |   +---macrosplitter
-            |   +---makedisk
-            |   +---MemMap
-            |   +---old2mfm
-            |   +---opt65
-            |   +---pictconv
-            |   +---SampleTweaker
-            |   +---tap2cd
-            |   +---tap2dsk
-            |   +---TapTool
-            |   +---xa
-            |   \---Ym2Mym
+    +---euphoric_tools
+    |   +---4k8
+    |   +---Bin2Tap
+    |   +---dsk
+    |   +---old2mfm
+    |   +---tap2dsk
+    |   \---txt2bas
+    \---osdk
+        +---main
+            +---bas2tap
+            +---bin2txt
+            +---common
+            +---compiler
+            +---DskTool
+            +---filepack
+            +---header
+            +---link65
+            +---macrosplitter
+            +---makedisk
+            +---MemMap
+            +---old2mfm
+            +---opt65
+            +---pictconv
+            +---SampleTweaker
+            +---tap2cd
+            +---tap2dsk
+            +---TapTool
+            +---xa
+            \---Ym2Mym

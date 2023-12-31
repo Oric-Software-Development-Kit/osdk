@@ -1,4 +1,4 @@
-SUBDIRS := shared_libraries tools
+SUBDIRS := shared_libraries euphoric_tools osdk
 
 all install clean:
 	@for d in $(SUBDIRS); do \
