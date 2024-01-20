@@ -27,6 +27,29 @@ Generate an html file representing the memory map of provided files.
 #include "common.h"
 
 
+enum INPUT_FORMAT
+{
+  INPUT_FORMAT_ORIC_XA,
+  INPUT_FORMAT_ATARI_DEVPAC,
+};
+
+
+class MemMap : public ArgumentParser
+{
+public:
+  MemMap(int argc, char* argv[])
+    : ArgumentParser(argc, argv)
+  {
+  }
+
+  int Main();
+
+private:
+  INPUT_FORMAT  m_InputFormat = INPUT_FORMAT_ORIC_XA;		          ///< 0=XA / 1=Devpac
+  int           m_SectionSizeDisplayCount = 0;                    ///< By default, don't show the section about size
+};
+
+
 const char gHtmlHeader[]=
 "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\">\r\n"
 "<HTML lang=fr dir=ltr>\r\n"
@@ -101,9 +124,9 @@ class Section
 {
 public:
   Section() :
-    m_adress_size(4),
-    m_begin_adress(0),
-    m_end_adress(65535)
+    m_address_size(4),
+    m_begin_address(0),
+    m_end_address(65535)
   {
   }
 
@@ -112,7 +135,7 @@ public:
     return !m_map_data.empty();
   }
 
-  void Generate(std::string &ref_html);
+  void Generate(std::string &ref_html, int sectionSizeDisplayCount);
 
   void AddSymbol(int address,const std::string label)
   {
@@ -131,24 +154,19 @@ public:
 public:
   std::string	    m_anchor_name;
   std::string	    m_section_name;
-  int		    m_adress_size;
-  int		    m_begin_adress;
-  int		    m_end_adress;
+  int		    m_address_size;
+  int		    m_begin_address;
+  int		    m_end_address;
 
   std::set<Block>   m_map_data;
 };
 
 
-void Section::Generate(std::string &html)
+void Section::Generate(std::string &html, int sectionSizeDisplayCount)
 {
   html+="<a name=\""+m_anchor_name+"\"></a>\r\n";
 
   html+="<h1>"+m_section_name+"</h1>\r\n";
-
-  html+="<table border>\r\n";
-  html+="<tr>\r\n";
-  html+="<th>Adress</th><th colspan=\"2\">Size</th><th>Name</th>\r\n";
-  html+="</tr>\r\n";
 
   //
   // First pass compute the size
@@ -165,7 +183,7 @@ void Section::Generate(std::string &html)
         ptr_master_block=&block;
       }
 
-      int address =block.m_address;
+      const int address = block.m_address;
       ++it;
 
       if (it!=m_map_data.end())
@@ -174,7 +192,7 @@ void Section::Generate(std::string &html)
       }
       else
       {
-        block.m_block_size=m_end_adress-address;
+        block.m_block_size=m_end_address-address;
       }
 
       if (ptr_master_block)
@@ -182,15 +200,66 @@ void Section::Generate(std::string &html)
         ptr_master_block->m_sub_entries++;
         ptr_master_block->m_total_size+=block.m_block_size;
       }
-
-      //Block& block=(*it);
-
     }
+  }
+
+  // Display the list of largest blocks by decreasing size
+  if (sectionSizeDisplayCount > 0)
+  {
+    std::multimap<int, std::string> blockBySize;
+    for (const auto& block : m_map_data)
+    {
+      if (block.m_total_size && !block.m_labels.empty())
+      {
+        blockBySize.insert(std::make_pair(block.m_total_size, *block.m_labels.begin()));
+      }
+    }
+
+    html += "<table class='memmap'>\r\n";
+
+    html += "<thead>\r\n";
+
+    html += "<tr>\r\n";
+    html += "<th colspan=2>Largest "+ std::to_string(std::min(sectionSizeDisplayCount, (int)blockBySize.size() )) + " sections</th>\r\n";
+    html += "</tr>\r\n";
+
+    html += "<tr>\r\n";
+    html += "<th>Size</th><th>Name</th>\r\n";
+    html += "</tr>\r\n";
+
+    html += "</thead>\r\n";
+
+    html += "<tbody>\r\n";
+    int counter = 0;
+    for (auto it = blockBySize.rbegin(); (it != blockBySize.rend()) && (counter < sectionSizeDisplayCount); ++it,++counter)
+    {
+      html += "<tr><td>" + std::to_string(it->first) + "<td><a href='#"+ it->second +"'>" + it->second + "</a>\r\n";
+    }
+    html += "</tbody>\r\n";
+
+    html += "</table>\r\n";
+
+    html += "<br>\r\n";
   }
 
   //
   // Second pass generates the html
   //
+  html += "<table class='memmap'>\r\n";
+
+  html += "<thead>\r\n";
+
+  html += "<tr>\r\n";
+  html += "<th colspan=4>Section layout</th>\r\n";
+  html += "</tr>\r\n";
+
+  html += "<tr>\r\n";
+  html += "<th>Address</th><th colspan=\"2\">Size</th><th>Name</th>\r\n";
+  html += "</tr>\r\n";
+
+  html += "</thead>\r\n";
+
+  html += "<tbody>\r\n";
   {
     std::set<Block>::iterator it=m_map_data.begin();
     while (it!=m_map_data.end())
@@ -200,14 +269,14 @@ void Section::Generate(std::string &html)
       const std::set<std::string>& labels=block.m_labels;
       ++it;
 
-      char buffer_adress[512];
+      char buffer_address[512];
       if (address&255)
       {
-        sprintf(buffer_adress,"$%02x",address);
+        sprintf(buffer_address,"$%02x",address);
       }
       else
       {
-        sprintf(buffer_adress,"<b>$%02x</b>",address);
+        sprintf(buffer_address,"<b>$%02x</b>",address);
       }
 
       char buffer_size[512];
@@ -218,17 +287,17 @@ void Section::Generate(std::string &html)
       }
       else
       {
-        sprintf(buffer_size,"%d",m_end_adress-address);
+        sprintf(buffer_size,"%d",m_end_address-address);
         //sprintf(buffer_size,"???");
       }
       */
       html+="<tr>\r\n";
-      html+=(std::string)"<td>"+buffer_adress+"</td>";
+      html+=(std::string)"<td>"+buffer_address+"</td>";
 
       if ( (block.m_total_size) ) // && (block.m_total_size!=block.m_block_size) )
       {
         // Master block
-        sprintf(buffer_size,"<td align=\"right\">%d</td><td align=\"right\">%d</td>",block.m_total_size,block.m_block_size);
+        sprintf(buffer_size,"<td align=\"right\" id='%s'>%d</td><td align=\"right\">%d</td>", (*labels.begin()).c_str(), block.m_total_size, block.m_block_size);
       }
       else
       {
@@ -252,20 +321,15 @@ void Section::Generate(std::string &html)
       html+="</tr>\r\n";
     }
   }
+  html += "</tbody>\r\n";
 
   html+="</table>\r\n";
 }
 
 
 
-enum INPUT_FORMAT
-{
-  INPUT_FORMAT_ORIC_XA,
-  INPUT_FORMAT_ATARI_DEVPAC,
-};
-
-
 #define NB_ARG	4
+
 
 int main(int argc,char *argv[])
 {
@@ -288,27 +352,37 @@ int main(int argc,char *argv[])
     " -f   Format\r\n"
     "       -f0 => XA (Oric) [default]\r\n"
     "       -f1 => Devpac (Atari ST)\r\n"
+    " -s   Size\r\n"
+    "       -s0 => Hide the size section [default]\r\n"
+    "       -sn => Show the largest 'n' sections\r\n"
     "\r\n"
     );
 
+  MemMap memMap(argc, argv);
+  return memMap.Main();
+}
 
-  INPUT_FORMAT inputFormat=INPUT_FORMAT_ORIC_XA;		// 0=XA / 1=Devpac
 
-  ArgumentParser argumentParser(argc,argv);
-
-  while (argumentParser.ProcessNextArgument())
+int MemMap::Main()
+{
+  while (ProcessNextArgument())
   {
-    if (argumentParser.IsSwitch("-f"))
+    if (IsSwitch("-f"))
     {
       //format: [-f]
       //	0 => XA (Oric)
       // 	1 => Devpac (Atari)
-      inputFormat=(INPUT_FORMAT)argumentParser.GetIntegerValue(INPUT_FORMAT_ORIC_XA);
+      m_InputFormat = (INPUT_FORMAT)GetIntegerValue(INPUT_FORMAT_ORIC_XA);
+    }
+    else
+    if (IsSwitch("-s"))
+    {
+      m_SectionSizeDisplayCount = GetIntegerValue(0);
     }
   }
 
 
-  if (argumentParser.GetParameterCount()!=NB_ARG)
+  if (GetParameterCount() != NB_ARG)
   {
     ShowError(0);
   }
@@ -317,10 +391,10 @@ int main(int argc,char *argv[])
   //
   // Copy last parameters
   //
-  std::string	source_name(argumentParser.GetParameter(0));
-  std::string	dest_name(argumentParser.GetParameter(1));
-  std::string	project_name(argumentParser.GetParameter(2));
-  std::string	css_name(argumentParser.GetParameter(3));
+  std::string	source_name(GetParameter(0));
+  std::string	dest_name(GetParameter(1));
+  std::string	project_name(GetParameter(2));
+  std::string	css_name(GetParameter(3));
 
   /*
   printf("\n0=%s\n",source_name.c_str());
@@ -335,137 +409,137 @@ int main(int argc,char *argv[])
   //
   // Load the file
   //
-  if (!LoadFile(source_name.c_str(),ptr_buffer_void,size_buffer_src))
+  if (!LoadFile(source_name.c_str(), ptr_buffer_void, size_buffer_src))
   {
-    printf("\nUnable to load file '%s'",source_name.c_str());
+    printf("\nUnable to load file '%s'", source_name.c_str());
     printf("\n");
     exit(1);
   }
 
-  unsigned char *ptr_buffer=(unsigned char*)ptr_buffer_void;
+  unsigned char* ptr_buffer = (unsigned char*)ptr_buffer_void;
 
   //
   // Parse the file, and generate the list of values
   //
-  std::map<std::string,Section>	sections;
+  std::map<std::string, Section>	sections;
 
-  switch (inputFormat)
+  switch (m_InputFormat)
   {
   case INPUT_FORMAT_ORIC_XA:
-    {
-      Section& section_zeropage=sections["Zero"];
-      section_zeropage.m_anchor_name	="Zero";
-      section_zeropage.m_section_name	="Zero page";
-      section_zeropage.m_adress_size	=2;
-      section_zeropage.m_begin_adress	=0x0;
-      section_zeropage.m_end_adress	=0xFF;
+  {
+    Section& section_zeropage = sections["Zero"];
+    section_zeropage.m_anchor_name = "Zero";
+    section_zeropage.m_section_name = "Zero page";
+    section_zeropage.m_address_size = 2;
+    section_zeropage.m_begin_address = 0x0;
+    section_zeropage.m_end_address = 0xFF;
 
-      Section& section_normal=sections["Normal"];
-      section_normal.m_anchor_name	="Normal";
-      section_normal.m_section_name	="Normal memory";
-      section_normal.m_adress_size	=4;
-      section_normal.m_begin_adress	=0x400;
-      section_normal.m_end_adress		=0xBFFF;
+    Section& section_normal = sections["Normal"];
+    section_normal.m_anchor_name = "Normal";
+    section_normal.m_section_name = "Normal memory";
+    section_normal.m_address_size = 4;
+    section_normal.m_begin_address = 0x400;
+    section_normal.m_end_address = 0xBFFF;
 
-      Section& section_overlay=sections["Overlay"];
-      section_overlay.m_anchor_name	="Overlay";
-      section_overlay.m_section_name	="Overlay memory";
-      section_overlay.m_adress_size	=4;
-      section_overlay.m_begin_adress	=0xC000;
-      section_overlay.m_end_adress	=0xFFFF;
-    }
-    break;
+    Section& section_overlay = sections["Overlay"];
+    section_overlay.m_anchor_name = "Overlay";
+    section_overlay.m_section_name = "Overlay memory";
+    section_overlay.m_address_size = 4;
+    section_overlay.m_begin_address = 0xC000;
+    section_overlay.m_end_address = 0xFFFF;
+  }
+  break;
 
   case INPUT_FORMAT_ATARI_DEVPAC:
-    {
-      Section& section_zeropage=sections["Text"];
-      section_zeropage.m_anchor_name	="Text";
-      section_zeropage.m_section_name	="Section TEXT";
-      section_zeropage.m_adress_size	=4;
-      section_zeropage.m_begin_adress	=0x00;
-      section_zeropage.m_end_adress	=0xFFFFFF;
+  {
+    Section& section_zeropage = sections["Text"];
+    section_zeropage.m_anchor_name = "Text";
+    section_zeropage.m_section_name = "Section TEXT";
+    section_zeropage.m_address_size = 4;
+    section_zeropage.m_begin_address = 0x00;
+    section_zeropage.m_end_address = 0xFFFFFF;
 
-      Section& section_normal=sections["Data"];
-      section_normal.m_anchor_name	="Data";
-      section_normal.m_section_name	="Section DATA";
-      section_normal.m_adress_size	=4;
-      section_normal.m_begin_adress	=0x00;
-      section_normal.m_end_adress		=0xFFFFFF;
+    Section& section_normal = sections["Data"];
+    section_normal.m_anchor_name = "Data";
+    section_normal.m_section_name = "Section DATA";
+    section_normal.m_address_size = 4;
+    section_normal.m_begin_address = 0x00;
+    section_normal.m_end_address = 0xFFFFFF;
 
-      Section& section_overlay=sections["Bss"];
-      section_overlay.m_anchor_name	="Bss";
-      section_overlay.m_section_name	="Section BSS";
-      section_overlay.m_adress_size	=4;
-      section_overlay.m_begin_adress	=0x00;
-      section_overlay.m_end_adress	=0xFFFFFF;
+    Section& section_overlay = sections["Bss"];
+    section_overlay.m_anchor_name = "Bss";
+    section_overlay.m_section_name = "Section BSS";
+    section_overlay.m_address_size = 4;
+    section_overlay.m_begin_address = 0x00;
+    section_overlay.m_end_address = 0xFFFFFF;
 
-      Section& section_rs=sections["RS"];
-      section_rs.m_anchor_name	="RS";
-      section_rs.m_section_name	="RS offsets";
-      section_rs.m_adress_size	=4;
-      section_rs.m_begin_adress	=0x00;
-      section_rs.m_end_adress	=0xFFFFFF;
-    }
-    break;
+    Section& section_rs = sections["RS"];
+    section_rs.m_anchor_name = "RS";
+    section_rs.m_section_name = "RS offsets";
+    section_rs.m_address_size = 4;
+    section_rs.m_begin_address = 0x00;
+    section_rs.m_end_address = 0xFFFFFF;
+  }
+  break;
   }
 
 
-  char *ptr_tok=strtok((char*)ptr_buffer," \r\n");
+  char* ptr_tok = strtok((char*)ptr_buffer, " \r\n");
   while (ptr_tok)
   {
     // Address
-    int value=strtol(ptr_tok,0,16);
+    int value = strtol(ptr_tok, 0, 16);
 
-    switch (inputFormat)
+    switch (m_InputFormat)
     {
     case INPUT_FORMAT_ORIC_XA:
+    {
+      ptr_tok = strtok(0, " \r\n");
+      // Name
+      if (value < 256)
       {
-        ptr_tok=strtok(0," \r\n");
-        // Name
-        if (value<256)
-        {
-          // Zero page
-          sections["Zero"].AddSymbol(value,ptr_tok);
-        }
-        else
-          if (value>=0xc000)
-          {
-            // Overlay memory
-            sections["Overlay"].AddSymbol(value,ptr_tok);
-          }
-          else
-          {
-            sections["Normal"].AddSymbol(value,ptr_tok);
-          }
+        // Zero page
+        sections["Zero"].AddSymbol(value, ptr_tok);
       }
-      break;
-
-    case INPUT_FORMAT_ATARI_DEVPAC:
+      else
+      if (value >= 0xc000)
       {
-        // ptr_tok:
-        // A=Absolute (rs/offsets/computations)
-        // R=Relocatable (addresses)
-        // T=TEXT
-        // D=DATA
-        // B=BSS
-        std::string section="Text";
-
-        std::string token;
-        do
-        {
-          ptr_tok=strtok(0," \r\n");
-          token=ptr_tok;
-          if (token=="A")	      section="RS";
-          else if (token=="B")	section="Bss";
-          else if (token=="T")	section="Text";
-          else if (token=="D")	section="Data";
-        }
-        while (token.size()==1);
-
-        sections[section].AddSymbol(value,token);
+        // Overlay memory
+        sections["Overlay"].AddSymbol(value, ptr_tok);
+      }
+      else
+      {
+        sections["Normal"].AddSymbol(value, ptr_tok);
       }
     }
-    ptr_tok=strtok(0," \r\n");
+    break;
+
+    case INPUT_FORMAT_ATARI_DEVPAC:
+    {
+      // ptr_tok:
+      // A=Absolute (rs/offsets/computations)
+      // R=Relocatable (addresses)
+      // T=TEXT
+      // D=DATA
+      // B=BSS
+      std::string section = "Text";
+
+      std::string token;
+      do
+      {
+        ptr_tok = strtok(0, " \r\n");
+        token = ptr_tok;
+        if (token == "A")	      section = "RS";
+        else if (token == "B")	section = "Bss";
+        else if (token == "T")	section = "Text";
+        else if (token == "D")	section = "Data";
+      } 
+      while (token.size() == 1);
+
+      sections[section].AddSymbol(value, token);
+    }
+    }
+    ptr_tok = strtok(0, " \r\n");
   }
 
 
@@ -474,34 +548,34 @@ int main(int argc,char *argv[])
   //
   std::string html(gHtmlHeader);
 
-  StringReplace(html,"{PageTitle}"	,project_name);
-  StringReplace(html,"{CssLink}"	,css_name);
+  StringReplace(html, "{PageTitle}", project_name);
+  StringReplace(html, "{CssLink}", css_name);
 
-  html+="<table>\r\n";
-  html+="<tr>\r\n";
+  html += "<table>\r\n";
+  html += "<tr>\r\n";
 
-  std::map<std::string,Section>::iterator it(sections.begin());
-  while (it!=sections.end())
+  std::map<std::string, Section>::iterator it(sections.begin());
+  while (it != sections.end())
   {
-    Section& section=it->second;
+    Section& section = it->second;
     if (section.HasData())
     {
       // We export the section data only if there is something
-      html+="<td valign=top>\r\n";
-      section.Generate(html);
-      html+="</td>\r\n";
+      html += "<td valign=top>\r\n";
+      section.Generate(html, m_SectionSizeDisplayCount);
+      html += "</td>\r\n";
     }
     ++it;
   }
 
-  html+="</tr>\r\n";
-  html+="</table>\r\n";
+  html += "</tr>\r\n";
+  html += "</table>\r\n";
 
-  html=html+gHtmlFooter;
+  html = html + gHtmlFooter;
 
-  if (!SaveFile(dest_name.c_str(),html.c_str(),html.size()))
+  if (!SaveFile(dest_name.c_str(), html.c_str(), html.size()))
   {
-    printf("\nUnable to save file '%s'",source_name.c_str());
+    printf("\nUnable to save file '%s'", source_name.c_str());
     printf("\n");
     exit(1);
   }
@@ -513,5 +587,3 @@ int main(int argc,char *argv[])
 
   return 0;
 }
-
-
