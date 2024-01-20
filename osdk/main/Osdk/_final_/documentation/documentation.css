@@ -104,3 +104,24 @@ PRE
 	color: #4040F0 ; 
 	font-weight: bold ; 
 }
+
+.memmap 
+{
+	border:solid thin;
+	width: 100%;
+}
+
+.memmap thead 
+{
+	background-color: #eeeeee;
+}
+
+.memmap tbody
+{
+	border-collapse: collapse;
+}
+
+.memmap td, th
+{
+	border: 1px solid #999;
+}

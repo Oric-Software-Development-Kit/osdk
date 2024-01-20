@@ -15,10 +15,15 @@ Change history for MemMap
 - The sections that contain no data are not shown anymore.
 - The program now computes an approximate size of functions by detecting 'master blocks' based on the presence of external linking markers (ie: names that starts by an underscore symbol).
 
+1.0 - 2024/01/20
+- Restructured a bit the tool to use a main class to embed the parameters instead of using globals
+- Modified the html to make it easy to skin the appearance using css (using a 'memmap' class on the table elements)
+- Added the flag -s to provide a way to add a list of the biggest offenders sorted by decreasing size
+
 */
 
 
 
-#define TOOL_VERSION_MAJOR	0
-#define TOOL_VERSION_MINOR	4
+#define TOOL_VERSION_MAJOR	1
+#define TOOL_VERSION_MINOR	0
 

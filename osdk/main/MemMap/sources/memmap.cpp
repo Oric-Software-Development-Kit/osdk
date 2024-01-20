@@ -1,6 +1,6 @@
 /*==============================================================================
 
-MemMap
+                                MemMap
 
 ==[Description]=================================================================
 
@@ -426,61 +426,61 @@ int MemMap::Main()
   switch (m_InputFormat)
   {
   case INPUT_FORMAT_ORIC_XA:
-  {
-    Section& section_zeropage = sections["Zero"];
-    section_zeropage.m_anchor_name = "Zero";
-    section_zeropage.m_section_name = "Zero page";
-    section_zeropage.m_address_size = 2;
-    section_zeropage.m_begin_address = 0x0;
-    section_zeropage.m_end_address = 0xFF;
+    {
+      Section& section_zeropage = sections["Zero"];
+      section_zeropage.m_anchor_name = "Zero";
+      section_zeropage.m_section_name = "Zero page";
+      section_zeropage.m_address_size = 2;
+      section_zeropage.m_begin_address = 0x0;
+      section_zeropage.m_end_address = 0xFF;
 
-    Section& section_normal = sections["Normal"];
-    section_normal.m_anchor_name = "Normal";
-    section_normal.m_section_name = "Normal memory";
-    section_normal.m_address_size = 4;
-    section_normal.m_begin_address = 0x400;
-    section_normal.m_end_address = 0xBFFF;
+      Section& section_normal = sections["Normal"];
+      section_normal.m_anchor_name = "Normal";
+      section_normal.m_section_name = "Normal memory";
+      section_normal.m_address_size = 4;
+      section_normal.m_begin_address = 0x400;
+      section_normal.m_end_address = 0xBFFF;
 
-    Section& section_overlay = sections["Overlay"];
-    section_overlay.m_anchor_name = "Overlay";
-    section_overlay.m_section_name = "Overlay memory";
-    section_overlay.m_address_size = 4;
-    section_overlay.m_begin_address = 0xC000;
-    section_overlay.m_end_address = 0xFFFF;
-  }
-  break;
+      Section& section_overlay = sections["Overlay"];
+      section_overlay.m_anchor_name = "Overlay";
+      section_overlay.m_section_name = "Overlay memory";
+      section_overlay.m_address_size = 4;
+      section_overlay.m_begin_address = 0xC000;
+      section_overlay.m_end_address = 0xFFFF;
+    }
+    break;
 
   case INPUT_FORMAT_ATARI_DEVPAC:
-  {
-    Section& section_zeropage = sections["Text"];
-    section_zeropage.m_anchor_name = "Text";
-    section_zeropage.m_section_name = "Section TEXT";
-    section_zeropage.m_address_size = 4;
-    section_zeropage.m_begin_address = 0x00;
-    section_zeropage.m_end_address = 0xFFFFFF;
+    {
+      Section& section_zeropage = sections["Text"];
+      section_zeropage.m_anchor_name = "Text";
+      section_zeropage.m_section_name = "Section TEXT";
+      section_zeropage.m_address_size = 4;
+      section_zeropage.m_begin_address = 0x00;
+      section_zeropage.m_end_address = 0xFFFFFF;
 
-    Section& section_normal = sections["Data"];
-    section_normal.m_anchor_name = "Data";
-    section_normal.m_section_name = "Section DATA";
-    section_normal.m_address_size = 4;
-    section_normal.m_begin_address = 0x00;
-    section_normal.m_end_address = 0xFFFFFF;
+      Section& section_normal = sections["Data"];
+      section_normal.m_anchor_name = "Data";
+      section_normal.m_section_name = "Section DATA";
+      section_normal.m_address_size = 4;
+      section_normal.m_begin_address = 0x00;
+      section_normal.m_end_address = 0xFFFFFF;
 
-    Section& section_overlay = sections["Bss"];
-    section_overlay.m_anchor_name = "Bss";
-    section_overlay.m_section_name = "Section BSS";
-    section_overlay.m_address_size = 4;
-    section_overlay.m_begin_address = 0x00;
-    section_overlay.m_end_address = 0xFFFFFF;
+      Section& section_overlay = sections["Bss"];
+      section_overlay.m_anchor_name = "Bss";
+      section_overlay.m_section_name = "Section BSS";
+      section_overlay.m_address_size = 4;
+      section_overlay.m_begin_address = 0x00;
+      section_overlay.m_end_address = 0xFFFFFF;
 
-    Section& section_rs = sections["RS"];
-    section_rs.m_anchor_name = "RS";
-    section_rs.m_section_name = "RS offsets";
-    section_rs.m_address_size = 4;
-    section_rs.m_begin_address = 0x00;
-    section_rs.m_end_address = 0xFFFFFF;
-  }
-  break;
+      Section& section_rs = sections["RS"];
+      section_rs.m_anchor_name = "RS";
+      section_rs.m_section_name = "RS offsets";
+      section_rs.m_address_size = 4;
+      section_rs.m_begin_address = 0x00;
+      section_rs.m_end_address = 0xFFFFFF;
+    }
+    break;
   }
 
 
@@ -493,51 +493,51 @@ int MemMap::Main()
     switch (m_InputFormat)
     {
     case INPUT_FORMAT_ORIC_XA:
-    {
-      ptr_tok = strtok(0, " \r\n");
-      // Name
-      if (value < 256)
-      {
-        // Zero page
-        sections["Zero"].AddSymbol(value, ptr_tok);
-      }
-      else
-      if (value >= 0xc000)
-      {
-        // Overlay memory
-        sections["Overlay"].AddSymbol(value, ptr_tok);
-      }
-      else
-      {
-        sections["Normal"].AddSymbol(value, ptr_tok);
-      }
-    }
-    break;
-
-    case INPUT_FORMAT_ATARI_DEVPAC:
-    {
-      // ptr_tok:
-      // A=Absolute (rs/offsets/computations)
-      // R=Relocatable (addresses)
-      // T=TEXT
-      // D=DATA
-      // B=BSS
-      std::string section = "Text";
-
-      std::string token;
-      do
       {
         ptr_tok = strtok(0, " \r\n");
-        token = ptr_tok;
-        if (token == "A")	      section = "RS";
-        else if (token == "B")	section = "Bss";
-        else if (token == "T")	section = "Text";
-        else if (token == "D")	section = "Data";
-      } 
-      while (token.size() == 1);
+        // Name
+        if (value < 256)
+        {
+          // Zero page
+          sections["Zero"].AddSymbol(value, ptr_tok);
+        }
+        else
+        if (value >= 0xc000)
+        {
+          // Overlay memory
+          sections["Overlay"].AddSymbol(value, ptr_tok);
+        }
+        else
+        {
+          sections["Normal"].AddSymbol(value, ptr_tok);
+        }
+      }
+      break;
 
-      sections[section].AddSymbol(value, token);
-    }
+    case INPUT_FORMAT_ATARI_DEVPAC:
+      {
+        // ptr_tok:
+        // A=Absolute (rs/offsets/computations)
+        // R=Relocatable (addresses)
+        // T=TEXT
+        // D=DATA
+        // B=BSS
+        std::string section = "Text";
+
+        std::string token;
+        do
+        {
+          ptr_tok = strtok(0, " \r\n");
+          token = ptr_tok;
+          if (token == "A")	      section = "RS";
+          else if (token == "B")	section = "Bss";
+          else if (token == "T")	section = "Text";
+          else if (token == "D")	section = "Data";
+        } 
+        while (token.size() == 1);
+
+        sections[section].AddSymbol(value, token);
+      }
     }
     ptr_tok = strtok(0, " \r\n");
   }
