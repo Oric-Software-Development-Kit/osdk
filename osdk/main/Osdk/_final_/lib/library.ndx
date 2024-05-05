@@ -235,6 +235,7 @@
 	_memset
 -unpack.s
 	_file_unpack
+	_file_unpack_raw
 -osdkdiv6.s
 	_OsdkTableDiv6
 -osdkmod6.s

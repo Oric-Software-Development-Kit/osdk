@@ -97,6 +97,7 @@ int  lprintf(const char *format,...);
 /* Stuff added by Mickael Pointier */
 
 void file_unpack(void *ptr_dst,void *ptr_src);
+void file_unpack_raw(void *ptr_dst,void *ptr_src,unsigned int decompressed_size); // Not 100% guaranteed to not be buggy, basically allows depacking data which does not have a FilePack header
 
 #define peek(address)		( *((unsigned char*)address) )
 #define poke(address,value)	( *((unsigned char*)address)=(unsigned char)value )

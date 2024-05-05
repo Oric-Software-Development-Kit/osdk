@@ -25,6 +25,38 @@ UnpackError
 
 UnpackLetters	.byt "LZ77"
 
+; file_unpack_raw(void *ptr_dst,void *ptr_src,uint decompressed_size)
+_file_unpack_raw
+.(
+	; Destination adress 
+	ldy #0
+	lda (sp),y
+	sta ptr_destination
+	iny
+	lda (sp),y
+	sta ptr_destination+1
+
+	; Source adress
+	ldy #2
+	lda (sp),y
+	sta ptr_source
+	iny
+	lda (sp),y
+	sta ptr_source+1
+
+	; Get the unpacked size, and add it to the destination
+	; adress in order to get the end adress.
+	ldy #4
+	lda ptr_destination
+	adc (sp),y
+	sta ptr_destination_end+0
+	iny
+	lda ptr_destination+1
+	adc (sp),y
+	sta ptr_destination_end+1
+
+	jmp start_unpack
+.)
 
 ; void file_unpack(void *ptr_dst,void *ptr_src)
 
