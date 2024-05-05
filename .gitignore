@@ -1,5 +1,40 @@
 ﻿################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
+# see: https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
 *.user
+*.vcxproj.FileListAbsolute.txt
+*.vcxproj.filter
+*.pdb
+*.idb
+*.tmp
+*.obj
+*.db
+*.tlog
+*.recipe
+*.log
+*.out
+*.tap
+*.wav
+*.mp4
+*.sna
+*.txt
+*.swp
+*.vsidx
+*.suo
+*.bmp
+DUMP
+symbols
+osdk/main/.vs/
+osdk/main/Build/
+osdk/main/Osdk/_final_/Oricutron/*.gif
+osdk/main/Osdk/_final_/Oricutron/*.avi
+osdk/main/Osdk/_final_/Oricutron/*.dsk
+*copy.*
+*- Copy*
+osdk/main/Osdk/_final_/TMP/
+
+[Dd]ebug/
+[Rr]elease/
+
