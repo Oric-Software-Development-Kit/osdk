@@ -264,7 +264,7 @@ if "%OSDKLINKLIST%"=="" GOTO BasicLoader
 ::
 ECHO Linking
 ::ECHO %OSDKLINKLIST%
-cd 
+::cd 
 ::ECHO ON
 ECHO %OSDKB%\link65.exe %OSDKLINK% -d %OSDKLIB% -o %OSDKT%\linked.s -f -q %OSDKLINKLIST% >%OSDKT%\link.bat
 ::ECHO %OSDKB%\link65.exe %OSDKLINK% -d %OSDK%\lib/ -o %OSDKT%\linked.s -s %OSDKT%\ -f -q %OSDKFILE% >%OSDKT%\link.bat
