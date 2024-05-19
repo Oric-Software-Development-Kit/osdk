@@ -13,11 +13,15 @@ IF "%OSDK%"=="" GOTO ErCfg
 :: - Machine choice
 ::
 SET OSDKORICUTRON=oricutron.exe
+SET OSDKBREAKPOINTS=%OSDK%\Oricutron\Breakpoints.txt
 
 :: - Tape or Disk based
 IF     "%OSDKDISK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% -t OSDK.TAP -s symbols
 IF NOT "%OSDKDISK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% -d OSDK.DSK -s symbols 
 ::-k jasmin
+
+:: Breakpoints
+IF EXIST %OSDKBREAKPOINTS% SET OSDKORICUTRON=%OSDKORICUTRON% --breakpoint :%OSDKBREAKPOINTS%
 
 
 ::
