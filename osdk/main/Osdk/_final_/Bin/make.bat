@@ -14,6 +14,7 @@
 :: - OSDKDISK - Name of the DSK file, if undefined, the DSK generation is skipped
 :: - OSDKINIST - Sedoric initialization string ran on floppy boot
 :: - OSDKTAP2DSKPARAMS - Extra parameters to the Tap2DSK
+:: - OSDKVERBOSITY - How verbose is the build output?
 ::
 :: Derived from the above, or used internally
 :: - OSDKVERSION - Used to show the version of the OSDK used to build a project (eg: "1.18")
@@ -27,6 +28,8 @@
 :: - LCC65 - Set to the same location as OSDK (possibly not used anymore)
 :: - LCC65DIR - Set to the same location as OSDK (possibly not used anymore)
 ::
+
+set OSDK_BUILD_START=%time%
 
 ::
 :: Initial checks to verify that everything is fine.
@@ -74,6 +77,12 @@ IF NOT "%OSDKXAPARAMS%"=="" GOTO EndXaParams
 SET OSDKXAPARAMS=-W -C
 :EndXaParams
 
+::
+:: Set the verbosity level, if not set, we default to 2
+::
+IF NOT "%OSDKVERBOSITY%"=="" GOTO EndVerbosity
+SET OSDKVERBOSITY=2
+:EndVerbosity
 
 ::
 :: Set the default path to the Oric Libraries
@@ -262,7 +271,7 @@ if "%OSDKLINKLIST%"=="" GOTO BasicLoader
 :: Create a BATCH file that will be used
 :: to later link all the part of the program
 ::
-ECHO Linking
+IF %OSDKVERBOSITY% GEQ 2 ECHO Linking
 ::ECHO %OSDKLINKLIST%
 ::cd 
 ::ECHO ON
@@ -279,7 +288,7 @@ IF ERRORLEVEL 1 GOTO ErFailure
 :: Assemble the big file
 :: (-W -C are meant to disallow the 65816 and 65c02 instructions)
 ::%OSDKB%\xa.exe %OSDKT%\linked.s -o final.out -e xaerr.txt -l xalbl.txt
-ECHO Assembling
+IF %OSDKVERBOSITY% GEQ 2 ECHO Assembling
 %OSDKB%\xa.exe %OSDKT%\linked.s -o build\final.out -e build\xaerr.txt -l build\symbols -bt %OSDKADDR% -DASSEMBLER=XA %OSDKXAPARAMS% -DOSDKNAME_%OSDKNAME%
 IF NOT EXIST "build\final.out" GOTO ErFailure
 
@@ -311,12 +320,14 @@ set OSDKADDR=%OSDKPACKADDR%
 ::
 :: Append the tape header
 ::
-ECHO Creating TAPE image %OSDKNAME%.TAP
+IF %OSDKVERBOSITY% GEQ 2 ECHO Creating TAPE image %OSDKNAME%.TAP
 %OSDKB%\header.exe %OSDKHEAD% build\final.out build\%OSDKNAME%.tap %OSDKADDR%
 %OSDKB%\taptap.exe ren build\%OSDKNAME%.tap %OSDKTAPNAME% 0
 
 :BuildOk
-ECHO Build of %OSDKNAME%.tap finished
+set OSDK_BUILD_END=%time%
+call %OSDKB%\ComputeTime.bat
+ECHO Build of %OSDKNAME%.tap finished in %OSDK_BUILD_TIME%
 
 :BasicLoader
 :: Do we have a BASIC program ?
