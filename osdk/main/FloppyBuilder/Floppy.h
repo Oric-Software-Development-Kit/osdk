@@ -92,6 +92,7 @@ public:
   bool LoadDisk(const char* fileName);
   bool SaveDisk(const char* fileName) const;
   bool SaveDescription(const char* fileName) const;
+  std::string OutputFloppyStats() const;
 
   bool WriteSector(const char *fileName);
   bool WriteLoader(const char *fileName,int loadAddress);

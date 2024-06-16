@@ -1139,6 +1139,24 @@ bool Floppy::SaveDescription(const char* fileName) const
   return true;
 }
 
+std::string Floppy::OutputFloppyStats() const
+{
+  std::stringstream output;
+
+  int sectorSize            = 256;
+  int totalAvailableSectors = m_TrackCount * m_SectorCount * m_SideCount;
+  int percentageDiskUse     = (m_SectorUsageMap.size() * 100) / totalAvailableSectors;
+  int diskCapacity          = totalAvailableSectors * sectorSize;
+  int usedCapacity          = m_SectorUsageMap.size() * sectorSize;
+  int remainingCapacity     = diskCapacity- usedCapacity;
+
+  output << "Disk capacity: " << (diskCapacity / 1024) << " KB (" << m_TrackCount << " tracks x " << m_SectorCount << " sectors x " << m_SideCount << " sides x 256 bytes) - ";
+  output << "Current usage: " << m_FileEntries.size() << " files, " << (usedCapacity / 1024) << " KB (" << m_SectorUsageMap.size() << " sectors x 256 bytes) - " << percentageDiskUse << "% of the total disk size used - ";
+  output << "Available capacity: " << (remainingCapacity / 1024) << " KB (" << remainingCapacity << " Bytes)";
+
+  return output.str();
+}
+
 
 bool Floppy::AddDefine(std::string defineName,int defineValue)
 {

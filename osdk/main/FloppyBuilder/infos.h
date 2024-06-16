@@ -81,7 +81,12 @@ this makes it possible to do a multi-pass build process which will not fail beca
 - Made a change to the FormatVersion parsing, version 0.x are now rejected with a proper error message instead of "AddFile does not have a size anymore"
 - Added the 'AllowImpossibleFloppies' command to accept floppies with 256 tracks (about 2 megabytes of data)
 
+1.4 - 2024/06/03
+- Added statistics information about the disk usage in the output window
+
+1.5 - 2024/06/16
+- Added the number of file entries to the disk usage statistics in the output window
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	3
+#define TOOL_VERSION_MINOR	5

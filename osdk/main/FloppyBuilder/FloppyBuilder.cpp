@@ -594,7 +594,7 @@ int FloppyBuilder::Main()
     }
     else
     {
-      printf("Successfully created '%s'\n",targetFloppyDiskName.c_str());
+      printf("Successfully created '%s' - %s\n",targetFloppyDiskName.c_str(), floppy.OutputFloppyStats().c_str());
     }
   }
   return 0;
