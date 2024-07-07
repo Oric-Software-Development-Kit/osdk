@@ -40,6 +40,7 @@ public:
     FORMAT_SINGLE_PALETTE,
     FORMAT_MULTIPLE_PALETTE,
     FORMAT_MONOCHROME,
+    FORMAT_ZEROBITPLANE,      ///< Special mode that exports the image as just color changes
     _FORMAT_MAX_
   };
 
@@ -76,6 +77,7 @@ private:
   //int	convert_pixel_shifter(const RgbColor& rgb);
   void convert_shifter(const ImageContainer& sourcePicture);
   void convert_shifter_monochrome(const ImageContainer& sourcePicture);
+  void convert_shifter_zerobitplane(const ImageContainer& sourcePicture);
 
   void clear_screen();
 

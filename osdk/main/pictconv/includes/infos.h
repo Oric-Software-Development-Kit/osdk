@@ -101,7 +101,11 @@ Version 1.0
 - When failing to load a picture, the error message will now indicate the name of the file
 - Fixed the Atari ST multi-palette export mode
 
+Version 1.1 - 2024/07/07
+- Added the -f3 mode to convert atari images into Shifter palettes (Sommarhack Zero Bitplane hack)
+
+
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	0
+#define TOOL_VERSION_MINOR	1

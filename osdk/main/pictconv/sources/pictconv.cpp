@@ -74,6 +74,7 @@ int __cdecl main(int argc,char *argv[])
     "         -f0 => Single palette format [default]\r\n"
     "         -f1 => Multi palette format\r\n"
     "         -f2 => Monochrome format\r\n"
+    "         -f3 => Zero Bitplan Paletizer\r\n"
     "\r\n"
     " -pn   Palette management\r\n"
     "         -p0 => Generate a palette automatically [default]\r\n"

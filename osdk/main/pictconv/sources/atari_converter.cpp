@@ -38,8 +38,8 @@ int AtariClut::convert_pixel_shifter(const ShifterColor& color)
     //int index=m_clut_color_to_index.size();
     for (int index=0;index<16;index++)
     {
-      std::map<int,ShifterColor>::iterator it=m_clut_index_to_color.find(index);
-      if (it==m_clut_index_to_color.end())
+      std::map<int,ShifterColor>::iterator it2=m_clut_index_to_color.find(index);
+      if (it2==m_clut_index_to_color.end())
       {
         //assert(index<16);
         m_clut_color_to_index[color]=index;
@@ -281,6 +281,11 @@ bool AtariPictureConverter::SetFormat(int format)
     m_buffer_bitplans=1;
   }
   else
+  if (m_format==FORMAT_ZEROBITPLANE)
+  {
+    m_buffer_bitplans=16;        // Not technically correct, but else the picture cannot be allocated
+  }
+  else
   {
     m_buffer_bitplans=4;
   }
@@ -493,6 +498,10 @@ bool AtariPictureConverter::Convert(const ImageContainer& sourcePicture)
     convert_shifter_monochrome(convertedPicture);
     break;
 
+  case FORMAT_ZEROBITPLANE:
+    convert_shifter_zerobitplane(convertedPicture);
+    break;
+
   default:
     // Oops
     return false;
@@ -690,6 +699,26 @@ void AtariPictureConverter::convert_shifter_monochrome(const ImageContainer& sou
         *ptr_hires++=static_cast<unsigned char>(p0&255);
       }
       ptr_hires+=swapOffset;
+    }
+  }
+}
+
+
+void AtariPictureConverter::convert_shifter_zerobitplane(const ImageContainer& sourcePicture)
+{
+  // 
+  // The Atari ST zero bitplan format is basically just to store each pixel as a 16 bit shifter color register value
+  {
+    char * ptr_color_registers = (char*)GetBufferData(0);
+    for (unsigned int y = 0; y < m_buffer_height; y++)
+    {
+      for (unsigned int x = 0; x < m_buffer_width; x++)
+      {
+          const RgbColor rgb(sourcePicture.ReadColor(x, y));
+          const ShifterColor shifterColor(rgb);
+          *ptr_color_registers++ = (shifterColor.GetValue()>>8) & 255;
+          *ptr_color_registers++ = (shifterColor.GetValue()>>0) & 255;
+      }
     }
   }
 }
