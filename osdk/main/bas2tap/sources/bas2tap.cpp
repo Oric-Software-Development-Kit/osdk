@@ -867,7 +867,7 @@ void Bas2Tap(const char *sourceFile, const char *destFile, bool autoRun, bool us
               if ( (car == 0xA7) || ((car == 0xC2) && (car2 == 0xA7)) )
               {
                 //
-                // Special '§' symbol that get replaced by the current line number.
+                // Special 'ï¿½' symbol that get replaced by the current line number.
                 // Appears in encodings as either "C2 A7" or "A7"
                 //
                 bufPtr += sprintf((char*)bufPtr, "%d", lineData.basicNumber);
@@ -1009,7 +1009,7 @@ void Bas2Tap(const char *sourceFile, const char *destFile, bool autoRun, bool us
     if (lastsep != NULL)
     {
       // if there is something after the separator
-      if (lastsep + 1 != 0)
+      if ( lastsep[1] != 0)
         fileName = lastsep + 1;
     }
     else
@@ -1019,7 +1019,7 @@ void Bas2Tap(const char *sourceFile, const char *destFile, bool autoRun, bool us
       if (lastsep != NULL)
       {
         // if there is something after the separator
-        if (lastsep + 1 != 0)
+        if (lastsep[1] != 0)
           fileName = lastsep + 1;
       }
     }
