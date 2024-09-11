@@ -15,6 +15,9 @@ IF "%OSDK%"=="" GOTO ErCfg
 SET OSDKORICUTRON=oricutron.exe
 SET OSDKBREAKPOINTS=%OSDK%\Oricutron\Breakpoints.txt
 
+:: Add the optional user parameters
+SET OSDKORICUTRON=%OSDKORICUTRON% %OSDKEMULPARAMS%
+
 :: - Tape or Disk based
 IF     "%OSDKDISK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% -t OSDK.TAP -s symbols
 IF NOT "%OSDKDISK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% -d OSDK.DSK -s symbols 

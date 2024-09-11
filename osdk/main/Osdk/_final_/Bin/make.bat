@@ -16,6 +16,10 @@
 :: - OSDKTAP2DSKPARAMS - Extra parameters to the Tap2DSK
 :: - OSDKVERBOSITY - How verbose is the build output?
 ::
+:: Used by other parts of the system
+:: - OSDKEMUL - Used to define if the user wants to run Oricutron ("ORICUTRON") or Euphoric ("EUPHORIC") when running osdk_execute.bat
+:: - OSDKEMULPARAMS - Used to pass parameters on the emulator command line
+::
 :: Derived from the above, or used internally
 :: - OSDKVERSION - Used to show the version of the OSDK used to build a project (eg: "1.18")
 :: - OSDKLIB - Set to OSDK\lib, which contains the libraries linked to the projects (used by Pinforic to point to custom libraries)
