@@ -103,7 +103,6 @@ test_lz77
 	adc (ptr_source),y
 	sta ptr_destination_end+1
 
-
 	; Move the source pointer ahead to point on packed data (+0)
 	clc
 	lda ptr_source
@@ -114,6 +113,7 @@ test_lz77
 	sta ptr_source+1
 
 
++start_unpack
 	; Initialise variables
 	; We try to keep "y" null during all the code,
 	; so the block copy routine has to be sure that
