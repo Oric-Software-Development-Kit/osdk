@@ -5,6 +5,7 @@ _toupper
 	ldy #0
 	lda (sp),y	;low byte of c
 	tax
+_touppermc	
 	lda ctype,x
 	and #$02	;_L
 	beq toupper1	;skip if not lower-case
