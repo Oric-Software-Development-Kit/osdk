@@ -20,6 +20,9 @@ Change history for MemMap
 - Modified the html to make it easy to skin the appearance using css (using a 'memmap' class on the table elements)
 - Added the flag -s to provide a way to add a list of the biggest offenders sorted by decreasing size
 
+1.1 - 2024/11/29
+- Fixed a crash caused by an incorrect modification of the file resulting of some symbol files concatenation
+
 */
 
 

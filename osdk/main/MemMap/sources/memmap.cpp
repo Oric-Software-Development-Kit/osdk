@@ -137,7 +137,15 @@ public:
 
   void Generate(std::string &ref_html, int sectionSizeDisplayCount);
 
-  void AddSymbol(int address,const std::string label)
+  void AddSymbol(int address, const char* label)
+  {
+      if (label)
+      {
+          AddSymbol(address, std::string(label));
+      }
+  }
+
+  void AddSymbol(int address,const std::string& label)
   {
     Block newBlock(address);
     std::pair<std::set<Block>::iterator,bool> insertIt=m_map_data.insert(newBlock);
@@ -152,8 +160,8 @@ public:
   }
 
 public:
-  std::string	    m_anchor_name;
-  std::string	    m_section_name;
+  std::string	m_anchor_name;
+  std::string	m_section_name;
   int		    m_address_size;
   int		    m_begin_address;
   int		    m_end_address;
@@ -489,57 +497,59 @@ int MemMap::Main()
   {
     // Address
     int value = strtol(ptr_tok, 0, 16);
-
-    switch (m_InputFormat)
+    if (ptr_tok)
     {
-    case INPUT_FORMAT_ORIC_XA:
-      {
+        switch (m_InputFormat)
+        {
+        case INPUT_FORMAT_ORIC_XA:
+          {
+            ptr_tok = strtok(0, " \r\n");
+            // Name
+            if (value < 256)
+            {
+              // Zero page
+              sections["Zero"].AddSymbol(value, ptr_tok);
+            }
+            else
+            if (value >= 0xc000)
+            {
+              // Overlay memory
+              sections["Overlay"].AddSymbol(value, ptr_tok);
+            }
+            else
+            {
+              sections["Normal"].AddSymbol(value, ptr_tok);
+            }
+          }
+          break;
+
+        case INPUT_FORMAT_ATARI_DEVPAC:
+          {
+            // ptr_tok:
+            // A=Absolute (rs/offsets/computations)
+            // R=Relocatable (addresses)
+            // T=TEXT
+            // D=DATA
+            // B=BSS
+            std::string section = "Text";
+
+            std::string token;
+            do
+            {
+              ptr_tok = strtok(0, " \r\n");
+              token = ptr_tok;
+              if (token == "A")	      section = "RS";
+              else if (token == "B")	section = "Bss";
+              else if (token == "T")	section = "Text";
+              else if (token == "D")	section = "Data";
+            } 
+            while (token.size() == 1);
+
+            sections[section].AddSymbol(value, token);
+          }
+        }
         ptr_tok = strtok(0, " \r\n");
-        // Name
-        if (value < 256)
-        {
-          // Zero page
-          sections["Zero"].AddSymbol(value, ptr_tok);
-        }
-        else
-        if (value >= 0xc000)
-        {
-          // Overlay memory
-          sections["Overlay"].AddSymbol(value, ptr_tok);
-        }
-        else
-        {
-          sections["Normal"].AddSymbol(value, ptr_tok);
-        }
-      }
-      break;
-
-    case INPUT_FORMAT_ATARI_DEVPAC:
-      {
-        // ptr_tok:
-        // A=Absolute (rs/offsets/computations)
-        // R=Relocatable (addresses)
-        // T=TEXT
-        // D=DATA
-        // B=BSS
-        std::string section = "Text";
-
-        std::string token;
-        do
-        {
-          ptr_tok = strtok(0, " \r\n");
-          token = ptr_tok;
-          if (token == "A")	      section = "RS";
-          else if (token == "B")	section = "Bss";
-          else if (token == "T")	section = "Text";
-          else if (token == "D")	section = "Data";
-        } 
-        while (token.size() == 1);
-
-        sections[section].AddSymbol(value, token);
-      }
-    }
-    ptr_tok = strtok(0, " \r\n");
+	}
   }
 
 
