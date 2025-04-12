@@ -329,6 +329,7 @@ bool Floppy::CreateDisk(int numberOfSides,int numberOfTracks,int numberOfSectors
     m_TrackCount =numberOfTracks;      // 42
     m_SectorCount=numberOfSectors;     // 17
     m_SideCount  =numberOfSides;       // 2
+    m_SectorInterleave = interleave;   // 1
 
     FloppyHeader& header(*((FloppyHeader*)m_Buffer));
     header.Clear();
@@ -423,26 +424,26 @@ bool Floppy::SaveDisk(const char* fileName) const
 }
 
 /*
-Début de la piste (facultatif): 80 [#4E], 12 [#00], [#C2 #C2 #C2 #FC] et 50 [#4E] (soit 146 octets selon
+Dï¿½but de la piste (facultatif): 80 [#4E], 12 [#00], [#C2 #C2 #C2 #FC] et 50 [#4E] (soit 146 octets selon
 la norme IBM) ou 40 [#4E], 12 [#00], [#C2 #C2 #C2 #FC] et 40 [#4E] (soit 96 octets pour SEDORIC).
 
 Pour chaque secteur: 12 [#00], 3 [#A1] [#FE #pp #ff #ss #tt CRC], 22 [#4E], 12 [#00], 3 [#A1], [#FB],
 les 512 octets, [CRC CRC], 80 octets [#4E] (#tt = #02) (soit 141 + 512 = 653 octets selon la norme IBM)
 ou 12 [#00], 3 [#A1] [#FE #pp #ff #ss #01 CRC CRC], 22 [#4E], 12 [#00], 3 [#A1], [#FB], les 256
 octets, [CRC CRC], 12, 30 ou 40 octets [#4E] (selon le nombre de secteurs/piste). Soit environ 256 + (72
-à 100) = 328 à 356 octets pour SEDORIC.
+ï¿½ 100) = 328 ï¿½ 356 octets pour SEDORIC.
 
 Fin de la piste (facultatif): un nombre variable d'octets [#4E
 
 Selon NIBBLE, 
-une piste IBM compte 146 octets de début de piste + 9 secteurs de 653 octets + 257 octets de fin de piste = 6280 octets. 
-Une piste SEDORIC, formatée à 17 secteurs, compte 96 octets de début de piste + 17 secteurs de 358 octets + 98 octets de fin de piste = 6280 octets. 
-Une piste SEDORIC, formatée à 19 secteurs, compte 0 octet de début de piste + 19 secteurs de 328 octets + 48 octets de fin de piste = 6280 octets. 
-On comprend mieux le manque de fiabilité du formatage en 19 secteurs/piste dû à la faible largeur des zones de sécurité (12 [#4E] entre chaque secteur et 48 octets entre le dernier et le premier).
+une piste IBM compte 146 octets de dï¿½but de piste + 9 secteurs de 653 octets + 257 octets de fin de piste = 6280 octets. 
+Une piste SEDORIC, formatï¿½e ï¿½ 17 secteurs, compte 96 octets de dï¿½but de piste + 17 secteurs de 358 octets + 98 octets de fin de piste = 6280 octets. 
+Une piste SEDORIC, formatï¿½e ï¿½ 19 secteurs, compte 0 octet de dï¿½but de piste + 19 secteurs de 328 octets + 48 octets de fin de piste = 6280 octets. 
+On comprend mieux le manque de fiabilitï¿½ du formatage en 19 secteurs/piste dï¿½ ï¿½ la faible largeur des zones de sï¿½curitï¿½ (12 [#4E] entre chaque secteur et 48 octets entre le dernier et le premier).
 
-Lors de l'élaboration du tampon de formatage SEDORIC, les octets #C2 sont remplacés par des octets
-#F6, les octets #A1 sont remplacés par des octets #F5 et chaque paire de 2 octets [CRC CRC] et
-remplacée par un octet #F7. Comme on le voit, nombre de variantes sont utilisées, sauf la zone 22 [#4E],
+Lors de l'ï¿½laboration du tampon de formatage SEDORIC, les octets #C2 sont remplacï¿½s par des octets
+#F6, les octets #A1 sont remplacï¿½s par des octets #F5 et chaque paire de 2 octets [CRC CRC] et
+remplacï¿½e par un octet #F7. Comme on le voit, nombre de variantes sont utilisï¿½es, sauf la zone 22 [#4E],
 12 [#00], 3 [#A1] qui est strictement obligatoire.
 
 // From DskTool:

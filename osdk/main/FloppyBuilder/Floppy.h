@@ -166,6 +166,7 @@ private:
   int         m_TrackCount;           // 42
   int         m_SectorCount;          // 17
   int         m_SideCount;            // 2
+  int         m_SectorInterleave;     // 1 by default (6 is optimal with 17 sectors per track)
   int         m_OffsetFirstSector;    // 156 (Location of the first byte of data of the first sector)
   int         m_InterSectorSpacing;   // 358 (Number of bytes to skip to go to the next sector: 256+59+43)
   std::vector<int> m_SectorOffset;
