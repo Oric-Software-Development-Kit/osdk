@@ -346,6 +346,10 @@ int FloppyBuilder::Main()
             if ((tokens.size()==5))
             {
               sectorInterleave =std::atoi(tokens[4].c_str());
+              if ((sectorInterleave < 1) || (sectorInterleave > numberOfSectors))
+              {
+                ShowError("Syntax error line (%d), %d is not a valid value for the sector interleave, it should be between 1 and sector count\n", lineNumber, sectorInterleave);
+              }
             }
 
             if ( numberOfSides!=2 )
@@ -353,19 +357,7 @@ int FloppyBuilder::Main()
               ShowError("Syntax error line (%d), numberOfSides has to be 2 (so far)\n",lineNumber);
             }
 
-		    /*
-            if ( numberOfTracks!=42 )
-            {
-              ShowError("Syntax error line (%d), numberOfTracks has to be 42 (so far)\n",lineNumber);
-            }
-		    */
-
-	    if ( numberOfSectors!=17 )
-            {
-              ShowError("Syntax error line (%d), numberOfSectors has to be 17 (so far)\n",lineNumber);
-            }
-
-	    if ( sectorInterleave>=numberOfSectors )
+            if ( sectorInterleave>=numberOfSectors )
             {
               ShowError("Syntax error line (%d), the sector interleave value makes no sense\n",lineNumber);
             }
@@ -374,7 +366,6 @@ int FloppyBuilder::Main()
             {
               ShowError("Can't create the requested disk format\n");
             }
-
           }
           else
           {

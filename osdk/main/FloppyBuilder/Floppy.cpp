@@ -281,23 +281,25 @@ bool Floppy::CreateDisk(int numberOfSides,int numberOfTracks,int numberOfSectors
   std::vector<unsigned char> sectorList;
   sectorList.resize(numberOfSectors);
 
-  unsigned int offset=0;
-  for (unsigned char sector=0;sector<numberOfSectors;sector++)
   {
-    while (sectorList[offset]!=0)
-    {
-      offset++;
-      if (offset>=sectorList.size())
+      unsigned int offset=0;
+      for (unsigned char sector=0;sector<numberOfSectors;sector++)
       {
-        offset=0;
+        while (sectorList[offset]!=0)
+        {
+          offset++;
+          if (offset>=sectorList.size())
+          {
+            offset=0;
+          }
+        }
+        sectorList[offset]=sector+1;
+        offset+=interleave;
+        if (offset>=sectorList.size())
+        {
+          offset=0;
+        }
       }
-    }
-    sectorList[offset]=sector+1;
-    offset+=interleave;
-    if (offset>=sectorList.size())
-    {
-      offset=0;
-    }
   }
 
 
@@ -312,11 +314,12 @@ bool Floppy::CreateDisk(int numberOfSides,int numberOfTracks,int numberOfSectors
     break;
 
   case 18:
-    gap1=12; gap2=34; gap3=46;
+     //gap1=12; gap2=34; gap3=46;             // Original values from old C tools, works on Oricutron and LOCI but fails on Cumulus
+     gap1 = 40; gap2 = 34; gap3 = 34;         // Values suggested by ISS in https://forum.defence-force.org/viewtopic.php?p=32698#p32698
     break;
 
   default:
-    ShowError("Unrealistic sectors per track number\n");
+    ShowError("%d is an unrealistic sectors per track number, supported values are 15, 16, 17 and 18 sectors per track\n", numberOfSectors);
     return false;
   }
 
@@ -341,7 +344,7 @@ bool Floppy::CreateDisk(int numberOfSides,int numberOfTracks,int numberOfSectors
     unsigned char* trackbuf=(unsigned char*)m_Buffer+256;
     for (unsigned char side=0;side<numberOfSides;side++)
     {
-      for (unsigned int track=0;track<numberOfTracks;track++) 
+      for (int track=0;track<numberOfTracks;track++) 
       {
         {
           int offset=0;
