@@ -701,6 +701,7 @@ bool Floppy::WriteFile(const char *fileName,bool removeHeaderIfPresent,const std
   fileEntry.m_SectorCount=(fileSize+255)/256;
   fileEntry.m_FilePath   =fileName;
   fileEntry.m_CompressionMode=e_CompressionNone;
+  fileEntry.m_DiskOffset = SetPosition(m_CurrentTrack, m_CurrentSector);
 
   if (!metadata.empty())
   {
@@ -788,6 +789,7 @@ bool Floppy::ReserveSectors(int sectorCount,int fillValue,const std::map<std::st
   fileEntry.m_SectorCount=sectorCount;
   fileEntry.m_FilePath   ="Reserved sectors";
   fileEntry.m_CompressionMode=e_CompressionNone;
+  fileEntry.m_DiskOffset = SetPosition(m_CurrentTrack, m_CurrentSector);
 
   if (!metadata.empty())
   {
@@ -1208,9 +1210,9 @@ bool Floppy::AddDefine(std::string defineName,std::string defineValue)
 
     {
       std::stringstream tempValue;
-      tempValue << m_FileEntries.back().m_FinalFileSize;
-      StringReplace(defineName ,"{FileSize}",tempValue.str());
-      StringReplace(defineValue,"{FileSize}",tempValue.str());
+      tempValue << m_FileEntries.back().m_DiskOffset;
+      StringReplace(defineName ,"{FileDiskOffset}",tempValue.str());
+      StringReplace(defineValue,"{FileDiskOffset}",tempValue.str());
     }
 
     {

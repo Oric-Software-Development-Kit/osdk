@@ -74,6 +74,7 @@ public:
   int             m_SectorCount;
   int             m_FinalFileSize;
   int             m_StoredFileSize;
+  int             m_DiskOffset;       // Were on the disk is this file located (for external tools)
   CompressionMode m_CompressionMode;
   std::string     m_FilePath;
   std::map<std::string,std::string> m_Metadata;
