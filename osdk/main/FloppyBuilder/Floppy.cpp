@@ -1093,7 +1093,10 @@ bool Floppy::SaveDescription(const char* fileName) const
   layoutInfo << file_list_summary.str();
   layoutInfo << "//\n";
 
+  int sectorSize = 256;
   int totalAvailableSectors=m_TrackCount*m_SectorCount*m_SideCount;
+  int diskCapacity = totalAvailableSectors * sectorSize;
+  layoutInfo << "// Disk format: " << (diskCapacity / 1024) << " KB (" << m_TrackCount << " tracks x " << m_SectorCount << " sectors x " << m_SideCount << " sides x 256 bytes) interleave: " << m_SectorInterleave << "\n";
   layoutInfo << "// " << m_SectorUsageMap.size() << " sectors used, out of " << totalAvailableSectors << ". (" << (m_SectorUsageMap.size()*100)/totalAvailableSectors << "% of the total disk size used)\n";
   layoutInfo << "//\n";
 
