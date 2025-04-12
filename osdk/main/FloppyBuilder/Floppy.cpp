@@ -562,9 +562,9 @@ bool Floppy::WriteLoader(const char *fileName,int loadAddress)
     compute_crc((unsigned char*)m_Buffer+offset-4,4+256);    // Compute the CRC of [A1 A1 A1|FB|TRACK DATA...]
     fileData+=sizeToWrite;
 
-    if (!MoveToNextSector())
+    if (!MoveToNextSector() && fileSize)
     {
-      ShowError("Floppy disk is full, not enough space to store '%s'.\n",fileName);
+      ShowError("Floppy disk is full, not enough space to store the remaining %u bytes of '%s'.\n", fileSize, fileName);
     }
   }
   free(fileBuffer);
@@ -754,9 +754,9 @@ bool Floppy::WriteFile(const char *fileName,bool removeHeaderIfPresent,const std
     compute_crc((unsigned char*)m_Buffer+offset-4,4+256);           // Compute the CRC of [A1 A1 A1|FB|TRACK DATA...]
     fileData+=sizeToWrite;
 
-    if (!MoveToNextSector())
+    if (!MoveToNextSector() && fileSize)
     {
-      ShowError("Floppy disk is full, not enough space to store '%s'.\n",fileName);
+        ShowError("Floppy disk is full, not enough space to store the remaining %u bytes of '%s'.\n", fileSize, fileName);
     }
   }
   free(fileBuffer);
@@ -854,12 +854,12 @@ bool Floppy::ExtractFile(const char *fileName,int trackNumber,int sectorNumber,i
 
     if (!MoveToNextSector())
     {
-      ShowError("Reach the end of disk when extracting '%s'.\n",fileName);
+      ShowError("Reached the end of disk when extracting '%s'.\n",fileName);
     }
   }
   if (!SaveFile(fileName,fileBuffer.data(),fileBuffer.size()))
   {
-    ShowError("Reach the end of disk when extracting '%s'.\n",fileName);
+    ShowError("Reached the end of disk when extracting '%s'.\n",fileName);
   }
 
 
