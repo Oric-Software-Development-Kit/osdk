@@ -235,12 +235,26 @@ then call $fff4. Subsequent calls to $fff7 for this file will use the new locati
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.7</p>
+- Added the time and date of when the header file was created, as well as the disk geometry parameters<br>
+- Modified the gap values for 18 sectors per track format to solve compatibility issues with Cumulus<br>
+- The tool should be reporting disk usage conditions more effectively.<br>
+
+<p id=dateentry>Version 1.6</p>
+- Added a {FileDiskOffset} macro variable to determine where on the disk a specific file is located<br>
+
+<p id=dateentry>Version 1.5</p>
+- Added the number of file entries to the disk usage statistics in the output window<br>
+
+<p id=dateentry>Version 1.4</p>
+- Added statistics information about the disk usage in the output window<br>
+
 <p id=dateentry>Version 1.3</p>
-- Forced the current working directory to match the location of the description file so relative paths location can be predicted and stable
+- Forced the current working directory to match the location of the description file so relative paths location can be predicted and stable<br>
 
 <p id=dateentry>Version 1.2</p>
-- Hopefully the CRC of floppies should now be correct (thanks ISS and  ThomH)
-- Gap2 value changed from 0x22 to 0x4E
+- Hopefully the CRC of floppies should now be correct (thanks ISS and  ThomH)<br>
+- Gap2 value changed from 0x22 to 0x4E<br>
 
 <p id=dateentry>Version 1.1</p>
 - Added support for sector interleave: The 'DefineDisk' now has a additional parameter which indicates how far the next sector is (defaults to 1 for a linear search)<br>
