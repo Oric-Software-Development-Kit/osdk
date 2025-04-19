@@ -5550,3 +5550,13 @@ jump :\
  bpl *+5 :\
  jmp label :\
 
+
+#define CALLW_DY(tmp1,size,ptr,y2)\
+    CALLV_D(tmp1,size) \
+    ldy #y2+1 :\
+    sta ptr,y :\
+    dey :\
+    txa :\
+    sta ptr,y :\
+
+
