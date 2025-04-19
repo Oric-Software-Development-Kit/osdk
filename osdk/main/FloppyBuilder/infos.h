@@ -86,7 +86,16 @@ this makes it possible to do a multi-pass build process which will not fail beca
 
 1.5 - 2024/06/16
 - Added the number of file entries to the disk usage statistics in the output window
+
+1.6 - 2024/11/10
+- Added a {FileDiskOffset} macro variable to determine where on the disk a specific file is located
+
+1.7 - 2025/04/10
+- Added a {FileDiskOffset} macro variable to return the physical byte location of a file start
+- Added the time and date of when the header file was created, as well as the disk geometry parameters
+- Modified the gap values for 18 sectors per track format to solve compatibility issues with Cumulus
+- The tool should be reporting disk usage conditions more effectively.
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	5
+#define TOOL_VERSION_MINOR	7
