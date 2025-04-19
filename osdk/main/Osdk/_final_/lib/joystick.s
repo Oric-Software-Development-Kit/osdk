@@ -85,16 +85,15 @@ _joystick_read_dktronics
 	sta _OsdkJoystick_0
 	sta _OsdkJoystick_1
     lda $310                ; RLFDU -> UDFLR
-    sta tmp+0
+    sta tmp5+0
     lda $320                ; RLFDU -> UDFLR
-    sta tmp+1
-
+    sta tmp5+1
 
     ldx #5
 loop_swap    
-    lsr tmp+0
+    lsr tmp5+0
 	rol _OsdkJoystick_0
-    lsr tmp+1
+    lsr tmp5+1
 	rol _OsdkJoystick_1
 	dex
 	bne loop_swap
