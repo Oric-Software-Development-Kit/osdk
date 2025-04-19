@@ -17,14 +17,51 @@
 
 		<h1>Version history</h1>
 
-<p id=dateentry>Version 1.21 - January 18th 2023</p>
+<p id=dateentry>Version 1.21 - April 19th 2025</p>
 	<ul>
-		<li>Upgraded <A href="doc_linker.htm">Link65</A> to the version 0.68: The 'Unresolved external: <name>' now also specify the filename and line number of the first place where the symbol was requested, as well as the total number of references</li>
-		<li>Added a new environment variable, OSDKTAP2DSKPARAMS, which can be used to pass any arbitrary set of parameters to TAP2DSK when the build script is called</li>
-		<li>Fixed the debugger documentation with the modified Oricutron commands, and fixed the HTML to actually show the parameters</li>
-		<li>Added the BASIC flood fill sample program from Geoff Phillips book "Oric Atmos and Oric 1 Graphics and Machine code techniques" in sample\basic\paint</li>
-		<li>Added the C equivalent flood fill routine in sample\c\paint</li>
+		<li>Upgraded <A href="doc_linker.htm">Link65</A> to the version 1.1: 
+		<ul>
+			<li>The 'Unresolved external: <name>' now also specify the filename and line number of the first place where the symbol was requested, as well as the total number of references.
+			<li>Added a "-i" option to provide alternative include file paths
+			<li>Added support for a "#pragma osdk replace_characters" directive used to perform localization of texts (experimental)
+		</ul>
+		</li>
+        <li>Upgraded <A href="doc_floppybuilder.htm">FloppyBuilder</A> to version 1.7:
+		<ul>
+			<li>Added statistics information about the disk usage in the output window
+			<li>Added the number of file entries to the disk usage statistics in the output window
+			<li>Added a {FileDiskOffset} macro variable to determine where on the disk a specific file is located
+			<li>Added the time and date of when the header file was created, as well as the disk geometry parameters
+			<li>Modified the gap values for 18 sectors per track format to solve compatibility issues with Cumulus
+			<li>The tool should be reporting disk usage conditions more effectively.
+		</ul>
+		</li>
+		<li>Upgraded <A href="doc_memmap.htm">MemMap</A> to the version 1.1</li>
+		<ul>
+			<li>Restructured a bit the tool to use a main class to embed the parameters instead of using globals
+			<li>Modified the html to make it easy to skin the appearance using css (using a 'memmap' class on the table elements)
+			<li>Added the flag -s to provide a way to add a list of the biggest offenders sorted by decreasing size
+			<li>Fixed a crash caused by an incorrect modification of the file resulting of some symbol files concatenation
+		</ul>
+
+        <li>Upgraded <A href="doc_bas2tap.htm">Bas2Tap</A> to version 2.3, with a fix for "lastsep"</li>
 		<li>Upgraded <A href="doc_assembler.htm">XA</A> to the version 2.2.7 which an extended syntax for the #print command to allow displaying information on a single line</li>
+		<li>Upgraded <A href="doc_header.htm">Header</A> to version 1.1: If the source file starts by SEDORIC then the 12 first bytes are automatically ignored when the tape is converted
+        <li>Upgraded <A href="doc_pictconv.htm">PictConv</A> to version 1.1: Added the -f3 mode to convert atari images into Shifter palettes (Sommarhack Zero Bitplane hack)</li>
+
+		<li>Added new environment variables:
+			<ul>
+			<li>OSDKTAP2DSKPARAMS, which can be used to pass any arbitrary set of parameters to TAP2DSK when the build script is called
+			<li>OSDKVERBOSITY, which can be used to control the amount of text shown during the build
+			</ul>
+		</li>
+		<li>Added new sample programs:
+			<ul>
+			<li>Added the BASIC flood fill sample program from Geoff Phillips book "Oric Atmos and Oric 1 Graphics and Machine code techniques" in sample\basic\paint
+			<li>Added the C equivalent flood fill routine in sample\c\paint
+			</ul>
+		</li>
+		<li>Fixed the debugger documentation with the modified Oricutron commands, and fixed the HTML to actually show the parameters</li>
 	</ul>
 
 <p id=dateentry>Version 1.20 - January 14th 2023</p>
