@@ -122,6 +122,7 @@ public:
   const char* m_InputLinePtr = nullptr;                     ///< Used by the parser to fetch characters from the source
   std::string m_FilteredLine;                               ///< Contains the output after FilterLine has been called
   std::map<std::string, std::string>  m_StringReplacement;  ///< Used for fancy manipulations of text, including localization (replacing accentuated characters by others)
+  std::string m_LanguageTag;                                 ///< Language tag for conditional replace_characters_if pragma (set by -r)
 
   std::vector<FileEntry>			m_InputFileList;                ///< contains filenames to be linked based on 'm_SortPriority' for the order.
   std::vector<LabelEntry>			m_LibraryReferencesList;
@@ -172,24 +173,36 @@ void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
               if (token == "osdk")
               {
                 token = StringTrim(StringSplit(line, " \t"));
-                if (token == "replace_characters")
+                auto parseReplacementPairs = [&](std::string& replacementSpec)
                 {
                   m_StringReplacement.clear();
-
-                  std::string separator = StringTrim(StringSplit(line, " \t"));
+                  std::string separator = StringTrim(StringSplit(replacementSpec, " \t"));
                   if (!separator.empty())
-                  {                
+                  {
                     while (true)
                     {
-                      std::string replacementPair = StringTrim(StringSplit(line, " \t"));
+                      std::string replacementPair = StringTrim(StringSplit(replacementSpec, " \t"));
                       if (replacementPair.empty())
                       {
                         break;
                       }
                       std::string searchedToken = StringTrim(StringSplit(replacementPair, separator));
-                      std::string replaceToken = replacementPair;
-                      m_StringReplacement[searchedToken] = replaceToken;
+                      m_StringReplacement[searchedToken] = replacementPair;
                     }
+                  }
+                };
+
+                if (token == "replace_characters")
+                {
+                  parseReplacementPairs(line);
+                }
+                else if (token == "replace_characters_if")
+                {
+                  // Conditional replacement: only apply if the language tag matches the -r parameter
+                  std::string condTag = StringTrim(StringSplit(line, " \t"));
+                  if (!m_LanguageTag.empty() && condTag == m_LanguageTag)
+                  {
+                    parseReplacementPairs(line);
                   }
                 }
                 m_InputLinePtr = sourceLine.c_str() + sourceLine.length();
@@ -733,6 +746,17 @@ int Linker::Main()
       m_FlagKeepComments=GetBooleanValue(false);
     }
     else
+    if (IsSwitch("-r") || IsSwitch("-R"))
+    {
+      // Language replacement tag: only replace_characters_if pragmas matching this tag will be applied
+      if (!ProcessNextArgument() || !IsParameter())
+      {
+        printf(" Must have language tag after -r option\n");
+        exit(1);
+      }
+      m_LanguageTag = GetStringValue();
+    }
+    else
     {
       // Unknown argument
       printf("Invalid option %s \n",GetRemainingStuff());
@@ -980,6 +1004,8 @@ int main(int argc, char* argv[])
       "  -b : Bare linking (don't include header and tail).\r\n"
       "  -f : Insert #file directives (require expanded XA assembler).\r\n"
       "  -cn: Defines if comments should be kept (-c1) or removed (-c0) [Default]. \r\n"
+      "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
+      "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"
       );
 
     Linker linker(argc, argv);

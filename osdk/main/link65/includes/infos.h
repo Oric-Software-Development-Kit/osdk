@@ -54,8 +54,13 @@ Fixed a number of issues in the linker:
 1.01 - 2023/09/24
 - Added support for a "#pragma osdk replace_characters" directive used to perform localization of texts (experimental)
 
+1.02 - 2026/02/22
+- Added support for a "#pragma osdk replace_characters_if LANGUAGE_TAG" directive and a "-r LANGUAGE_TAG" command line option
+  to perform conditional character replacement: only the pragma whose tag matches the -r argument is applied.
+  This allows multiple language pragmas to coexist in a single file without the last one overriding all others.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	0
+#define TOOL_VERSION_MINOR	2
