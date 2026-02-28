@@ -179,6 +179,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="includes\infos.h" />
     <ClInclude Include="includes\xa.h" />
     <ClInclude Include="includes\xaa.h" />
     <ClInclude Include="includes\xah.h" />

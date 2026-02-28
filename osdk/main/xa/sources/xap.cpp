@@ -22,7 +22,7 @@
 
 
 static char *Preprocessor_CommandList[]=
-{ 
+{
 	"echo",
 	"include",
 	"define",
@@ -36,7 +36,8 @@ static char *Preprocessor_CommandList[]=
 	"ifldef",
 	"iflused",
 	"if",
-	"file"
+	"file",
+	"elif"
 };
 
 
@@ -121,9 +122,12 @@ ErrorCode Preprocessor::HandleCommand(char *ptr_preprocessor_directive)
 			case e_command_file:	// 13
 				er=command_file(ptr_preprocessor_directive+directive_lenght);
 				break;
+			case e_command_elif:	// 14
+				er=command_elif(ptr_preprocessor_directive+directive_lenght);
+				break;
 			default:
 				break;
-			}			
+			}
 		}
 	}
 	return er;
@@ -131,27 +135,40 @@ ErrorCode Preprocessor::HandleCommand(char *ptr_preprocessor_directive)
 
 ErrorCode Preprocessor::command_ifdef(char *t)
 {
-     m_LogicalOpcodesStack=(m_LogicalOpcodesStack<<1)+( suchdef(t) ? 0 : 1 );
-     return E_OK;
+	bool def = suchdef(t) != 0;
+	bool outer_active = (m_LogicalOpcodesStack == 0);
+	m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (def ? 0 : 1);
+	// Branch taken if: outer was skipping (suppress elif/else), or condition was true
+	m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || def) ? 1 : 0);
+	return E_OK;
 }
 
 ErrorCode Preprocessor::command_ifndef(char *t)
 {
-     m_LogicalOpcodesStack=(m_LogicalOpcodesStack<<1)+( suchdef(t) ? 1 : 0 );
-     return E_OK;
+	bool def = suchdef(t) != 0;
+	bool outer_active = (m_LogicalOpcodesStack == 0);
+	m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (def ? 1 : 0);
+	// Branch taken if: outer was skipping (suppress elif/else), or condition was true (!def)
+	m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || !def) ? 1 : 0);
+	return E_OK;
 }
 
 ErrorCode Preprocessor::command_ifldef(char *t)
 {
-	m_LogicalOpcodesStack=(m_LogicalOpcodesStack<<1)+( afile->m_cSymbolData.ll_pdef(t) ? 1 : 0 );
+	bool cond = afile->m_cSymbolData.ll_pdef(t) != 0;
+	bool outer_active = (m_LogicalOpcodesStack == 0);
+	m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (cond ? 1 : 0);
+	m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || cond) ? 1 : 0);
 	return E_OK;
 }
 
 ErrorCode Preprocessor::command_iflused(char *t)
 {
 	int n;
-
-	m_LogicalOpcodesStack=(m_LogicalOpcodesStack<<1)+( afile->m_cSymbolData.SearchSymbol(t,&n) ? 1 : 0 );
+	bool cond = afile->m_cSymbolData.SearchSymbol(t,&n) != 0;
+	bool outer_active = (m_LogicalOpcodesStack == 0);
+	m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (cond ? 1 : 0);
+	m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || cond) ? 1 : 0);
 	return E_OK;
 }
 
@@ -232,13 +249,15 @@ ErrorCode Preprocessor::command_if(char *t)
 		f=b_term(BufferLine,&a,&l,TablePcSegment[gCurrentSegment]);
 		gDsbLen = 0;
 		
-		if ((!m_LogicalOpcodesStack) && f)     
+		if ((!m_LogicalOpcodesStack) && f)
 		{
 			errout(f);
 		}
 		else
 		{
-			m_LogicalOpcodesStack=(m_LogicalOpcodesStack<<1)+( a ? 0 : 1 );
+			bool outer_active = (m_LogicalOpcodesStack == 0);
+			m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (a ? 0 : 1);
+			m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || a != 0) ? 1 : 0);
 		}
 	}
 	return E_OK;
@@ -246,14 +265,67 @@ ErrorCode Preprocessor::command_if(char *t)
 
 ErrorCode Preprocessor::command_else(char *t)
 {
-     m_LogicalOpcodesStack ^=1;
-     return E_OK;
+	bool currently_skipping = (m_LogicalOpcodesStack & 1) != 0;
+	bool branch_taken = (m_BranchTakenStack & 1) != 0;
+	if (!currently_skipping) {
+		// Was in true branch → now skip the else
+		m_LogicalOpcodesStack |= 1;
+		m_BranchTakenStack |= 1;
+	} else if (!branch_taken) {
+		// Was skipping and no branch taken yet → activate else
+		m_LogicalOpcodesStack &= ~1;
+		m_BranchTakenStack |= 1;
+	}
+	// If branch already taken: stay skipping
+	return E_OK;
 }
 
 ErrorCode Preprocessor::command_endif(char *t)
 {
-     m_LogicalOpcodesStack=m_LogicalOpcodesStack>>1;
-     return E_OK;
+	m_LogicalOpcodesStack >>= 1;
+	m_BranchTakenStack >>= 1;
+	return E_OK;
+}
+
+ErrorCode Preprocessor::command_elif(char *t)
+{
+	bool currently_skipping = (m_LogicalOpcodesStack & 1) != 0;
+	bool branch_taken = (m_BranchTakenStack & 1) != 0;
+	if (!currently_skipping) {
+		// Was in true branch → skip the elif and mark branch taken
+		m_LogicalOpcodesStack |= 1;
+		m_BranchTakenStack |= 1;
+	} else if (!branch_taken) {
+		// Was skipping, no branch taken yet → evaluate elif condition
+		// Supports: "elif defined(SYMBOL)" or "elif SYMBOL"
+		while (*t == ' ' || *t == '\t') t++;
+		bool cond;
+		if (strncmp(t, "defined", 7) == 0) {
+			const char *p = t + 7;
+			while (*p == ' ' || *p == '\t') p++;
+			if (*p == '(') {
+				p++;
+				while (*p == ' ' || *p == '\t') p++;
+				char sym[MAXLINE];
+				int i = 0;
+				while (p[i] && p[i] != ')' && p[i] != ' ' && p[i] != '\t') {
+					sym[i] = p[i]; i++;
+				}
+				sym[i] = 0;
+				cond = suchdef(sym) != 0;
+			} else {
+				cond = suchdef(const_cast<char*>(t)) != 0;
+			}
+		} else {
+			cond = suchdef(t) != 0;
+		}
+		if (cond) {
+			m_LogicalOpcodesStack &= ~1;	// Activate
+			m_BranchTakenStack |= 1;		// Branch taken
+		}
+	}
+	// If branch already taken: stay skipping (do nothing)
+	return E_OK;
 }
 
 /* pp_undef is a great hack to get it working fast... */
@@ -910,6 +982,8 @@ int Preprocessor::Init(void)
 	
 	m_FreeMemory=MAX_PREPROCESSOR_BUFFER_SIZE;
 	m_CurrentListIndex=0;
+	m_LogicalOpcodesStack=0;
+	m_BranchTakenStack=0;
 	m_FlagNewLineFound=true;
 	m_FlagNewFileFound=true;
 	if (!er) 

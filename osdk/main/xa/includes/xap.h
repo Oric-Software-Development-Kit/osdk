@@ -52,6 +52,7 @@ public:
 		e_command_iflused,	// 11
 		e_command_if,		// 12
 		e_command_file,	// 13
+		e_command_elif,	// 14
 		_e_command_max_
 	};
 
@@ -83,6 +84,7 @@ public:
 	ErrorCode command_iflused(char*);
 	ErrorCode command_undef(char*);
 	ErrorCode command_file(char*);
+	ErrorCode command_elif(char*);
 
 	int ga_pp(void)
 	{
@@ -118,6 +120,7 @@ public:
 	bool				m_FlagNewLineFound;
 	bool				m_FlagNewFileFound;
 	int       			m_LogicalOpcodesStack;	//!< Contains one bit for each level of #if / #ifdef ...encountered during preprocessing
+	int       			m_BranchTakenStack;		//!< Tracks if a true branch was already taken at each level (for #elif support)
 	char      			m_BufferLine[MAXLINE];
 };
 

@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 
+#include "infos.h"
+
 
 #include <ctype.h>
 #include <string.h>
@@ -93,9 +95,9 @@ int TablePcSegment[_eSEGMENT_MAX_];	/* segments */
 static const char *copyright=
 {
 #ifdef _WIN32
-	"Cross-Assembler 65xx V2.2.7 (" __TIME__ " / " __DATE__ ") \r\n"
+	"Cross-Assembler 65xx V" TOOL_VERSION_STRING " (" __TIME__ " / " __DATE__ ") \r\n"
 #else
-	"Cross-Assembler 65xx V2.2.7 (No date available) \r\n"
+	"Cross-Assembler 65xx V" TOOL_VERSION_STRING " (No date available) \r\n"
 #endif
 	"(c) 1989-98 by A.Fachat\r\n"
 	"65816 opcodes and modes coded by Jolse Maginnis\r\n"
