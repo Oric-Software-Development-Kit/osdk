@@ -18,8 +18,8 @@ public:
   void SetColor(const RgbColor& rgb,int index);
   void SetColor(const ShifterColor& color,int index);
 
-  void SaveClut(long handle) const;
-  void SaveClutAsText(std::string& text) const;
+  void SaveClut(long handle, size_t colorCount) const;
+  void SaveClutAsText(std::string& text, size_t colorCount) const;
 
   void Reorder(AtariClut& baseClut);
 
@@ -41,6 +41,7 @@ public:
     FORMAT_MULTIPLE_PALETTE,
     FORMAT_MONOCHROME,
     FORMAT_ZEROBITPLANE,      ///< Special mode that exports the image as just color changes
+	FORMAT_MEDIUM,
     _FORMAT_MAX_
   };
 
@@ -92,14 +93,14 @@ private:
   AtariClut& GetClut(unsigned int scanline);
 
 private:
-  FORMAT				m_format;
-  PALETTE_MODE				m_palette_mode;
-  unsigned char*			m_buffer;
-  unsigned int				m_buffer_size;
-  unsigned int				m_buffer_width;
-  unsigned int				m_buffer_height;
-  int					m_buffer_bitplans;
-  bool					m_flagPalettePerScanline;
+  FORMAT				m_format = _FORMAT_MAX_;
+  PALETTE_MODE			m_palette_mode = _PALETTE_MAX_;
+  unsigned char*		m_buffer = nullptr;
+  unsigned int			m_buffer_size = 0;
+  unsigned int			m_buffer_width = 0;
+  unsigned int			m_buffer_height = 0;
+  int					m_buffer_bitplans = 0;
+  bool					m_flagPalettePerScanline = false;
 
   std::map<int,AtariClut>		m_cluts;		// Scanline/associated clut
 };

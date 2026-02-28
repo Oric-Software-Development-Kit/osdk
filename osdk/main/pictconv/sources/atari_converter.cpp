@@ -163,31 +163,31 @@ void AtariClut::Reorder(AtariClut& baseClut)
   assert(m_clut_index_to_color.size()==m_clut_color_to_index.size());
 }
 
-void AtariClut::SaveClut(long handle) const
+void AtariClut::SaveClut(long handle, size_t colorCount) const
 {
   assert(m_clut_index_to_color.size()==m_clut_color_to_index.size());
   unsigned short clut[16];
   memset(clut,0,sizeof(clut));
 
-  assert(m_clut_color_to_index.size()<=16);
+  assert(m_clut_color_to_index.size()<= colorCount);
   std::map<ShifterColor,int>::const_iterator it=m_clut_color_to_index.begin();
   while (it!=m_clut_color_to_index.end())
   {
     int index=it->second;
-    assert(index<16);
+    assert(index< colorCount);
     const ShifterColor& color=it->first;
-    if (index<16)
+    if (index< colorCount)
     {
       // Atari ST is a big endian machine
       clut[index]=color.GetBigEndianValue();
     }
     ++it;
   }	
-  write(handle,clut,32);
+  write(handle,clut, colorCount*2);
 }
 
 
-void AtariClut::SaveClutAsText(std::string& text)  const
+void AtariClut::SaveClutAsText(std::string& text, size_t colorCount)  const
 {
   assert(m_clut_index_to_color.size()==m_clut_color_to_index.size());
   unsigned short clut[16];
@@ -200,7 +200,7 @@ void AtariClut::SaveClutAsText(std::string& text)  const
     int index=it->second;
     assert(index<16);
     const ShifterColor& color=it->first;
-    if (index<16)
+    if (index< colorCount)
     {
       clut[index]=color.GetValue();
     }
@@ -208,7 +208,7 @@ void AtariClut::SaveClutAsText(std::string& text)  const
   }	
 
   char buffer[64];
-  for (int index=0;index<16;index++)
+  for (int index=0;index< colorCount;index++)
   {
     if (index!=0)
     {
@@ -279,6 +279,11 @@ bool AtariPictureConverter::SetFormat(int format)
   if (m_format==FORMAT_MONOCHROME)
   {
     m_buffer_bitplans=1;
+  }
+  else
+  if (m_format==FORMAT_MEDIUM)
+  {
+    m_buffer_bitplans=2;
   }
   else
   if (m_format==FORMAT_ZEROBITPLANE)
@@ -385,7 +390,7 @@ bool AtariPictureConverter::Convert(const ImageContainer& sourcePicture)
       }
 
       RgbColor ignoreColor=lockedPalette.ReadColor(0,0);
-      for (unsigned int index=0;index<16;index++)
+      for (unsigned int index=0;index< (1<<m_buffer_bitplans);index++)
       {
         RgbColor rgbColor=lockedPalette.ReadColor(index,1);
         if (rgbColor!=ignoreColor)
@@ -473,13 +478,13 @@ bool AtariPictureConverter::Convert(const ImageContainer& sourcePicture)
   switch (m_format)
   {
   case FORMAT_SINGLE_PALETTE:
-    convertedPicture.ReduceColorDepth(&GetClut(0));
+    convertedPicture.ReduceColorDepth(&GetClut(0),16);
     convert_shifter(convertedPicture);
     break;
 
   case FORMAT_MULTIPLE_PALETTE:
     m_flagPalettePerScanline=true;
-    convertedPicture.ReduceColorDepthPerScanline(&m_cluts);
+    convertedPicture.ReduceColorDepthPerScanline(&m_cluts,16);
     convert_shifter(convertedPicture);
     break;
 
@@ -497,6 +502,11 @@ bool AtariPictureConverter::Convert(const ImageContainer& sourcePicture)
     }
     convert_shifter_monochrome(convertedPicture);
     break;
+
+  case FORMAT_MEDIUM:
+	  convertedPicture.ReduceColorDepth(&GetClut(0), 4);
+      convert_shifter(convertedPicture);
+      break;
 
   case FORMAT_ZEROBITPLANE:
     convert_shifter_zerobitplane(convertedPicture);
@@ -613,10 +623,13 @@ void AtariPictureConverter::convert_shifter(const ImageContainer& sourcePicture)
         *ptr_hires++=static_cast<unsigned char>(p0&255);
         *ptr_hires++=static_cast<unsigned char>((p1>>8)&255);
         *ptr_hires++=static_cast<unsigned char>(p1&255);
-        *ptr_hires++=static_cast<unsigned char>((p2>>8)&255);
-        *ptr_hires++=static_cast<unsigned char>(p2&255);
-        *ptr_hires++=static_cast<unsigned char>((p3>>8)&255);
-        *ptr_hires++=static_cast<unsigned char>(p3&255);
+        if (m_format != FORMAT_MEDIUM)
+        {
+            *ptr_hires++ = static_cast<unsigned char>((p2 >> 8) & 255);
+            *ptr_hires++ = static_cast<unsigned char>(p2 & 255);
+            *ptr_hires++ = static_cast<unsigned char>((p3 >> 8) & 255);
+            *ptr_hires++ = static_cast<unsigned char>(p3 & 255);
+        }
       }
     }
   }
@@ -859,6 +872,11 @@ void AtariPictureConverter::SaveToFile(long handle,int output_format)
 
   case DEVICE_FORMAT_RAWBUFFER_WITH_PALETTE:
     {
+        // 1 bitplan (monochrome) = 2 colors
+        // 2 bitplanes (medium)   = 4 colors
+        // 4 bitplanes (color)    = 16 colors
+
+      int colorCount = 1<<m_buffer_bitplans;
       std::string clutAsText;
       if (m_flagPalettePerScanline)
       {
@@ -867,8 +885,8 @@ void AtariPictureConverter::SaveToFile(long handle,int output_format)
         while (it!=m_cluts.end())
         {
           AtariClut& clut=it->second;
-          clut.SaveClut(handle);
-          clut.SaveClutAsText(clutAsText);
+          clut.SaveClut(handle, colorCount);
+          clut.SaveClutAsText(clutAsText, colorCount);
           clutAsText+="\r\n";
           ++it;
         }
@@ -876,8 +894,8 @@ void AtariPictureConverter::SaveToFile(long handle,int output_format)
       else
       {
         AtariClut& clut=m_cluts[0];
-        clut.SaveClut(handle);
-        clut.SaveClutAsText(clutAsText);
+        clut.SaveClut(handle, colorCount);
+        clut.SaveClutAsText(clutAsText, colorCount);
       }
       clutAsText+="\r\n";
     }

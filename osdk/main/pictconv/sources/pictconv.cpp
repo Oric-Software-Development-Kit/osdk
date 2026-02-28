@@ -75,6 +75,7 @@ int __cdecl main(int argc,char *argv[])
     "         -f1 => Multi palette format\r\n"
     "         -f2 => Monochrome format\r\n"
     "         -f3 => Zero Bitplan Paletizer\r\n"
+    "         -f4 => 4 colors format (medium rez)\r\n"
     "\r\n"
     " -pn   Palette management\r\n"
     "         -p0 => Generate a palette automatically [default]\r\n"
@@ -166,9 +167,9 @@ int __cdecl main(int argc,char *argv[])
     if (argumentParser.IsSwitch("-m"))
     {
       //format: [-m]
-      //	0 => Oric
-      // 	1 => Atari ST
-      //        2 => Limitless
+      //    0 => Oric
+      //    1 => Atari ST
+      //    2 => Limitless
       switchMachine=argumentParser.GetIntegerValue(0);
     }
     else
@@ -198,7 +199,7 @@ int __cdecl main(int argc,char *argv[])
     else
     if (argumentParser.IsSwitch("-p"))
     {
-      //format: [-m]
+      //format: [-p]
       //	0 => Get the palette from the picture
       // 	1 => The last line of the picture contains the palette
       //  2 => The last pixels of each line contains the palette for the line

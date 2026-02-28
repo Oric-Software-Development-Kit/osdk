@@ -104,8 +104,10 @@ Version 1.0
 Version 1.1 - 2024/07/07
 - Added the -f3 mode to convert atari images into Shifter palettes (Sommarhack Zero Bitplane hack)
 
+Version 1.2 - 2025/06/22
+- Added the -f4 option to the Atari ST converter, with support for medium-resolution pictures
 
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	1
+#define TOOL_VERSION_MINOR	2

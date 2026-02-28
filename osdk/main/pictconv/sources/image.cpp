@@ -403,7 +403,7 @@ bool ImageContainer::ConvertToGrayScale(int maxValues)
 
 #include "shifter_color.h"
 
-bool ImageContainer::ReduceColorDepth(const AtariClut* pClut)
+bool ImageContainer::ReduceColorDepth(const AtariClut* pClut, int paletteSize)
 {
   int dx=FreeImage_GetWidth(m_pBitmap);
   int dy=FreeImage_GetHeight(m_pBitmap);
@@ -438,7 +438,7 @@ bool ImageContainer::ReduceColorDepth(const AtariClut* pClut)
     m_pBitmap=dib24;
   }
 
-  FIBITMAP *dib8  = FreeImage_ColorQuantizeEx(m_pBitmap,FIQ_NNQUANT,16,reservedPalette.size(),pReservedPalette);
+  FIBITMAP *dib8  = FreeImage_ColorQuantizeEx(m_pBitmap,FIQ_NNQUANT, paletteSize,reservedPalette.size(),pReservedPalette);
   FIBITMAP *dib32 = FreeImage_ConvertTo32Bits(dib8);
   FreeImage_Unload(dib8);
   FreeImage_Unload(m_pBitmap);
@@ -447,7 +447,7 @@ bool ImageContainer::ReduceColorDepth(const AtariClut* pClut)
 }
 
 
-bool ImageContainer::ReduceColorDepthPerScanline(const std::map<int,AtariClut>* pCluts)
+bool ImageContainer::ReduceColorDepthPerScanline(const std::map<int,AtariClut>* pCluts, int paletteSize)
 {
   unsigned int dx=FreeImage_GetWidth(m_pBitmap);
   unsigned int dy=FreeImage_GetHeight(m_pBitmap);
@@ -501,7 +501,7 @@ bool ImageContainer::ReduceColorDepthPerScanline(const std::map<int,AtariClut>* 
       lineCopy = dib24;
     }
 
-    FIBITMAP *dib8  = FreeImage_ColorQuantizeEx(lineCopy,quantize,16,reservedPalette.size(),pReservedPalette);	
+    FIBITMAP *dib8  = FreeImage_ColorQuantizeEx(lineCopy,quantize, paletteSize,reservedPalette.size(),pReservedPalette);
     FIBITMAP *dib32 = FreeImage_ConvertTo32Bits(dib8);
     {
       // Check that we have 16 colors max... starting to doubt it

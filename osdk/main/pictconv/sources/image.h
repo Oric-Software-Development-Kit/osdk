@@ -43,8 +43,8 @@ public:
 
   // Utility functions
   bool ConvertToGrayScale(int maxValues=256);	        // Pure grey scale conversion
-  bool ReduceColorDepth(const AtariClut* pClut=0);
-  bool ReduceColorDepthPerScanline(const std::map<int,AtariClut>* pCluts=0);
+  bool ReduceColorDepth(const AtariClut* pClut, int paletteSize);
+  bool ReduceColorDepthPerScanline(const std::map<int,AtariClut>* pCluts, int paletteSize);
 
   int FindBlocks(std::string& block_data) const;
 
