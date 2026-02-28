@@ -93,6 +93,9 @@ unsigned char Header[]=
 		"  -h[0/1] for header (1) or no header (0)\r\n"
 		"  -s[0/1] for showing size of file (1) or not (0)\r\n"
 		"  -b[0/1] for setting as BASIC (0) or BINARY (1)\r\n"
+		"  -3          insert 3 bytes 0x16 synchro (default)\r\n"
+		"  -4          insert 4 bytes 0x16 synchro\r\n"
+		"  -n[string]  insert 'string' as tape name\r\n"
 		"\r\n"
 		"Exemple:\r\n"
 		"  {ApplicationName} -a1 final.out osdk.tap $500\r\n"
@@ -103,6 +106,9 @@ unsigned char Header[]=
 	bool flag_header=true;
 	bool flag_display_size=true;
 	bool flag_binary=true;
+	bool flag_four=false;
+	bool flag_name=false;
+	std::string tap_name;
 
 	ArgumentParser argumentParser(argc,argv);
 
@@ -138,6 +144,25 @@ unsigned char Header[]=
 			//	0 => BASIC
 			// 	1 => BINARY
 			flag_binary=argumentParser.GetBooleanValue(true);
+		}
+		else 
+		if (argumentParser.IsSwitch("-n"))
+		{
+			//format: [-nstring]
+			flag_name = true;
+			tap_name = argumentParser.GetStringValue();
+		}
+		else 
+		if (argumentParser.IsSwitch("-3"))
+		{
+			//format: [-3]
+			flag_four = false;
+		}
+		else 
+		if (argumentParser.IsSwitch("-4"))
+		{
+			//format: [-4]
+			flag_four = true;
 		}
 	}
 
@@ -248,11 +273,25 @@ unsigned char Header[]=
 		Header[8]=(adress_end>>8);
 		Header[9]=(adress_end&255);
 
-		//
-		// Write header
-		//
-		_write(handle_dst,Header,size_header);
+		if (flag_four)
+		{
+			_write(handle_dst, Header, 1);
+		}
 
+		//
+		if (!flag_name || !tap_name.c_str() || strlen(tap_name.c_str()) < 1)
+		{
+			_write(handle_dst, Header, size_header);
+		}
+		else
+		{
+			_write(handle_dst, Header, size_header - 1);
+
+			//
+			// Then write the name (with the null terminator)
+			//
+			_write(handle_dst, tap_name.c_str(), 1 + tap_name.size());
+		}
 		//
 		// Copy the file
 		//

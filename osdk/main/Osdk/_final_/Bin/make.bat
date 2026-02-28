@@ -325,8 +325,8 @@ set OSDKADDR=%OSDKPACKADDR%
 :: Append the tape header
 ::
 IF %OSDKVERBOSITY% GEQ 2 ECHO Creating TAPE image %OSDKNAME%.TAP
-%OSDKB%\header.exe %OSDKHEAD% build\final.out build\%OSDKNAME%.tap %OSDKADDR%
-%OSDKB%\taptap.exe ren build\%OSDKNAME%.tap %OSDKTAPNAME% 0
+
+%OSDKB%\header.exe -n%OSDKTAPNAME% %OSDKHEAD% build\final.out build\%OSDKNAME%.tap %OSDKADDR% 
 
 :BuildOk
 set OSDK_BUILD_END=%time%
