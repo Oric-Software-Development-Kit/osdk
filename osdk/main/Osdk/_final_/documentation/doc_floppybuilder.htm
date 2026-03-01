@@ -236,97 +236,146 @@ then call $fff4. Subsequent calls to $fff7 for this file will use the new locati
 </p>
 
 <p id=dateentry>Version 1.7</p>
-- Added the time and date of when the header file was created, as well as the disk geometry parameters<br>
-- Modified the gap values for 18 sectors per track format to solve compatibility issues with Cumulus<br>
-- The tool should be reporting disk usage conditions more effectively.<br>
+<ul>
+<li>Added the time and date of when the header file was created, as well as the disk geometry parameters</li>
+<li>Modified the gap values for 18 sectors per track format to solve compatibility issues with Cumulus</li>
+<li>The tool should be reporting disk usage conditions more effectively</li>
+</ul>
 
 <p id=dateentry>Version 1.6</p>
-- Added a {FileDiskOffset} macro variable to determine where on the disk a specific file is located<br>
+<ul>
+<li>Added a {FileDiskOffset} macro variable to determine where on the disk a specific file is located</li>
+</ul>
 
 <p id=dateentry>Version 1.5</p>
-- Added the number of file entries to the disk usage statistics in the output window<br>
+<ul>
+<li>Added the number of file entries to the disk usage statistics in the output window</li>
+</ul>
 
 <p id=dateentry>Version 1.4</p>
-- Added statistics information about the disk usage in the output window<br>
+<ul>
+<li>Added statistics information about the disk usage in the output window</li>
+</ul>
 
 <p id=dateentry>Version 1.3</p>
-- Forced the current working directory to match the location of the description file so relative paths location can be predicted and stable<br>
+<ul>
+<li>Forced the current working directory to match the location of the description file so relative paths location can be predicted and stable</li>
+</ul>
 
 <p id=dateentry>Version 1.2</p>
-- Hopefully the CRC of floppies should now be correct (thanks ISS and  ThomH)<br>
-- Gap2 value changed from 0x22 to 0x4E<br>
+<ul>
+<li>Hopefully the CRC of floppies should now be correct (thanks ISS and ThomH)</li>
+<li>Gap2 value changed from 0x22 to 0x4E</li>
+</ul>
 
 <p id=dateentry>Version 1.1</p>
-- Added support for sector interleave: The 'DefineDisk' now has a additional parameter which indicates how far the next sector is (defaults to 1 for a linear search)<br>
+<ul>
+<li>Added support for sector interleave: The 'DefineDisk' now has an additional parameter which indicates how far the next sector is (defaults to 1 for a linear search)</li>
+</ul>
 
 <p id=dateentry>Version 1.0</p>
-- Added a 'FormatVersion' command to help handle the lack of backward compatibility<br>
-- Added a 'WriteLoader' command to simplify the handling of loader specific parameters (the loader cannot be compressed, should not be in the directories, etc...)<br>
-- Three new defines are automatically created: FLOPPY_LOADER_TRACK, FLOPPY_LOADER_SECTOR and FLOPPY_LOADER_ADDRESS. They are designed to be used by the boot sectors to help load the loader.<br>
-- Added a new set of macro variables: {FileTrack}, {FileSector}, {FileSize} and {FileSizeCompressed}<br>
-- It is now possible to use the -D switch on the command line parameters to add a number of defines to the list of defines exported to the header file.<br>
+<ul>
+<li>Added a 'FormatVersion' command to help handle the lack of backward compatibility</li>
+<li>Added a 'WriteLoader' command to simplify the handling of loader specific parameters (the loader cannot be compressed, should not be in the directories, etc...)</li>
+<li>Three new defines are automatically created: FLOPPY_LOADER_TRACK, FLOPPY_LOADER_SECTOR and FLOPPY_LOADER_ADDRESS. They are designed to be used by the boot sectors to help load the loader</li>
+<li>Added a new set of macro variables: {FileTrack}, {FileSector}, {FileSize} and {FileSizeCompressed}</li>
+<li>It is now possible to use the -D switch on the command line parameters to add a number of defines to the list of defines exported to the header file</li>
+</ul>
 
 <p id=dateentry>Version 0.19</p>
-- Improved some error message to make them more useful when a problem happens.<br>
-- Made it possible to use the system without having to delete the build folder if for some reason the size of a sector file got too large.<br>
+<ul>
+<li>Improved some error messages to make them more useful when a problem happens</li>
+<li>Made it possible to use the system without having to delete the build folder if for some reason the size of a sector file got too large</li>
+</ul>
 
 <p id=dateentry>Version 0.18</p>
-- Added a 'ReserveSectors' command that can be used to leave room on the disk for save games or stuff like that.<br>
+<ul>
+<li>Added a 'ReserveSectors' command that can be used to leave room on the disk for save games or stuff like that</li>
+</ul>
 
 <p id=dateentry>Version 0.17</p>
-- A macro expansion now accept the new value {FileSize} which gets expanded to the size of the previous file inserted in the script<br>
+<ul>
+<li>A macro expansion now accepts the new value {FileSize} which gets expanded to the size of the previous file inserted in the script</li>
+</ul>
 
 <p id=dateentry>Version 0.16</p>
-- Added a mode where data can be extracted from an existing DSK file<br>
-- The parser now accepts quoted strings<br>
+<ul>
+<li>Added a mode where data can be extracted from an existing DSK file</li>
+<li>The parser now accepts quoted strings</li>
+</ul>
 
 <p id=dateentry>Version 0.15</p>
-- The output file now clearly states how much free room is available in bytes on the disk<br>
+<ul>
+<li>The output file now clearly states how much free room is available in bytes on the disk</li>
+</ul>
 
 <p id=dateentry>Version 0.14</p>
-- The MetaData tables will now not contain any information after the last file that declared metadata, this allows to not waste room in the loader for dummy data<br>
- 
+<ul>
+<li>The MetaData tables will now not contain any information after the last file that declared metadata, this allows to not waste room in the loader for dummy data</li>
+</ul>
+
 <p id=dateentry>Version 0.13</p>
-- Added a new parameter to make it possible to bootstrap the floppy building process: With 'init' a description fill be generated even if data is missing,
-this makes it possible to do a multi-pass build process which will not fail because it depends on things not yet generated :)<br>
+<ul>
+<li>Added a new parameter to make it possible to bootstrap the floppy building process: With 'init' a description file will be generated even if data is missing, making it possible to do a multi-pass build process which will not fail because it depends on things not yet generated</li>
+</ul>
 
 <p id=dateentry>Version 0.12</p>
-- The 'DefineDisk' command accepts a variable set of track definition values<br>
+<ul>
+<li>The 'DefineDisk' command accepts a variable set of track definition values</li>
+</ul>
 
 <p id=dateentry>Version 0.11</p>
-- Added support for metadata that can be used later on by the programmer<br>
+<ul>
+<li>Added support for metadata that can be used later on by the programmer</li>
+</ul>
 
 <p id=dateentry>Version 0.10</p>
-- The compression code now generates correct data (it was using the Atari ST mode encoding, making the unpacking code not happy)<br>
-- Added to the report file the occupation ratio of the floppy (by maintaining an internal list of used sectors also used to check if there's no overlap)<br>
+<ul>
+<li>The compression code now generates correct data (it was using the Atari ST mode encoding, making the unpacking code not happy)</li>
+<li>Added to the report file the occupation ratio of the floppy (by maintaining an internal list of used sectors also used to check if there's no overlap)</li>
+</ul>
 
 <p id=dateentry>Version 0.9</p>
-- Added the 'SetCompressionMode' command. Possible parameters are 'None' (default value) and 'FilePack'<br>
+<ul>
+<li>Added the 'SetCompressionMode' command. Possible parameters are 'None' (default value) and 'FilePack'</li>
+</ul>
 
 <p id=dateentry>Version 0.8</p>
-- Cleaned up a bit the output description generation<br>
+<ul>
+<li>Cleaned up a bit the output description generation</li>
+</ul>
 
 <p id=dateentry>Version 0.7</p>
-- The code now automatically compute the gaps values based on the floppy structure parameters<br>
-- The 'DefineDisk' command now works (at least for 2 sided, 42 tracks and 17 sectors floppies)<br>
+<ul>
+<li>The code now automatically computes the gaps values based on the floppy structure parameters</li>
+<li>The 'DefineDisk' command now works (at least for 2 sided, 42 tracks and 17 sectors floppies)</li>
+</ul>
 
 <p id=dateentry>Version 0.6</p>
-- Added the 'LoadDiskTemplate' and 'DefineDisk' commands (and removed these parameters from the command line)<br>
-- Added the 'AddTapFile' command, similar to 'AddFile' but automatically removes the header and extract the start address of the file<br>
+<ul>
+<li>Added the 'LoadDiskTemplate' and 'DefineDisk' commands (and removed these parameters from the command line)</li>
+<li>Added the 'AddTapFile' command, similar to 'AddFile' but automatically removes the header and extracts the start address of the file</li>
+</ul>
 
 <p id=dateentry>Version 0.5</p>
-- Fixed parsing of comments<br>
-- added a 'OutputFloppyFile' command<br>
-- validated that the number of sectors and tracks is correct in the 'SetPosition' command.<br>
-- removed some unused variables<br>
-- cleaned the offset/track/sector management code<br>
-- the 'SetBootSector' command is now 'WriteSector' and automatically move to the next sector after writing data<br>
+<ul>
+<li>Fixed parsing of comments</li>
+<li>Added a 'OutputFloppyFile' command</li>
+<li>Validated that the number of sectors and tracks is correct in the 'SetPosition' command</li>
+<li>Removed some unused variables</li>
+<li>Cleaned the offset/track/sector management code</li>
+<li>The 'SetBootSector' command is now 'WriteSector' and automatically moves to the next sector after writing data</li>
+</ul>
 
 <p id=dateentry>Version 0.3</p>
-- Work started in 2013 by Mickaël Pointier for the Oric 30th birthday<br>
+<ul>
+<li>Work started in 2013 by Micka&euml;l Pointier for the Oric 30th birthday</li>
+</ul>
 
 <p id=dateentry>Version 0.2</p>
-- Makedisk (c) 2002 Jérome Debrune, used on all Defence Force demos until 2013<br>
+<ul>
+<li>Makedisk (c) 2002 J&eacute;r&ocirc;me Debrune, used on all Defence Force demos until 2013</li>
+</ul>
 
 <hr>
 <A href="documentation.htm"><img src="arrow_back.gif"></A>

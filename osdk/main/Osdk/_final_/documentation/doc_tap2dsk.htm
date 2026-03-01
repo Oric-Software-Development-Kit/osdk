@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+
+<HTML lang=fr dir=ltr>
+	<HEAD>
+		<meta name="robots" content="noindex">
+		<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
+		<title>OSDK - Tap2Dsk</title>
+		<link href="documentation.css" rel="stylesheet" type="text/css">
+	</HEAD>
+
+	<BODY>
+
+<hr>
+<A href="documentation.htm"><img src="arrow_back.gif"></A>
+<img src="pics/osdk_logo_small.png">
+<hr>
+
+		<h1>Tap2Dsk</h1>
+
+<p id=chapter>Description</p>
+
+<p>Tap2Dsk is the simpler way of making your program run on floppy disk instead of tape.
+</p>
+
+<p>The usage is relatively simple, you basically specify a list of tape files, and the destination disk image file, with eventually some parameters for the "init" string.
+</p>
+
+<p id=chapter>Important</p>
+
+<p>Tap2Dsk is one of the oldest tools in the OSDK, and as a result was never updated to handle the most commonly used DSK format, so in order to load the generated DSK you will normally have to run it through the Old2Mfm tool.
+</p>
+
+<p id=chapter>Utilisation</p>
+
+<p>To create a DSK file using Tap2Dsk, here is the syntax:
+</p>
+<pre>
+	%OSDK%\bin\tap2dsk [switches] tap_file [additional tap files] dsk_file
+	%OSDK%\bin\old2mfm dsk_file
+</pre>
+
+<p id=chapter>Switches</p>
+
+<p>Tap2Dsk switches can be:
+</p>
+<pre>
+	-i[Sedoric Init string] contains a command running at boot time
+	-c[paper_color]:[ink_color] is supposed to change the color of the name
+	-n[disk_label] can be used to change the name of the disk when doing DIR
+</pre>
+
+<p>For example if you have added MYGAME.TAP to your DSK, you can add:
+</p>
+<pre>
+	-iCLS:MYGAME
+</pre>
+<p>to automatically clear the screen and run the program MYGAME.
+</p>
+
+<p>Please refer to the Sedoric user manual for a full list of all commands you can use there.
+</p>
+
+<p>When using the OSDK, you can use <b>OSDKINITST</b> and <b>OSDKDISK</b> to set the initialization sequence and final name of the program.
+</p>
+
+<p id=chapter>Alternatives</p>
+
+<p>An alternative to Tap2Dsk is FloppyBuilder.
+</p>
+
+<p>FloppyBuilder is much more difficult to learn, but it provides some benefits over Tap2Dsk:
+</p>
+<ul>
+<li>You get access to pretty much the entire top 16 kilobytes of ram while still being able to load from disk</li>
+<li>Files can be compressed on disk and decompress on the fly, giving you almost twice the amount of data on one single floppy</li>
+</ul>
+
+<p id=chapter>Historic</p>
+
+<p>Here is the list of all releases with a short description of things that changed:
+</p>
+
+<p id=dateentry>Version 2.1.1</p>
+<ul>
+<li>Added a fix to avoid the tool to stay stuck on tapes with incorrect size specified in their headers</li>
+</ul>
+
+<p id=dateentry>Version 2.1.0</p>
+<ul>
+<li>Upgraded the version of Sedoric 3 used by Tap2DSK with the patch that improves the handling of the "insert master disk" prompt</li>
+</ul>
+
+
+<hr>
+<A href="documentation.htm"><img src="arrow_back.gif"></A>
+<img src="pics/osdk_logo_small.png">
+<hr>
+
+	</BODY>
+</HTML>
+
+

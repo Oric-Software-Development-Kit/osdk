@@ -63,16 +63,29 @@ This switch is particularly interesting for people coding size limited programs,
 <p>To enable this feature in your own programs, just modify your OSDK_CONFIG.BAT file, and add the following:
 </p>
 
-<p>The -b switch sets the value 00 (BASIC) or 80 (Binary) in the tape header
+<p>The -b switch sets the value exposed in the tape header to indicate whether the file is a BASIC or binary program.
 This switch is particularly important if you are planning to convert a BASIC tape program to a text file, in which case you need to pass -b0
 </p>
 <pre>
--s0 => No size information is displayed
--s1 => Display size informations in the output
+-b0 => Expose 00 (BASIC) in the header
+-b1 => Expose 80 (Binary) in the header
 </pre>
-<p>To enable this feature in your own programs, just modify your OSDK_CONFIG.BAT file, and add the following:
-</p>
 
+<p>The -3 and -4 switches control how many times the sync byte $16 is written in the tape header:
+</p>
+<pre>
+-3 => Write $16 three times in the tape header
+-4 => Write $16 four times in the tape header [default]
+</pre>
+
+<p>The -n switch specifies the filename to embed in the internal tape header:
+</p>
+<pre>
+-nMYFILE => Write MYFILE as the filename in the tape header
+</pre>
+
+<p>Any of the above parameters can be passed to the Header tool automatically during the OSDK build process by setting the <b>OSDKHEAD</b> variable in your OSDK configuration file:
+</p>
 <pre>
 	SET OSDKHEAD=-S1
 </pre>
@@ -84,21 +97,36 @@ This switch is particularly important if you are planning to convert a BASIC tap
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.2</p>
+<ul>
+<li>Added the -3 and -4 flag to specify if the tape header should have 3 or 4 times the value $16</li>
+<li>Added a -nName option to specify the filename to write in the internal tape header</li>
+</ul>
+
 <p id=dateentry>Version 1.1</p>
-- If the source file starts by SEDORIC then the 12 first bytes are automatically ignored when the tape is converted<br />
+<ul>
+<li>If the source file starts by SEDORIC then the 12 first bytes are automatically ignored when the tape is converted</li>
+</ul>
 
 <p id=dateentry>Version 1.0</p>
- - Added the flag -b to specify if the converted file should expose 00 (BASIC) or 80 (Binary) in the header<br />
+<ul>
+<li>Added the flag -b to specify if the converted file should expose 00 (BASIC) or 80 (Binary) in the header</li>
+</ul>
 
 <p id=dateentry>Version 0.2</p>
- - The address can now be specified with either $ or 0x as an hexadecimal prefix<br />
+<ul>
+<li>The address can now be specified with either $ or 0x as an hexadecimal prefix</li>
+</ul>
 
 <p id=dateentry>Version 0.1</p>
- - Added s0/s1 mode to display file size information.
- Very usefull when you want to know the size of your game in a minigame compo...
- 
+<ul>
+<li>Added s0/s1 mode to display file size information. Very usefull when you want to know the size of your game in a size compo...</li>
+</ul>
+
 <p id=dateentry>Non numbered version</p>
- - First released version had no version number
+<ul>
+<li>First released version had no version number</li>
+</ul>
 
 
 <hr>

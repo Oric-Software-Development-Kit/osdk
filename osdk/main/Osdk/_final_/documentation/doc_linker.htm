@@ -67,11 +67,56 @@ By default the output name will be 'go.s':
 <p>The -f inserts a #file directives before each linked file.
 </p>
 
+<p>The -i defines an additional path to search for include files. It must be followed by a path:
+</p>
+<pre>
+	-i /usr/oric/include/
+</pre>
+
+<p>The -r defines the language tag used for conditional character replacement (see #pragma osdk replace_characters_if below). It must be followed by a tag string:
+</p>
+<pre>
+	-r french
+</pre>
+
+
+<p id=chapter>Pragma directives</p>
+
+<p>The linker supports special pragma directives embedded in the source files to control its behaviour:
+</p>
+
+<p><b>#pragma osdk replace_characters</b> defines a set of search/replace pairs to apply to all filtered output lines.
+This is used to perform text localization when the assembler source contains characters that need to be mapped differently depending on the target platform.
+The syntax uses a separator character of your choice, followed by pairs of tokens separated by that character:
+</p>
+<pre>
+	#pragma osdk replace_characters | sourcechar|replacementchar ...
+</pre>
+<p><b>Important limitation:</b> each <b>replace_characters</b> directive unconditionally replaces the previously active replacement table.
+This means it only works correctly if there is no other <b>replace_characters</b> directive appearing earlier in the linked files that would override it before the texts to localize are reached.
+For any project targeting more than one language, using <b>replace_characters_if</b> is strongly recommended instead.
+</p>
+
+<p><b>#pragma osdk replace_characters_if LANGUAGE_TAG</b> works identically to replace_characters, but only takes effect if the tag passed to the <b>-r</b> command line option matches LANGUAGE_TAG.
+This allows multiple language-specific replacement tables to coexist in a single source file:
+</p>
+<pre>
+	#pragma osdk replace_characters_if french | e|&#233; a|&#224;
+	#pragma osdk replace_characters_if spanish | n|&#241;
+</pre>
+<p>Only the pragma whose tag matches the <b>-r</b> argument will be applied; the others are silently ignored.
+</p>
+
 
 <p id=chapter>Historic</p>
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+<p id=dateentry>Version 1.2</p>
+- Added support for a "#pragma osdk replace_characters_if LANGUAGE_TAG" directive and a "-r LANGUAGE_TAG" command line option
+  to perform conditional character replacement: only the pragma whose tag matches the -r argument is applied.
+  This allows multiple language pragmas to coexist in a single file without the last one overriding all others.
 
 <p id=dateentry>Version 1.1</p>
 - Added support for a "#pragma osdk replace_characters" directive used to perform localization of texts (experimental)

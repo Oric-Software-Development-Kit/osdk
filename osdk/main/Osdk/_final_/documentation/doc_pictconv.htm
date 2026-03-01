@@ -64,6 +64,8 @@ PC paint program (PaintShopPro, PhotoShop, ...), in a format displayable on the 
   -f0 => Single palette format [default]
   -f1 => Multi palette format
   -f2 => Monochrome format
+  -f3 => Shifter palettes (Sommarhack Zero Bitplane hack)
+  -f4 => Medium-resolution format
 </pre>
 </p>
 </li>
@@ -396,102 +398,151 @@ Lena
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.2</p>
+<ul>
+<li>Added the -f4 option to the Atari ST converter, with support for medium-resolution pictures
+</ul>
+
 <p id=dateentry>Version 1.1</p>
 <ul>
 <li>Added the -f3 mode to convert atari images into Shifter palettes (Sommarhack Zero Bitplane hack)
 </ul>
 
 <p id=dateentry>Version 1.0</p>
-<li>When failing to load a picture, the error message will now indicate the name of the file
-<li>Fixed the Atari ST multi-palette export mode
+<ul>
+<li>When failing to load a picture, the error message will now indicate the name of the file</li>
+<li>Fixed the Atari ST multi-palette export mode</li>
+</ul>
 
 <p id=dateentry>Version 0.25</p>
-<li>Fixed the off-by-one error in the tape header when Exporting Oric images to tape format
+<ul>
+<li>Fixed the off-by-one error in the tape header when Exporting Oric images to tape format</li>
+</ul>
 
 <p id=dateentry>Version 0.24</p>
-<li>Fixed a problem in the color reduction code failing on a 32bit source image
+<ul>
+<li>Fixed a problem in the color reduction code failing on a 32bit source image</li>
+</ul>
 
 <p id=dateentry>Version 0.23</p>
-<li>Added the -f2 option to the Atari ST converter, with support for monochrome pictures
-<li>Added the -s1 option to generate two pictures that can be swapped each frame to generate more colors
+<ul>
+<li>Added the -f2 option to the Atari ST converter, with support for monochrome pictures</li>
+<li>Added the -s1 option to generate two pictures that can be swapped each frame to generate more colors</li>
+</ul>
 
 <p id=dateentry>Version 0.22</p>
-<li>Fixed the -f5 (charmap generator) to work correctly without crashing.
-<li>Inverted -o0 and -o1 in the description of commands (issue #3)
+<ul>
+<li>Fixed the -f5 (charmap generator) to work correctly without crashing</li>
+<li>Inverted -o0 and -o1 in the description of commands (issue #3)</li>
+</ul>
 
 <p id=dateentry>Version 0.21</p>
-<li>Added support for 32bit picture, to handle things like masking/opacity in the picture formats
-<li>The -a1 mode will generate bytes with null value for blocks of 6 pixels with transparent alpha values (only active in monochrome or AIC conversion modes)
-<li>Added the -f7 conversion mode for Oric pictures using the AIC coloring method.
+<ul>
+<li>Added support for 32bit picture, to handle things like masking/opacity in the picture formats</li>
+<li>The -a1 mode will generate bytes with null value for blocks of 6 pixels with transparent alpha values (only active in monochrome or AIC conversion modes)</li>
+<li>Added the -f7 conversion mode for Oric pictures using the AIC coloring method</li>
+</ul>
 
 <p id=dateentry>Version 0.20</p>
-<li>The -f6 mode can now be used for pictures that are taller than the screen<br>
-<li>Fixed the percentage calculation so it actually goes from 0 to 100 even when pictures are not 200 pixel tall.<br>
+<ul>
+<li>The -f6 mode can now be used for pictures that are taller than the screen</li>
+<li>Fixed the percentage calculation so it actually goes from 0 to 100 even when pictures are not 200 pixel tall</li>
+</ul>
 
 <p id=dateentry>Version 0.19</p>
-<li>Fixed a buffer overflow in the -f6 conversion mode happening when images are not 240x200<br>
-<li>Changed the depth mode from 3 to 2 to speed-up the conversion<br>
+<ul>
+<li>Fixed a buffer overflow in the -f6 conversion mode happening when images are not 240x200</li>
+<li>Changed the depth mode from 3 to 2 to speed-up the conversion</li>
+</ul>
 
 <p id=dateentry>Version 0.18</p>
-<li>Added the -f6 conversion mode for Oric pictures. This is the method used in Img2Oric/LibPipi and generally gives much better results when converting - albeit much much slower than other methods.<br>
+<ul>
+<li>Added the -f6 conversion mode for Oric pictures. This is the method used in Img2Oric/LibPipi and generally gives much better results when converting - albeit much much slower than other methods</li>
+</ul>
 
 <p id=dateentry>Version 0.17</p>
-<li>Fixed a the update code, was failing if the target file did not exist (facepalm)<br>
+<ul>
+<li>Fixed the update code, was failing if the target file did not exist</li>
+</ul>
 
 <p id=dateentry>Version 0.16</p>
-<li>New option to skip the conversion if the target file is more recent than the source file (-u)<br>
-<li>New option to enable/disable information about what happens (-v)<br>
+<ul>
+<li>New option to skip the conversion if the target file is more recent than the source file (-u)</li>
+<li>New option to enable/disable information about what happens (-v)</li>
+</ul>
 
 <p id=dateentry>Version 0.13</p>
- <li>It is now possible to lock some colors index to some particular values.<br>
+<ul>
+<li>It is now possible to lock some colors index to some particular values</li>
+</ul>
 
 <p id=dateentry>Version 0.12</p>
- <li>Lot of modifications in the codebase to handle more cleanly the various types of machines.<br>
- <li>The Atari ST now can generate multi-palette pictures.<br>
- <li>Color reduction is now done by PictConv, no need to reduce to 16 colors manually.<br>
+<ul>
+<li>Lot of modifications in the codebase to handle more cleanly the various types of machines</li>
+<li>The Atari ST now can generate multi-palette pictures</li>
+<li>Color reduction is now done by PictConv, no need to reduce to 16 colors manually</li>
+</ul>
 
 <p id=dateentry>Version 0.11</p>
- <li>Added the -o7 format to generate BASIC source codes.<br>
- <li>Removed the constraints in the -f1 mode, pictures just need to be multiple of 6 in width, and no more than 240 pixel wide.
+<ul>
+<li>Added the -o7 format to generate BASIC source codes</li>
+<li>Removed the constraints in the -f1 mode, pictures just need to be multiple of 6 in width, and no more than 240 pixel wide</li>
+</ul>
 
 <p id=dateentry>Version 0.10</p>
- <li>If there is something specified after -o3 or -o4 modes, it's used as a label name to use when generating source code data.<br>
- <li>If there is a 'z' specified after -f0 mode (monochrome conversion), it means that bit 6 should not be set in converted bytes<br>
- <li>Added -n switch to set the number of values per line (stolen from Bin2Txt !)<br>
+<ul>
+<li>If there is something specified after -o3 or -o4 modes, it's used as a label name to use when generating source code data</li>
+<li>If there is a 'z' specified after -f0 mode (monochrome conversion), it means that bit 6 should not be set in converted bytes</li>
+<li>Added -n switch to set the number of values per line (stolen from Bin2Txt !)</li>
+</ul>
 
 <p id=dateentry>Version 0.9</p>
- <li>New option for generating 'masks' in bits 6 and 7 based on what is presents in bits 0/1/2 and 3/4/5.<br>
-   (Twilighte's request for his new games)<br>
- <li>Added a way to convert pictures to something that can be used on an Atari ST.<br>
-   (needed that for my entry to the 20 years anniversary Atari ST compo)<br>
+<ul>
+<li>New option for generating 'masks' in bits 6 and 7 based on what is presents in bits 0/1/2 and 3/4/5 (Twilighte's request for his new games)</li>
+<li>Added a way to convert pictures to something that can be used on an Atari ST (needed for the 20 years anniversary Atari ST compo)</li>
+</ul>
 
 <p id=dateentry>Version 0.8</p>
- <li>Added "test" mode that's usefull to debug a picture in colored mode
- 
+<ul>
+<li>Added "test" mode that's usefull to debug a picture in colored mode</li>
+</ul>
+
 <p id=dateentry>Version 0.7</p>
-<li>Removed the timer check in the colored conversion mode. It was producing bad 
-   conversion on slow computers. Anyway, if you are unlucky, a conversion could
-   now take hours to perform if the tool has to perform ALL possible combinations.
+<ul>
+<li>Removed the timer check in the colored conversion mode. It was producing bad conversion on slow computers. Anyway, if you are unlucky, a conversion could now take hours to perform if the tool has to perform ALL possible combinations</li>
+</ul>
 
 <p id=dateentry>Version 0.6</p>
-<li>A message is given if the picture is not found or invalid.<br>
-<li>Colored mode had some bugs: all now corrected ???<br>
+<ul>
+<li>A message is given if the picture is not found or invalid</li>
+<li>Colored mode had some bugs: all now corrected ???</li>
+</ul>
 
 <p id=dateentry>Version 0.5</p>
-<li>Debugged the -o6 format.<br>
-<li>Debugged the -f1 mode.<br>
+<ul>
+<li>Debugged the -o6 format</li>
+<li>Debugged the -f1 mode</li>
+</ul>
 
 <p id=dateentry>Version 0.4</p>
-<li>Allow free size pictures (bigger than screen size except for colored mode)<br>
+<ul>
+<li>Allow free size pictures (bigger than screen size except for colored mode)</li>
+</ul>
 
 <p id=dateentry>Version 0.3</p>
-<li>Riemersman dithering implemented <br>
+<ul>
+<li>Riemersman dithering implemented</li>
+</ul>
 
 <p id=dateentry>Version 0.2</p>
- <li>New version with basic dithering<br>
+<ul>
+<li>New version with basic dithering</li>
+</ul>
 
 <p id=dateentry>Version 0.1</p>
- <li>First beta release<br>
+<ul>
+<li>First beta release</li>
+</ul>
 
 
 

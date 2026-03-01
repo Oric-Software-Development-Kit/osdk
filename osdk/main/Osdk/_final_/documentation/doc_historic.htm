@@ -17,6 +17,33 @@
 
 		<h1>Version history</h1>
 
+<p id=dateentry>Version 1.22 - February 28th 2026</p>
+	<ul>
+		<li>Upgraded <A href="doc_assembler.htm">XA</A> to the version 2.3.0:
+		<ul>
+			<li>Added support for the defined() operator in preprocessor expressions</li>
+			<li>Added support for the #elif preprocessor directive</li>
+		</ul>
+		</li>
+		<li>Upgraded <A href="doc_linker.htm">Link65</A> to the version 1.02:
+		<ul>
+			<li>Added support for a "#pragma osdk replace_characters_if LANGUAGE_TAG" directive and a "-r LANGUAGE_TAG" command line option to perform conditional character replacement: only the pragma whose tag matches the -r argument is applied</li>
+			<li>This allows multiple language pragmas to coexist in a single file without the last one overriding all others</li>
+		</ul>
+		</li>
+		<li>Upgraded <A href="doc_header.htm">Header</A> to version 1.2:
+		<ul>
+			<li>Added the -3 and -4 flag to specify if the tape header should have 3 or 4 times the value $16</li>
+			<li>Added a -nName option to specify the filename to write in the internal tape header</li>
+		</ul>
+		</li>
+		<li>Upgraded <A href="doc_pictconv.htm">PictConv</A> to version 1.2:
+		<ul>
+			<li>Added the -f4 option to the Atari ST converter, with support for medium-resolution pictures</li>
+		</ul>
+		</li>
+	</ul>
+
 <p id=dateentry>Version 1.21 - April 19th 2025</p>
 	<ul>
 		<li>Upgraded <A href="doc_linker.htm">Link65</A> to the version 1.1: 
@@ -116,7 +143,7 @@
 		<li>Upgraded <A href="doc_linker.htm">Link65</A> to the version 0.66: The new macro file generate lines that contain multiple instructions, the linker stopped at the first encountered instruction, this new version correctly parses that</li>
         <li>The code generator macro file is now compatible with both XA and FRASM</li>
         <li>Updated <A href="doc_filepack.htm">FilePack</A> version number to 0.2 to 0.5 after somebody reported an issue with a veryyyyyyy old version which happened to have the same version number of a much more recent one.</li>
-        <li>Tap2Dsk 2.1.1: Added a fix to avoid the tool to stay stuck on tapes with incorrect size specified in their headers</li>
+        <li><A href="doc_tap2dsk.htm">Tap2Dsk</A> 2.1.1: Added a fix to avoid the tool to stay stuck on tapes with incorrect size specified in their headers</li>
         <li>Fixed a problem with itoa not correctly processing negative numbers (the "-" was overwritten by the number printing routine). Also took the opportunity to optimize the code (removed the jsr itoa / rts as well as an unnecessary x register clearing (it's set to zero when we are back from udiv10)</li>
         <li>Added support for %u to printf</li>
         <li>A new environment variable, OSDKVERSION contains the version number of the SDK, it is shown when building a program</li>
@@ -135,7 +162,7 @@
         <li>Updated macros for the C compiler from version 1.29 to 1.30 (fixes in the ADDW_IID, SUBW_IID, ANDW_IID, XORW_IID and ORW_IID which used the wrong register to access the source pointer).</li>
 		<li>Fixed the BomberZ sample program to use the new Bas2Tap syntax</li>
         <li>Fixed the library functions 'scanf' and 'sscanf' (For some reason these files had not been converted to use the XA syntax when we switched from FRASM)</li>
-        <li>Upgraded the version of Sedoric 3 used by Tap2DSK with the patch that improves the handling of the "insert master disk" prompt</li>
+        <li>Upgraded the version of Sedoric 3 used by <A href="doc_tap2dsk.htm">Tap2DSK</A> with the patch that improves the handling of the "insert master disk" prompt</li>
         <li>Modified the Oricutron batch file to use PUSHD/POPD instead of CD, this makes it possible to start the emulator even when the project is on another disk drive location</li>
 	</ul>
 
@@ -203,7 +230,7 @@
 		<li>Updated code generator and macros for the C compiler (bug fix for the MicroChess program).</li>
 		<li>The C Compiler now supports binary values (using the 0b prefix).</li>
 		<li>Many fixes to make the LINUX version a reality (case change for files, gcc compile fixes, ...)</li>
-		<li>Upgraded <A href="doc_bas2tap.htm">Bas2Tap</A> and Tap2Dsk to give names to the generated tapes.</li>
+		<li>Upgraded <A href="doc_bas2tap.htm">Bas2Tap</A> and <A href="doc_tap2dsk.htm">Tap2Dsk</A> to give names to the generated tapes.</li>
 		<li>Upgraded <A href="doc_header.htm">Header</A>: The address can now be specified with either $ or 0x as an hexadecimal prefix</li>
 	</ul>
 
@@ -233,7 +260,7 @@
 <p id=dateentry>Version 0.19 - January the 18th 2011</p>
 	<ul>
 		<li>Upgraded <A href="doc_assembler.htm">XA</A> to the version 2.2.3</li>
-		<li>Added TapTool 1.0 - Should work as a drop-in replacement for Tap2CD, in the future will provide in one tool all the functionalities of Tap2Wav, Tap2CD and Tap2DSK.</li>
+		<li>Added TapTool 1.0 - Should work as a drop-in replacement for Tap2CD, in the future will provide in one tool all the functionalities of Tap2Wav, Tap2CD and <A href="doc_tap2dsk.htm">Tap2DSK</A>.</li>
 		<li>Added DskTool 1.0 - Should work as a drop-in replacement for Old2Mfm, in the future will provide in one tool all the functionalities of Old2Mfm, Raw2Mfm, CRCFix, Init, MakeDsk, ...</li>
 	</ul>
 
@@ -250,7 +277,7 @@
 	<ul>
 		<li>It is now possible to indicate subfolders in the OSDK_CONFIG file list</li>
 		<li>A new configuration parameter <b>OSDKDISK</b> can be used to define the layout of a DSK file. When calling OSDK_EXECUTE this will automatically run <A href="doc_emulator.htm">Euphoric</A> in microdisc mode, and make it boot on the newly generated floppy.</li>
-		<li>Upgraded the version of Tap2Dsk</li>
+		<li>Upgraded the version of <A href="doc_tap2dsk.htm">Tap2Dsk</A></li>
 		<li>Integrated the first version of Wilfrid AVRILLON's BASIC labelizer tool</li>
 		<li><A href="doc_bas2tap.htm">Bas2Tap</A> now accepts line number 0, and has a new parameter -color[0|1] to enable syntax coloring on rem statements.</li>
 		<li>Added a 256 bytes demo in the assembler samples, to show how to do a minimalistic program.</li>

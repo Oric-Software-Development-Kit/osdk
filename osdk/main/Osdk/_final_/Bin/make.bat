@@ -104,7 +104,7 @@ SET TEMP=%OSDKT%
 SET OCC=%OSDK%
 SET LCC65=%OSDK%
 SET LCC65DIR=%OSDK%
-SET OSDKVERSION=1.20
+SET OSDKVERSION=1.22
 
 ::
 :: Create a build directory if it does not exist
@@ -131,9 +131,9 @@ MD %OSDKT% >NUL
 
 ::
 :: Display a compilation message
-:: Note: Should find a way to disable the adress display for BASIC programs... kind of lame
+:: Note: Should find a way to disable the address display for BASIC programs... kind of lame
 ::
-ECHO Building the program %OSDKNAME% at adress %OSDKADDR% [OSDK %OSDKVERSION%]
+ECHO Building the program %OSDKNAME% at address %OSDKADDR% [OSDK %OSDKVERSION%]
 
 
 ::

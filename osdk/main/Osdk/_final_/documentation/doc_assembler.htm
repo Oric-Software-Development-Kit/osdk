@@ -323,6 +323,10 @@ comments in '/*' and '*/'. Comments can be nested.
 #iflused label           .... if a label has already been used
 
 #ifldef label            .... if a label is already defined
+
+#elif expression         .... else if expression is not zero (optional, can be chained before #endif)
+
+defined(DEF)             .... evaluates to 1 if DEF is defined, 0 otherwise; can be used in #if and #elif expressions
 </pre>
 #iflused and #ifldef work an labels, not on preprocessor defs! With these
 commands a kind of library is easily built:
