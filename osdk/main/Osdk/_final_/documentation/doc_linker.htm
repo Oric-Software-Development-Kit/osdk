@@ -113,6 +113,9 @@ This allows multiple language-specific replacement tables to coexist in a single
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.3</p>
+- Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied
+
 <p id=dateentry>Version 1.2</p>
 - Added support for a "#pragma osdk replace_characters_if LANGUAGE_TAG" directive and a "-r LANGUAGE_TAG" command line option
   to perform conditional character replacement: only the pragma whose tag matches the -r argument is applied.

@@ -239,8 +239,8 @@ void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
         else
         if (car==';')
         {
-          // Found start of assembler line comment - just stop here
-          return;
+          // Found start of assembler line comment - break to still apply string replacement
+          break;
         }
         else
         if ( (car=='/') && (*m_InputLinePtr=='*') )
@@ -252,8 +252,8 @@ void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
         else
         if ( (car=='/') && (*m_InputLinePtr=='/') )
         {
-          // Found start of C++ line comment - just stop here
-          return;
+          // Found start of C++ line comment - break to still apply string replacement
+          break;
         }
         else
         {
