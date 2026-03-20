@@ -21,7 +21,7 @@ Change history for the Bas2Tap
 - Added a -optimize option (used to disable things like comments)
 
 2.0 - 2018/07/25
-- Added support for labels and auto-numbering (use § as a keyword to expand to the current line number)
+- Added support for labels and auto-numbering (use ï¿½ as a keyword to expand to the current line number)
 - Added support for escape sequences to directly integrate carriage return or attribute changes inside strings without having to use CHR$ (use the character ~ as the ESCape prefix)
 - Added a basic support for #defines 
 - The -optimize option now also filters out as much whitespace as possible
@@ -38,10 +38,14 @@ Change history for the Bas2Tap
 2.3 - 2024/08/21
 - Fixed some issue with "lastsep" signaled by iss
 
+2.4 - 2026/03/19
+- Fixed the FOR loop label conversion bug where a numeric value after TO (e.g. FOR I=1 TO 10) was incorrectly validated as a line number reference
+- Fixed the Basic labels sample to use the correct #labels syntax
+
 */
 
 
 #define TOOL_VERSION_MAJOR	2
-#define TOOL_VERSION_MINOR	3
+#define TOOL_VERSION_MINOR	4
 
 

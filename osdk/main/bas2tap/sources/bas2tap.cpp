@@ -930,7 +930,7 @@ void Bas2Tap(const char *sourceFile, const char *destFile, bool autoRun, bool us
                     }
                   }
                   // Should have one or more (comma separated) numbers, variables, or labels.
-                  bool shouldValidateLineNumber = ! ( (keyw == Token_SymbolEqual) || (keyw == Token_SymbolMinus) || (keyw == Token_SymbolPlus) || (keyw == Token_SymbolMultiply) || (keyw == Token_SymbolDivide));
+                  bool shouldValidateLineNumber = ! ( (keyw == Token_SymbolEqual) || (keyw == Token_SymbolMinus) || (keyw == Token_SymbolPlus) || (keyw == Token_SymbolMultiply) || (keyw == Token_SymbolDivide) || (keyw == Token_TO));
                   ProcessPossibleLineNumberLabelOrDefine(bufPtr, ligne, shouldValidateLineNumber,optimize);
                   ProcessOptionalWhiteSpace(bufPtr, ligne, optimize);
                 }
