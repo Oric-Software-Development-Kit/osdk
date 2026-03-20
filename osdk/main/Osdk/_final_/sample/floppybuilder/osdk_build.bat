@@ -123,6 +123,13 @@ ECHO Building final floppy
 popd
 goto End
 
+:ErCfg
+ECHO == ERROR ==
+ECHO The Oric SDK was not configured properly
+ECHO You should have a OSDK environment variable setted to the location of the SDK
+IF "%OSDKBRIEF%"=="" PAUSE
+GOTO End
+
 :Error
 ECHO.
 ECHO An Error has happened. Build stopped
