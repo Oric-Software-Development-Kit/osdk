@@ -219,7 +219,9 @@ ErrorCode Preprocessor::command_print(char *t)
 		logout("=");
 		logout(BufferLine);
 		logout("= ");
+		gDsbLen = 1;	// Suppress pointer arithmetic check — #print doesn't emit code
 		er=b_term(BufferLine,&a,&f,TablePcSegment[gCurrentSegment]);
+		gDsbLen = 0;
 		if (er)
 		{
 			logout("\n");

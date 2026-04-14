@@ -71,6 +71,10 @@ Change history for XA
 - Added support for the defined() operator in preprocessor expressions.
 - Added support for the #elif preprocessor directive.
 
+2.3.1 - 2026/04/12
+- Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
+  relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
+  bypassed for #print, matching the existing behavior of #if.
 */
 
 
