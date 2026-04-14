@@ -75,6 +75,9 @@ Change history for XA
 - Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
   relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
   bypassed for #print, matching the existing behavior of #if.
+- 65816 instructions are now disabled by default. Values exceeding 16 bits (e.g. $BB80B from a
+  typo) now produce an error instead of silently generating 65816 long addressing opcodes.
+  Use '-w' (lowercase) to explicitly enable 65816 mode. The '-W' flag is kept for compatibility.
 */
 
 

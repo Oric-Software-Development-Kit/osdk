@@ -112,7 +112,8 @@ static void usage(void)
 		"options:\n"
 		" -v          = verbose output\n"
 		" -C          = no CMOS-opcodes\n"
-		" -W          = no 65816-opcodes\n"
+		" -w          = allow 65816-opcodes (disabled by default)\n"
+		" -W          = no 65816-opcodes (default, kept for compatibility)\n"
 		" -B          = show lines with block open/close\n"
 		" -c          = produce o65 object instead of executable files (i.e. do not link)\n"
 		" -cc         = almost identical to '-c' except the result is usable with CC65 tools\n"
@@ -155,7 +156,7 @@ int main(int argc,char *argv[])
 	gFlag_ncmos=0;
 	gFlag_n65816=0;
 	gFlag_cmosfl=1;
-	gFlag_w65816=1;
+	gFlag_w65816=0;
 
 	afile = new FileData;
 	if (!afile)
@@ -257,6 +258,10 @@ int main(int argc,char *argv[])
 
 			case 'C':
 				gFlag_cmosfl = 0;
+				break;
+
+			case 'w':
+				gFlag_w65816 = 1;
 				break;
 
 			case 'W':
