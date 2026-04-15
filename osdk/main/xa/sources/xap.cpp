@@ -1182,7 +1182,7 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 			//
 			if ((er=Preprocessor::HandleCommand(m_BufferLine+1)))
 			{
-				if (er!=1)
+				if (er!=1 && er!=E_USERERROR)
 				{
 					logout(m_BufferLine);
 					logout("\n");
@@ -1196,7 +1196,19 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 		
 		if(c==EOF)
 		{
-			er=icl_close(&c);
+			// If we have a non-empty regular line to return, don't let
+			// icl_close overwrite er with E_EOF. The line content is valid
+			// and should be processed by the assembler. EOF will be handled
+			// on the next call when the buffer is empty.
+			// (er==1 is the internal sentinel for "regular line ready")
+			if (er == (ErrorCode)1 && m_BufferLine[0] != 0)
+			{
+				icl_close(&c);
+			}
+			else
+			{
+				er=icl_close(&c);
+			}
 		}
 		
 	} 

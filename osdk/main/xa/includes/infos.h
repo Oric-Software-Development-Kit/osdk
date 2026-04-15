@@ -76,6 +76,8 @@ Change history for XA
 - Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
   relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
   bypassed for #print, matching the existing behavior of #if.
+- Fixed the last line of a source file being silently skipped when it lacks a trailing newline.
+  The preprocessor now preserves non-empty lines terminated by EOF instead of discarding them.
 - Numeric literals with trailing invalid characters now produce a syntax error instead of being
   silently accepted. Affects hex ($FF), binary (%01), and octal (&77) literals.
   For example, $FFg previously parsed as $FF with the trailing 'g' silently ignored.
