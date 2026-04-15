@@ -72,7 +72,9 @@ Change history for XA
 - Added support for the #elif preprocessor directive.
 
 2.3.1 - 2026/04/12
+- Fixed the defined() operator not working in #if directives (only worked in #elif)
 - Added #error preprocessor directive: stops assembly with a custom error message.
+  Correctly skipped inside false #if/#ifdef branches. Supports macro expansion in message text.
 - Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
   relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
   bypassed for #print, matching the existing behavior of #if.

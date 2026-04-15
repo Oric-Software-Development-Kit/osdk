@@ -266,29 +266,36 @@ ErrorCode Preprocessor::command_print(char *t)
 
 ErrorCode Preprocessor::command_if(char *t)
 {
-	int a,f,l,er;
-	
-	if ((er=pp_replace(BufferLine,t,-1,m_CurrentListIndex)))
+	int a;
+
+	// Check for "defined(SYMBOL)" syntax first
+	bool definedResult;
+	if (EvaluateDefined(t, definedResult))
 	{
-		errout(er);
+		a = definedResult ? 1 : 0;
 	}
 	else
 	{
+		// General expression: macro-replace then evaluate
+		int f, l, er;
+		if ((er=pp_replace(BufferLine,t,-1,m_CurrentListIndex)))
+		{
+			errout(er);
+			return E_OK;
+		}
 		gDsbLen = 1;
 		f=b_term(BufferLine,&a,&l,TablePcSegment[gCurrentSegment]);
 		gDsbLen = 0;
-		
 		if ((!m_LogicalOpcodesStack) && f)
 		{
 			errout(f);
-		}
-		else
-		{
-			bool outer_active = (m_LogicalOpcodesStack == 0);
-			m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (a ? 0 : 1);
-			m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || a != 0) ? 1 : 0);
+			return E_OK;
 		}
 	}
+
+	bool outer_active = (m_LogicalOpcodesStack == 0);
+	m_LogicalOpcodesStack = (m_LogicalOpcodesStack << 1) + (a ? 0 : 1);
+	m_BranchTakenStack = (m_BranchTakenStack << 1) | ((!outer_active || a != 0) ? 1 : 0);
 	return E_OK;
 }
 
@@ -326,26 +333,11 @@ ErrorCode Preprocessor::command_elif(char *t)
 		m_BranchTakenStack |= 1;
 	} else if (!branch_taken) {
 		// Was skipping, no branch taken yet → evaluate elif condition
-		// Supports: "elif defined(SYMBOL)" or "elif SYMBOL"
-		while (*t == ' ' || *t == '\t') t++;
 		bool cond;
-		if (strncmp(t, "defined", 7) == 0) {
-			const char *p = t + 7;
-			while (*p == ' ' || *p == '\t') p++;
-			if (*p == '(') {
-				p++;
-				while (*p == ' ' || *p == '\t') p++;
-				char sym[MAXLINE];
-				int i = 0;
-				while (p[i] && p[i] != ')' && p[i] != ' ' && p[i] != '\t') {
-					sym[i] = p[i]; i++;
-				}
-				sym[i] = 0;
-				cond = suchdef(sym) != 0;
-			} else {
-				cond = suchdef(const_cast<char*>(t)) != 0;
-			}
-		} else {
+		if (!EvaluateDefined(t, cond))
+		{
+			// Not a defined() expression, fall back to simple symbol lookup
+			while (*t == ' ' || *t == '\t') t++;
 			cond = suchdef(t) != 0;
 		}
 		if (cond) {
@@ -424,6 +416,39 @@ ErrorCode Preprocessor::command_prdef(char *t)
 }
 
 
+
+
+// Checks if the expression is a "defined(SYMBOL)" call.
+// Returns true if it was a defined() expression (with the result in 'result'), false if not (caller should use normal evaluation).
+bool Preprocessor::EvaluateDefined(char *t, bool &result)
+{
+	while (*t == ' ' || *t == '\t') t++;
+	if (strncmp(t, "defined", 7) != 0)
+	{
+		return false;
+	}
+	const char *p = t + 7;
+	while (*p == ' ' || *p == '\t') p++;
+	if (*p == '(')
+	{
+		p++;
+		while (*p == ' ' || *p == '\t') p++;
+		char sym[MAXLINE];
+		int i = 0;
+		while (p[i] && p[i] != ')' && p[i] != ' ' && p[i] != '\t')
+		{
+			sym[i] = p[i];
+			i++;
+		}
+		sym[i] = 0;
+		result = suchdef(sym) != 0;
+	}
+	else
+	{
+		result = suchdef(t) != 0;
+	}
+	return true;
+}
 
 
 int Preprocessor::suchdef(char *t)

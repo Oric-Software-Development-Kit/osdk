@@ -66,6 +66,7 @@ public:
 	ErrorCode GetLine(char *t);
 
 	int suchdef(char *t);
+	bool EvaluateDefined(char *t, bool &result);
 	int CheckForPreprocessorCommand(char s[]);
 
 	ErrorCode pp_replace(char *ptr_output,char *ptr_input,int a,int b);
