@@ -18,7 +18,7 @@
 
 
 
-#define VALBEF    6
+#define VALBEF    7
 
 
 static char *Preprocessor_CommandList[]=
@@ -29,6 +29,7 @@ static char *Preprocessor_CommandList[]=
 	"undef",
 	"printdef",
 	"print",
+	"error",
 	"ifdef",
 	"ifndef",
 	"else",
@@ -98,7 +99,10 @@ ErrorCode Preprocessor::HandleCommand(char *ptr_preprocessor_directive)
 			case e_command_print:	// 5
 				er=command_print(ptr_preprocessor_directive+directive_lenght);
 				break;
-			case e_command_ifdef:	// 6
+			case e_command_error:	// 6
+				er=command_error(ptr_preprocessor_directive+directive_lenght);
+				break;
+			case e_command_ifdef:	// 7
 				er=command_ifdef(ptr_preprocessor_directive+directive_lenght);
 				break;
 			case e_command_ifndef:	// 7
@@ -186,6 +190,29 @@ ErrorCode Preprocessor::command_echo(char *t)
 		logout("\n");
 	}
 	return E_OK;
+}
+
+ErrorCode Preprocessor::command_error(char *t)
+{
+	// Expand macros in the message text
+	if (pp_replace(BufferLine, t, -1, m_CurrentListIndex))
+	{
+		// Macro expansion failed — use raw text
+		strncpy(gError_UserMessage, t, MAXLINE - 1);
+	}
+	else
+	{
+		strncpy(gError_UserMessage, BufferLine, MAXLINE - 1);
+	}
+	gError_UserMessage[MAXLINE - 1] = 0;
+
+	// Trim leading whitespace
+	char *msg = gError_UserMessage;
+	while (*msg == ' ' || *msg == '\t') msg++;
+	if (msg != gError_UserMessage)
+		memmove(gError_UserMessage, msg, strlen(msg) + 1);
+
+	return E_USERERROR;
 }
 
 // There are now two possible syntaxes:

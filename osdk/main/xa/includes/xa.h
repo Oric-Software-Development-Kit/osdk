@@ -3,6 +3,7 @@
 
 extern void errout(int er);
 extern void logout(char *s);
+extern char gError_UserMessage[];
 
 extern int gFlag_ncmos;
 extern int gFlag_cmosfl;

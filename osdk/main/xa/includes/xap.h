@@ -44,7 +44,8 @@ public:
 		e_command_undef,	// 3
 		e_command_prdef,	// 4
 		e_command_print,	// 5
-		e_command_ifdef,	// 6
+		e_command_error,	// 6
+		e_command_ifdef,	// 7
 		e_command_ifndef,	// 7
 		e_command_else,	// 8
 		e_command_endif,	// 9
@@ -79,6 +80,7 @@ public:
 	ErrorCode command_echo(char*);
 	ErrorCode command_if(char*);
 	ErrorCode command_print(char*);
+	ErrorCode command_error(char*);
 	ErrorCode command_prdef(char*);
 	ErrorCode command_ifldef(char*);
 	ErrorCode command_iflused(char*);

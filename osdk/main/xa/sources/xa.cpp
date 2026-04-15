@@ -57,6 +57,7 @@ static FILE *gOutputFileHandle;
 FILE *gErrorFileHandle;
 static FILE *gSymbolsFileHandle;
 static int ner = 0;
+char gError_UserMessage[MAXLINE];	// Buffer for #error directive message
 
 static int align = 1;
 
@@ -821,6 +822,7 @@ static char *ertxt[] =
 	"File Option not at file start (when ROM-able)",
 	"Illegal align value",
 	"65816 instructions are not allowed (use -w to enable)",
+	"#error directive",
 	"Address value exceeds 16 bits ($FFFF max)",
 	/* warnings start here */
 	"Cutting word relocation in byte value",
@@ -956,6 +958,8 @@ void errout(int er)
 	{
 		if (er==ERR_UNDEFINED_LABEL)
 			sprintf(out,"%s(%u):  %04x:Label '%s' not defined\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],gError_LabelNamePointer);
+		else if (er==E_USERERROR)
+			sprintf(out,"%s(%u): Error %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),gError_UserMessage);
 		else
 			sprintf(out,"%s(%u):  %04x:%s error\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],ertxt[-er-1]);
 
