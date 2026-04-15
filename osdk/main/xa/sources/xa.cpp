@@ -774,7 +774,7 @@ static int pass1(void)
 
 
 
-#define   ANZERR	31
+#define   ANZERR	33
 #define   ANZWARN	6
 
 /*
@@ -820,7 +820,8 @@ static char *ertxt[] =
 	"File header option too long",
 	"File Option not at file start (when ROM-able)",
 	"Illegal align value",
-	"65816 instructions are not allowed (-W flag)",
+	"65816 instructions are not allowed (use -w to enable)",
+	"Address value exceeds 16 bits ($FFFF max)",
 	/* warnings start here */
 	"Cutting word relocation in byte value",
 	"Byte relocation in word value",

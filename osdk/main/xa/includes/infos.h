@@ -75,6 +75,11 @@ Change history for XA
 - Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
   relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
   bypassed for #print, matching the existing behavior of #if.
+- Numeric literals with trailing invalid characters now produce a syntax error instead of being
+  silently accepted. Affects hex ($FF), binary (%01), and octal (&77) literals.
+  For example, $FFg previously parsed as $FF with the trailing 'g' silently ignored.
+- Fixed 0x hex prefix parsing reading from the wrong offset (skipped only the '0', not the 'x'),
+  causing 0xFF to be parsed as value 0.
 - 65816 instructions are now disabled by default. Values exceeding 16 bits (e.g. $BB80B from a
   typo) now produce an error instead of silently generating 65816 long addressing opcodes.
   Use '-w' (lowercase) to explicitly enable 65816 mode. The '-W' flag is kept for compatibility.

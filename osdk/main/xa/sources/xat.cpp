@@ -400,29 +400,36 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 			int tmp;
 			if (!(er=evaluate_expression(ptr_output+1,&tmp,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,0)))
 			{
-				i=1;
-				ptr_output[i++]=T_VALUE;
-				ptr_output[i++]=((tmp)>>0)&255;
-				ptr_output[i++]=((tmp)>>8)&255;
-				ptr_output[i++]=((tmp)>>16)&255;
-				ptr_output[i++]=((tmp)>>24)&255;
-				ptr_output[i++]=T_END;
-				*ll=7;
-				er=E_OKDEF;
-				if (gCurrentSegment==eSEGMENT_TEXT) 
+				if (tmp > 0xFFFF && !gFlag_w65816)
 				{
-					TablePcSegment[eSEGMENT_ABS] = tmp;
-					r_mode(RMODE_ABS);
-				} 
-				else 
+					er = E_PCOVERFLOW;
+				}
+				else
 				{
-					if (!relmode) 
+					i=1;
+					ptr_output[i++]=T_VALUE;
+					ptr_output[i++]=((tmp)>>0)&255;
+					ptr_output[i++]=((tmp)>>8)&255;
+					ptr_output[i++]=((tmp)>>16)&255;
+					ptr_output[i++]=((tmp)>>24)&255;
+					ptr_output[i++]=T_END;
+					*ll=7;
+					er=E_OKDEF;
+					if (gCurrentSegment==eSEGMENT_TEXT) 
 					{
-						TablePcSegment[gCurrentSegment] = tmp;
+						TablePcSegment[eSEGMENT_ABS] = tmp;
+						r_mode(RMODE_ABS);
 					} 
 					else 
 					{
-						er = E_ILLSEGMENT;
+						if (!relmode) 
+						{
+							TablePcSegment[gCurrentSegment] = tmp;
+						} 
+						else 
+						{
+							er = E_ILLSEGMENT;
+						}
 					}
 				}
 			} 
@@ -732,6 +739,10 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 	}
 
 	*ptr_size_written += bl;
+	if (bl > 0 && (TablePcSegment[gCurrentSegment] + bl) > 0x10000 && !gFlag_w65816)
+	{
+		er = E_PCOVERFLOW;
+	}
 	TablePcSegment[gCurrentSegment]+=bl;
 	if (gCurrentSegment==eSEGMENT_TEXT)	TablePcSegment[eSEGMENT_ABS]+=bl;
 	if (gCurrentSegment==eSEGMENT_ABS)	TablePcSegment[eSEGMENT_TEXT]+=bl;
@@ -985,13 +996,20 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 		{
 			int npc;
 			er=evaluate_expression(t+1,&npc,&l,TablePcSegment[gCurrentSegment],&afl,&label,0);
+			if (!er && npc > 0xFFFF && !gFlag_w65816)
+			{
+				er = E_PCOVERFLOW;
+			}
 			bl=0;     
 			*ll=0;
-			if (gCurrentSegment==eSEGMENT_TEXT) 
+			if (!er)
 			{
-				r_mode(RMODE_ABS);
+				if (gCurrentSegment==eSEGMENT_TEXT)
+				{
+					r_mode(RMODE_ABS);
+				}
+				TablePcSegment[gCurrentSegment] = npc;
 			}
-			TablePcSegment[gCurrentSegment] = npc;
 		} 
 		else
 		if (n==Kreloc) 
@@ -1359,6 +1377,10 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 		{
 			er=E_SYNTAX;
 		}
+	}
+	if (bl > 0 && (TablePcSegment[gCurrentSegment] + bl) > 0x10000 && !gFlag_w65816)
+	{
+		er = E_PCOVERFLOW;
 	}
 	TablePcSegment[gCurrentSegment]+=bl;
 	if (gCurrentSegment==eSEGMENT_TEXT)	TablePcSegment[eSEGMENT_ABS]+=bl;

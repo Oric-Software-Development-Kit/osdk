@@ -113,12 +113,14 @@ enum ErrorCode
 	E_ROMOPT 			=-29,       // header option not directly after file start in romable mode 
 	E_ILLALIGN			=-30,		// illegal align value 
 	E_65816				=-31,
-	W_ADRRELOC			=-32,		// word relocation in byte value 
-	W_BYTRELOC			=-33,		// byte relocation in word value 
-	E_WPOINTER 			=-34,		// illegal pointer arithmetic!   
-	W_ADDRACC			=-35,		// addr access to low or high byte pointer 
-	W_HIGHACC			=-36,		// high byte access to low byte pointer 
-	W_LOWACC			=-37		// low byte access to high byte pointer 
+	E_USERERROR			=-32,		// #error directive
+	E_PCOVERFLOW		=-33,		// program counter value exceeds 16 bits
+	W_ADRRELOC			=-34,		// word relocation in byte value
+	W_BYTRELOC			=-35,		// byte relocation in word value
+	E_WPOINTER 			=-36,		// illegal pointer arithmetic!
+	W_ADDRACC			=-37,		// addr access to low or high byte pointer
+	W_HIGHACC			=-38,		// high byte access to low byte pointer
+	W_LOWACC			=-39		// low byte access to high byte pointer
 };
 
 
