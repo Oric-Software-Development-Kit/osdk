@@ -275,7 +275,7 @@ static ErrorCode perform_operation(int *w,int w2,OPERATOR_e code_operator)
           break;
 
      case eOPERATOR_DIVIDE:
-          if (w!=0)
+          if (w2!=0)
                *w /=w2;
           else
                er =E_DIV;
