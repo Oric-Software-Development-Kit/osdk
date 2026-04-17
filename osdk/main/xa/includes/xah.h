@@ -120,7 +120,11 @@ enum ErrorCode
 	E_WPOINTER 			=-36,		// illegal pointer arithmetic!
 	W_ADDRACC			=-37,		// addr access to low or high byte pointer
 	W_HIGHACC			=-38,		// high byte access to low byte pointer
-	W_LOWACC			=-39		// low byte access to high byte pointer
+	W_LOWACC			=-39,		// low byte access to high byte pointer
+	E_BIN				=-40,		// .bin pseudo-op (signal, like E_DSB)
+	E_AERROR			=-41,		// .assert failed
+	E_OUTOFDATA			=-42,		// .bin offset+length exceeds file size
+	E_ILLQUANT			=-43		// illegal quantity (negative offset/length)
 };
 
 

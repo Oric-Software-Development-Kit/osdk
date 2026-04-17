@@ -678,6 +678,43 @@ int FileData::pass2()
 				}
 			}
 			else
+			if (er==E_BIN)
+			{
+				const signed char* ptr=m_cMnData.GetReadPointer();
+				int offset = (ptr[0]&0xff) | ((ptr[1]&0xff)<<8) | ((ptr[2]&0xff)<<16);
+				int flen = ptr[3]&0xff;
+				char binfnam[256];
+				for (int j=0; j<flen; j++)
+				{
+					binfnam[j] = ptr[4+j];
+				}
+				binfnam[flen] = '\0';
+				FILE *binfile = fopen(binfnam, "rb");
+				if (!binfile)
+				{
+					errout(ERR_FILE_NOT_FOUND);
+					ner++;
+				}
+				else
+				{
+					fseek(binfile, offset, SEEK_SET);
+					for (int j=0; j<ll; j++)
+					{
+						int byte = fgetc(binfile);
+						if (gCurrentSegment<eSEGMENT_DATA)
+						{
+							putc(byte, gOutputFileHandle);
+						}
+						else
+						if (gCurrentSegment==eSEGMENT_DATA && datap)
+						{
+							*datap++ = (char)byte;
+						}
+					}
+					fclose(binfile);
+				}
+			}
+			else
 			{
 				errout(er);
 			}
@@ -775,8 +812,8 @@ static int pass1(void)
 
 
 
-#define   ANZERR	33
-#define   ANZWARN	6
+#define   ANZERR	43
+#define   ANZWARN	0
 
 /*
 static char *ertxt[] = { "Syntax","Label definiert",
@@ -830,7 +867,11 @@ static char *ertxt[] =
 	"Illegal pointer arithmetic",
 	"Address access to low or high byte pointer",
 	"High byte access to low byte pointer",
-	"Low byte access to high byte pointer"
+	"Low byte access to high byte pointer",
+	".bin",
+	"Assertion failed",
+	"Data underflow (offset+length exceeds file size)",
+	"Illegal quantity"
 };
 
 static int gFlagMasmCompatibilityWeirdSwitch;

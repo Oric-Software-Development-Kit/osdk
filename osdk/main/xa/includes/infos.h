@@ -90,6 +90,17 @@ Change history for XA
   Use '-w' (lowercase) to explicitly enable 65816 mode. The '-W' flag is kept for compatibility.
 - Fixed division by zero in expression evaluator checking the wrong variable (always passed),
   causing undefined behavior instead of reporting an error.
+- Added .assert pseudo-opcode: .assert expression, "message"
+  Stops assembly with a custom message if expression evaluates to zero (false).
+  Example: .assert *<$fffa, "code hit vectors!"
+- Added .asserteq pseudo-opcode: .asserteq value, expected, "message"
+  Stops assembly if value != expected, reporting both values in decimal and hex.
+  Example: .asserteq EndTable-StartTable, 512, "table size wrong"
+- Added .bin pseudo-opcode: .bin offset, length, "filename"
+  Includes raw binary file data directly in the output without needing bin2txt conversion.
+  Offset specifies the starting byte position, length the number of bytes (0 = rest of file).
+  Validates file existence, bounds, and checks for 16-bit address overflow.
+
 */
 
 

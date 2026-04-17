@@ -83,13 +83,15 @@ static char *kt[] =
      ".dupb", ".blkb", ".db", ".dw", ".align",
      ".block", ".bend",
 
-     ".long", ".al",".as",".xl",".xs",".scr",".psc",".dft"
+     ".long", ".al",".as",".xl",".xs",".scr",".psc",".dft",
+
+     ".bin", ".assert", ".asserteq"
 
 };
 
 
 #define   Lastbef   93
-#define   Anzkey    125
+#define   Anzkey    128
 
 #define   Kbyt      Lastbef+1
 #define   Kword     Lastbef+2
@@ -124,13 +126,18 @@ static char *kt[] =
 #define   Kpsc	    Lastbef+30
 #define	  Kdft	    Lastbef+31
 
-#define   Kreloc    Anzkey   	/* *= (relocation mode) */
-#define   Ksegment  Anzkey+1
+#define   Kbin      Lastbef+32
+#define   Kassert   Lastbef+33
+#define   Kasserteq Lastbef+34
+
+// Virtual keywords not in kt[]: use Anzkey-256 so they fit in signed char as negative values
+#define   Kreloc    (Anzkey-256)   	/* *= (relocation mode) */
+#define   Ksegment  (Anzkey+1-256)
 
 static int ktp[]=
-{ 
+{
 	0,3,17,25,28,29,29,29,29,32,34,34,38,40,41,42,58,
-	58,65,76,90,90,90,92,94,94,94,Anzkey 
+	58,65,76,90,90,90,92,94,94,94,128
 };
 
 #define   Admodes   24
@@ -599,12 +606,215 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 			{
 				er=E_ILLSEGMENT;
 			}
-		} 
+		}
+		else
+		if (n==Kassert)
+		{
+			/* pass 1: just validate syntax, defer evaluation to pass 2 */
+			i=1;
+			/* parse the expression (don't care about result yet) */
+			if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=written_bytes;
+			}
+			if (!er && ptr_output[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* parse the message string */
+			if (!er)
+			{
+				if (ptr_output[i]=='\"')
+				{
+					i++;
+					int k=ptr_output[i]+i+1;
+					i++;
+					while (i<k) { i++; }
+				}
+				else
+				{
+					/* single char as expression */
+					if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						i+=written_bytes;
+					}
+				}
+			}
+			if (!er)
+			{
+				*ll=i;
+				bl=0;
+				er=E_OKDEF;
+			}
+		}
+		else
+		if (n==Kasserteq)
+		{
+			/* pass 1: validate syntax for .asserteq value, expected, "message" */
+			i=1;
+			/* parse value expression */
+			if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=written_bytes;
+			}
+			if (!er && ptr_output[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* parse expected expression */
+			if (!er)
+			{
+				if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+				{
+					i+=written_bytes;
+				}
+			}
+			if (!er && ptr_output[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* parse message string */
+			if (!er)
+			{
+				if (ptr_output[i]=='\"')
+				{
+					i++;
+					int k=ptr_output[i]+i+1;
+					i++;
+					while (i<k) { i++; }
+				}
+				else
+				{
+					if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						i+=written_bytes;
+					}
+				}
+			}
+			if (!er)
+			{
+				*ll=i;
+				bl=0;
+				er=E_OKDEF;
+			}
+		}
+		else
+		if (n==Kbin)
+		{
+			/* pass 1: parse offset, length, filename; validate file; compute bl */
+			char binfnam[256];
+			int offset;
+			int length;
+			int j=0;
+
+			i=1;
+			/* parse offset */
+			if (!(er=evaluate_expression(ptr_output+i,&offset,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=written_bytes;
+			}
+			if (!er && offset<0)
+				er=E_ILLQUANT;
+			if (!er && ptr_output[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* parse length */
+			if (!er)
+			{
+				if (!(er=evaluate_expression(ptr_output+i,&length,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+				{
+					i+=written_bytes;
+				}
+			}
+			if (!er && length<0)
+				er=E_ILLQUANT;
+			if (!er && ptr_output[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* parse filename */
+			if (!er)
+			{
+				if (ptr_output[i]=='\"')
+				{
+					i++;
+					int k=ptr_output[i]+i+1;
+					i++;
+					while (i<k && !er)
+					{
+						if (j>=255)
+							er=E_OUT_OF_MEMORY;
+						else
+							binfnam[j++]=ptr_output[i++];
+					}
+					binfnam[j]='\0';
+				}
+				else
+				{
+					/* single char filename (unlikely but match upstream) */
+					if (!(er=evaluate_expression(ptr_output+i,&v,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						binfnam[0]=(char)v;
+						binfnam[1]='\0';
+						j=1;
+						i+=written_bytes;
+					}
+				}
+			}
+			/* validate file */
+			if (!er)
+			{
+				FILE *binfile=fopen(binfnam,"rb");
+				if (!binfile)
+				{
+					er=ERR_FILE_NOT_FOUND;
+				}
+				else
+				{
+					fseek(binfile,0,SEEK_END);
+					long filesize=ftell(binfile);
+					fclose(binfile);
+					if (length==0)
+						length=(int)(filesize-offset);
+					if ((offset+length)>filesize)
+						er=E_OUTOFDATA;
+					if (!er && length<0)
+						er=E_ILLQUANT;
+				}
+			}
+			if (!er)
+			{
+				*ll=i;
+				bl=length;
+				er=E_OKDEF;
+			}
+		}
 		else
 		{
 			er=t_p2(ptr_output,ll,1, ptr_size_written);
-		}															
-	} 
+		}
+	}
 	else
 	if (er==ERR_UNDEFINED_LABEL)
 	{
@@ -1022,12 +1232,231 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 			TablePcSegment[gCurrentSegment] = npc;
 		} 
 		else
-		if (n==Ksegment) 
+		if (n==Ksegment)
 		{
 			gCurrentSegment = (SEGMENT_e)t[1];
 			*ll=0;
 			bl =0;
-		} 
+		}
+		else
+		if (n==Kassert)
+		{
+			/* pass 2: evaluate the expression and check the assertion */
+			int result=0;
+			i=1;
+			if (!(er=evaluate_expression(t+i,&result,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=l;
+			}
+			if (!er && t[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* print the message if assertion failed */
+			if (!er)
+			{
+				if (!result)
+					fprintf(stderr, "Assertion failed: ");
+				if (t[i]=='\"')
+				{
+					i++;
+					int k=t[i]+i+1;
+					i++;
+					while (i<k)
+					{
+						if (!result)
+							fprintf(stderr, "%c", t[i]);
+						i++;
+					}
+				}
+				else
+				{
+					int c;
+					if (!(er=evaluate_expression(t+i,&c,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						if (!result)
+							fprintf(stderr, "%c", c);
+						i+=l;
+					}
+				}
+			}
+			if (!er && !result)
+			{
+				fprintf(stderr, "\n");
+				return E_AERROR;
+			}
+			*ll=0;
+			bl=0;
+		}
+		else
+		if (n==Kasserteq)
+		{
+			/* pass 2: evaluate value and expected, compare, report both on failure */
+			int value=0;
+			int expected=0;
+			i=1;
+			/* evaluate value expression */
+			if (!(er=evaluate_expression(t+i,&value,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=l;
+			}
+			if (!er && t[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* evaluate expected expression */
+			if (!er)
+			{
+				if (!(er=evaluate_expression(t+i,&expected,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+				{
+					i+=l;
+				}
+			}
+			if (!er && t[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* print the message if assertion failed */
+			if (!er && value!=expected)
+			{
+				fprintf(stderr, "Assertion failed: ");
+				if (t[i]=='\"')
+				{
+					i++;
+					int k=t[i]+i+1;
+					i++;
+					while (i<k)
+					{
+						fprintf(stderr, "%c", t[i]);
+						i++;
+					}
+				}
+				else
+				{
+					int c;
+					if (!(er=evaluate_expression(t+i,&c,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						fprintf(stderr, "%c", c);
+						i+=l;
+					}
+				}
+				fprintf(stderr, " (got %d/$%04x, expected %d/$%04x)\n", value, value&0xffff, expected, expected&0xffff);
+				return E_AERROR;
+			}
+			*ll=0;
+			bl=0;
+		}
+		else
+		if (n==Kbin)
+		{
+			/* pass 2: re-parse args, pack metadata into t[], return E_BIN */
+			char binfnam[256];
+			int offset;
+			int length;
+			int j=0;
+
+			i=1;
+			/* re-parse offset */
+			if (!(er=evaluate_expression(t+i,&offset,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+			{
+				i+=l;
+			}
+			if (!er && t[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* re-parse length */
+			if (!er)
+			{
+				if (!(er=evaluate_expression(t+i,&length,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+				{
+					i+=l;
+				}
+			}
+			if (!er && t[i]==',')
+			{
+				i++;
+			}
+			else if (!er)
+			{
+				er=E_SYNTAX;
+			}
+			/* re-parse filename */
+			if (!er)
+			{
+				if (t[i]=='\"')
+				{
+					i++;
+					int k=t[i]+i+1;
+					i++;
+					while (i<k)
+					{
+						if (j<255)
+							binfnam[j++]=t[i];
+						i++;
+					}
+					binfnam[j]='\0';
+				}
+				else
+				{
+					if (!(er=evaluate_expression(t+i,&v,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
+					{
+						binfnam[0]=(char)v;
+						binfnam[1]='\0';
+						j=1;
+						i+=l;
+					}
+				}
+			}
+			/* validate file again and compute final length */
+			if (!er)
+			{
+				FILE *binfile=fopen(binfnam,"rb");
+				if (!binfile)
+				{
+					er=ERR_FILE_NOT_FOUND;
+				}
+				else
+				{
+					fseek(binfile,0,SEEK_END);
+					long filesize=ftell(binfile);
+					fclose(binfile);
+					if (length==0)
+						length=(int)(filesize-offset);
+					if ((offset+length)>filesize)
+						er=E_OUTOFDATA;
+				}
+			}
+			/* pack metadata into t[] for xa.cpp to read */
+			if (!er)
+			{
+				t[0]=offset&0xff;
+				t[1]=(offset>>8)&0xff;
+				t[2]=(offset>>16)&0xff;
+				t[3]=j&0xff;
+				for (int f=0; f<j; f++)
+					t[4+f]=binfnam[f];
+				*ll=length;
+				bl=length;
+				er=E_BIN;
+			}
+		}
 		else
 		if (n==Kdsb)
 		{
@@ -1061,7 +1490,7 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 			gDsbLen = 0;
 		} 
 		else
-		if (n<=Lastbef)
+		if (n>=0 && n<=Lastbef)
 		{
 			if ((c=t[1])=='#')
 			{
@@ -1475,7 +1904,7 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 		}
 		
 		
-		if (n<=Lastbef)
+		if (n>=0 && n<=Lastbef)
 		{
 			mk=1;     // 1=only one comma allowed (nur 1 Komma erlaubt)
 		}
