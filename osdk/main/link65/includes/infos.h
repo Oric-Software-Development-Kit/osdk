@@ -67,6 +67,9 @@ Fixed a number of issues in the linker:
   Imported symbols are written as equates in the output file and marked as defined,
   preventing library files that define those symbols from being pulled in.
   If the module source redefines an imported symbol, the module's definition wins.
+- Added "-t symbolname" option to inject a .text origin from an imported symbol.
+  When used with -S, Link65 emits ".text / * = symbolname" at the top of the output,
+  setting the assembly origin for the module without needing -bt or OSDKADDR.
 - Added "#pragma osdk import" directive to force-import library symbols without requiring dead code references
   Symbols listed after the pragma (space, tab, or comma separated) are treated as label references,
   causing Link65 to pull in the library files that define them.

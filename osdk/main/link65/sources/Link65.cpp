@@ -128,6 +128,7 @@ public:
   std::string m_LanguageTag;                                 ///< Language tag for conditional replace_characters_if pragma (set by -r)
   std::map<std::string, std::string> m_ImportedSymbols;      ///< Symbols imported from external symbol file: name -> "$hexaddr" (set by -S)
   std::string m_SymbolFileName;                              ///< Path of the imported symbol file (for output comment)
+  std::string m_TextAddressSymbol;                           ///< Symbol for .text origin (set by -t)
   std::string m_SymbolFilterFile;                            ///< Path to global labels filter for -S import (set by -g)
 
   std::string m_CurrentFileName;                             ///< Current file being parsed (used by FilterLine for import pragma)
@@ -834,6 +835,19 @@ int Linker::Main()
       m_SymbolFileName = GetStringValue();
     }
     else
+    if (m_ptr_arg && m_ptr_arg[0]=='-' && m_ptr_arg[1]=='t' && m_ptr_arg[2]=='\0')
+    {
+      // Text address symbol: inject .text origin from imported symbol (-t symbolname)
+      m_first_param++;
+      m_remaining_argc--;
+      if (!ProcessNextArgument() || !IsParameter())
+      {
+        printf(" Must have symbol name after -t option\n");
+        exit(1);
+      }
+      m_TextAddressSymbol = GetStringValue();
+    }
+    else
     if (IsSwitch("-s"))
     {
       // Directory to find source files.Next arg in line is the dir name
@@ -945,6 +959,14 @@ int Linker::Main()
     AddInputFile(m_PathLibraryFiles + "tail.s", 2);
   }
 
+  // Validate -t option
+  if (!m_TextAddressSymbol.empty())
+  {
+    if (m_SymbolFileName.empty())
+      ShowError("-t requires -S to load a symbol file first\n");
+    if (m_ImportedSymbols.find(m_TextAddressSymbol) == m_ImportedSymbols.end())
+      ShowError("Symbol '%s' not found in symbol file %s\n", m_TextAddressSymbol.c_str(), m_SymbolFileName.c_str());
+  }
 
   // Open and scan Index file for labels - file pair list
   LoadLibrary(m_PathLibraryFiles);
@@ -1088,6 +1110,12 @@ int Linker::Main()
     fprintf(gofile, "\r\n");
   }
 
+  // Inject .text origin from imported symbol (-t)
+  if (!m_TextAddressSymbol.empty())
+  {
+    fprintf(gofile, ".text\r\n* = %s\r\n\r\n", m_TextAddressSymbol.c_str());
+  }
+
   // Get lines from all files and put them in go.s
   for (const auto& inputFile : m_InputFileList)
   {
@@ -1179,6 +1207,8 @@ int main(int argc, char* argv[])
       "  -S : Import symbols from an XA symbol file (-l output). Imported symbols are\r\n"
       "       written as equates and prevent matching library files from being pulled in.\r\n"
       "       e.g : link65 -S symbols_Kernel module.s\r\n"
+      "  -t : Inject .text origin from an imported symbol (requires -S).\r\n"
+      "       e.g : link65 -S symbols_Kernel -t ModuleStartText module.s\r\n"
       "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
       "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"
       );
