@@ -64,6 +64,11 @@ Fixed a number of issues in the linker:
 
 1.4 - 2026/04/18
 - Added an error message for unrecognized "#pragma osdk" directives (previously silently ignored)
+- Fixed false "Unresolved external" errors caused by C preprocessor macros in assembly files:
+  - #define bodies (single-line with colon-separated instructions, and multi-line with backslash
+    continuations) are no longer parsed as real code — only the macro name is registered
+  - Fixed #H/#L high/low byte prefix detection matching labels starting with H or L
+    (e.g. #LastCrane was incorrectly treated as #L prefix + label reference)
 - Fixed "#pragma osdk" directives reporting the wrong filename after a #include (the recursive ParseFile call overwrote the current file context)
 - Added support for XA extended label syntax in the label tokenizer:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction

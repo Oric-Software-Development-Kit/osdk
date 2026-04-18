@@ -423,7 +423,7 @@ LabelState Linker::Parseline(char* inpline,bool parseIncludeFiles)
     }
     if ((status == 1) && (tmp[0] == '#') )
     {
-      if (tmp[1] == 'H' || tmp[1] == 'L')
+      if ((tmp[1] == 'H' || tmp[1] == 'L') && tmp[2] == '\0')
       {
         //
         // HIGH / LOW syntax
@@ -510,6 +510,53 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
     FilterLine(currentLine, true/*false*/);  // removing quoted strings unfortunately fails on #include...
     std::string filteredLine = m_FilteredLine;
 
+    // Handle #define body continuation lines: skip entirely (they contain macro body
+    // text with instruction mnemonics that would cause false label references)
+    bool lineHasContinuation = false;
+    {
+      size_t len = filteredLine.size();
+      while (len > 0 && (filteredLine[len-1] == ' ' || filteredLine[len-1] == '\t' || filteredLine[len-1] == '\r' || filteredLine[len-1] == '\n'))
+        len--;
+      lineHasContinuation = (len > 0 && filteredLine[len-1] == '\\');
+    }
+
+    if (insideDefineBody)
+    {
+      insideDefineBody = lineHasContinuation;
+      continue;
+    }
+
+    // Track preprocessor conditional nesting and detect #define lines.
+    // Link65 can't evaluate #ifdef conditions, so labels inside conditional blocks are NOT
+    // used to override imported symbols (they might not actually be defined at assembly time).
+    // For #define lines, only the macro name is relevant — the body may contain instruction
+    // mnemonics and macro parameters that would cause false label references if parsed.
+    bool isDefineLine = false;
+    {
+      const char* p = filteredLine.c_str();
+      while (*p == ' ' || *p == '\t') p++;
+      if (*p == '#')
+      {
+        p++;
+        while (*p == ' ' || *p == '\t') p++;
+        const char* start = p;
+        while (isalpha((unsigned char)*p)) p++;
+        std::string directive(start, p - start);
+        if (!stricmp(directive.c_str(), "ifdef") || !stricmp(directive.c_str(), "ifndef") || !stricmp(directive.c_str(), "if"))
+          conditionalNestingLevel++;
+        else if (!stricmp(directive.c_str(), "endif"))
+        {
+          if (conditionalNestingLevel > 0)
+            conditionalNestingLevel--;
+        }
+        else if (!stricmp(directive.c_str(), "define"))
+        {
+          isDefineLine = true;
+          insideDefineBody = lineHasContinuation;
+        }
+      }
+    }
+
     char inpline[MAX_LINE_SIZE+1];
     assert(sizeof(inpline)>filteredLine.size());
     strncpy(inpline,filteredLine.c_str(),MAX_LINE_SIZE);
@@ -575,7 +622,10 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
           m_ReferencedLabelsList.push_back(labelEntry);
         }
       }
+      if (isDefineLine)
+        break;  // Don't parse the macro body (after the colon) as code
     }
+
   }
 
   return true;
