@@ -62,8 +62,13 @@ Fixed a number of issues in the linker:
 1.3 - 2026/03/01
 - Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied
 
+1.4 - 2026/04/18
+- Added support for XA extended label syntax in the label tokenizer:
+  - & (block escape prefix) recognized as token delimiter for correct label name extraction
+  - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse
+
 */
 
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	3
+#define TOOL_VERSION_MINOR	4

@@ -78,7 +78,7 @@ public:
 
 
 
-const char* gLabelPattern=" *+-;:\\\n/\t,()";
+const char* gLabelPattern=" *+-&;:\\\n/\t,()";
 
 
 
@@ -298,6 +298,7 @@ LabelState Linker::Parseline(char* inpline,bool parseIncludeFiles)
   // Return if comment line or too small line
   //
   if (inpline[0] ==';')	  return e_NoLabel;
+  if (inpline[0] ==':')	  return e_NoLabel;  // XA unnamed label definition — skip
   if (len < 2)		        return e_NoLabel;
 
   //
@@ -420,7 +421,7 @@ LabelState Linker::Parseline(char* inpline,bool parseIncludeFiles)
         //
         // HIGH / LOW syntax
         //
-        tmp=strtok(NULL," *+-;:\\\n/\t,()<>");
+        tmp=strtok(NULL," *+-&;:\\\n/\t,()<>");
         if (tmp != NULL && tmp[0] != '$' && tmp[0] != '(' && tmp[0] != '#' && !isdigit(tmp[0]))
         {
           m_CurrentToken=tmp;
@@ -437,7 +438,7 @@ LabelState Linker::Parseline(char* inpline,bool parseIncludeFiles)
         }
         else
         {
-          tmp=strtok(NULL," *+-;:\\\n/\t,()<>");
+          tmp=strtok(NULL," *+-&;:\\\n/\t,()<>");
         }
 
         if (tmp != NULL && tmp[0] != '$' && tmp[0] != '(' && tmp[0] != '#' && !isdigit(tmp[0]))
