@@ -848,6 +848,19 @@ int Linker::Main()
       m_TextAddressSymbol = GetStringValue();
     }
     else
+    if (m_ptr_arg && m_ptr_arg[0]=='-' && m_ptr_arg[1]=='g' && m_ptr_arg[2]=='\0')
+    {
+      // Filter for -S: only import symbols that appear in this global labels list (-g file)
+      m_first_param++;
+      m_remaining_argc--;
+      if (!ProcessNextArgument() || !IsParameter())
+      {
+        printf(" Must have file path after -g option\n");
+        exit(1);
+      }
+      m_SymbolFilterFile = GetStringValue();
+    }
+    else
     if (IsSwitch("-s"))
     {
       // Directory to find source files.Next arg in line is the dir name
@@ -1204,13 +1217,16 @@ int main(int argc, char* argv[])
       "  -b : Bare linking (don't include header and tail).\r\n"
       "  -f : Insert #file directives (require expanded XA assembler).\r\n"
       "  -cn: Defines if comments should be kept (-c1) or removed (-c0) [Default]. \r\n"
+      "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
+      "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"
       "  -S : Import symbols from an XA symbol file (-l output). Imported symbols are\r\n"
       "       written as equates and prevent matching library files from being pulled in.\r\n"
       "       e.g : link65 -S symbols_Kernel module.s\r\n"
       "  -t : Inject .text origin from an imported symbol (requires -S).\r\n"
       "       e.g : link65 -S symbols_Kernel -t ModuleStartText module.s\r\n"
-      "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
-      "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"
+      "  -g : Filter -S symbol imports using an XA equates file (from XA -E output).\r\n"
+      "       Only symbols in the filter file are imported, preventing name collisions.\r\n"
+      "       e.g : link65 -S symbols -g kernel_exports.h -t ModuleStart module.s\r\n"
       );
 
     Linker linker(argc, argv);

@@ -80,6 +80,9 @@ Fixed a number of issues in the linker:
     continuations) are no longer parsed as real code — only the macro name is registered
   - Fixed #H/#L high/low byte prefix detection matching labels starting with H or L
     (e.g. #LastCrane was incorrectly treated as #L prefix + label reference)
+- Added "-g" option to filter -S symbol imports using an XA equates file (from XA -E output).
+  Only symbols in the filter file are imported, preventing local kernel labels from causing
+  name collisions in modules.
 - Fixed "#pragma osdk" directives reporting the wrong filename after a #include (the recursive ParseFile call overwrote the current file context)
 - Added support for XA extended label syntax in the label tokenizer:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
