@@ -852,13 +852,83 @@ ErrorCode Preprocessor::pp_replace(char *ptr_output,char *ptr_input,int a,int b)
                     break;    /*return E_OK;*/
                else
                {
-                    t++;
-                    ptr_input++;
+                    if (t[0]=='"')
+                    {
+                         // Skip quoted string — don't substitute macros inside string literals
+                         t++;
+                         ptr_input++;
+                         while (t[0]!=0 && t[0]!='"')
+                         {
+                              t++;
+                              ptr_input++;
+                         }
+                         if (t[0]=='"')
+                         {
+                              t++;
+                              ptr_input++;
+                         }
+                    }
+                    else
+                    {
+                         t++;
+                         ptr_input++;
+                    }
                }
          
 	      int l;
           for(l=0;isalnum(t[l])||t[l]=='_';l++);
           int ld=l;
+
+          // Handle str() — stringify a macro's text value
+          if (l==3 && t[0]=='s' && t[1]=='t' && t[2]=='r' && t[3]=='(')
+          {
+               char* close=strchr(t+4, ')');
+               if (close)
+               {
+                    // Extract argument name between parens
+                    int arg_len=(int)(close-(t+4));
+                    char arg[MAXLINE];
+                    strncpy(arg, t+4, arg_len);
+                    arg[arg_len]=0;
+
+                    // Look up the argument as a macro
+                    // Note: gListArray is 0-indexed, and 0 is a valid entry
+                    // (the first #define gets index 0).  Must use do...while
+                    // like the normal lookup to avoid skipping entry 0.
+                    const char* expanded=arg;
+                    int al=(int)strlen(arg);
+                    int n=hashindex[hashcode(arg,al)];
+                    do
+                    {
+                         if (gListArray[n].search_length==al
+                          && strncmp(arg, gListArray[n].search, al)==0)
+                         {
+                              expanded=gListArray[n].replace;
+                              break;
+                         }
+                         if (!n) break;
+                         n=gListArray[n].nextindex;
+                    } while (1);
+
+                    // Build replacement: "expanded_value"
+                    char quoted[MAXLINE];
+                    snprintf(quoted, MAXLINE, "\"%s\"", expanded);
+
+                    // Replace str(...) in the buffer
+                    int orig_len=(int)(close+1-t);  // length of str(...)
+                    int repl_len=(int)strlen(quoted);
+                    int d=repl_len-orig_len;
+
+                    if (strlen(ptr_output)+d>=MAXLINE)
+                         return E_OUT_OF_MEMORY;
+
+                    strcpy(t+orig_len+d, ptr_input+orig_len);
+                    memcpy(t, quoted, repl_len);
+                    ptr_input+=orig_len;
+                    t+=repl_len;
+                    continue;
+               }
+          }
 
           if (a<0)
           {

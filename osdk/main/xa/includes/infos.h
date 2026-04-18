@@ -102,6 +102,13 @@ Change history for XA
 - Added -E flag: exports global symbols as equates (name = $addr format, valid XA source).
   Optional -P flag filters exports by name prefix (e.g. -P _ for public API symbols).
   Optional -X flag excludes symbols found in a symbol file (e.g. -X symbols_Loader to strip imported symbols).
+- Fixed #define macro expansion inside quoted strings: macros are no longer substituted inside
+  "..." string literals in .byt directives. Previously, .byt "Use SET_TEXT" would silently
+  expand SET_TEXT if it was #defined, corrupting string data with no error.
+- Added str() preprocessor function for explicit macro-to-string conversion.
+  str(NAME) expands to "value" where value is the macro's replacement text.
+  Works with #define and -D command-line defines. If NAME is not defined, produces "NAME".
+  Example: .byt str(VERSION) with -DVERSION=1.3.2 produces "1.3.2" in the output.
 
 */
 
