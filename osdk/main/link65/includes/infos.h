@@ -64,6 +64,7 @@ Fixed a number of issues in the linker:
 
 1.4 - 2026/04/18
 - Added an error message for unrecognized "#pragma osdk" directives (previously silently ignored)
+- Fixed "#pragma osdk" directives reporting the wrong filename after a #include (the recursive ParseFile call overwrote the current file context)
 - Added support for XA extended label syntax in the label tokenizer:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
   - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse
