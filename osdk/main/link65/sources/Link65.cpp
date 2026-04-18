@@ -97,6 +97,7 @@ public:
   LabelState Parseline(char* inpline, bool parseIncludeFiles);
 
   bool LoadLibrary(const std::string& path_library_files);
+  void LoadSymbolFile(const std::string& path);
 
   void AddReferencedLabel(const std::string& labelName, const std::string& fileName, int lineNumber);
 
@@ -125,14 +126,17 @@ public:
   std::string m_FilteredLine;                               ///< Contains the output after FilterLine has been called
   std::map<std::string, std::string>  m_StringReplacement;  ///< Used for fancy manipulations of text, including localization (replacing accentuated characters by others)
   std::string m_LanguageTag;                                 ///< Language tag for conditional replace_characters_if pragma (set by -r)
+  std::map<std::string, std::string> m_ImportedSymbols;      ///< Symbols imported from external symbol file: name -> "$hexaddr" (set by -S)
+  std::string m_SymbolFileName;                              ///< Path of the imported symbol file (for output comment)
+  std::string m_SymbolFilterFile;                            ///< Path to global labels filter for -S import (set by -g)
 
-  std::string m_CurrentFileName;                             ///< Current file being parsed (used by FilterLine for pragma error reporting)
-  int         m_CurrentLineNumber = 0;                       ///< Current line number being parsed (used by FilterLine for pragma error reporting)
+  std::string m_CurrentFileName;                             ///< Current file being parsed (used by FilterLine for import pragma)
+  int         m_CurrentLineNumber = 0;                       ///< Current line number being parsed (used by FilterLine for import pragma)
 
   std::vector<FileEntry>			m_InputFileList;                ///< contains filenames to be linked based on 'm_SortPriority' for the order.
   std::vector<LabelEntry>			m_LibraryReferencesList;
   std::vector<ReferencedLabelEntry>	m_ReferencedLabelsList;
-  std::set<std::string>				m_DefinedLabelsList;
+  std::set<std::string>			m_DefinedLabelsList;
 };
 
 
@@ -615,18 +619,14 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
       //  Oh, a label defined. Stuff it in storage
       if (state == e_NewLabel)
       {
-        if (m_DefinedLabelsList.find(foundLabel) != m_DefinedLabelsList.end())
+        if (m_DefinedLabelsList.count(foundLabel))
         {
-          // Found the label in the list.
-          // It's a duplicate definition... does not mean it's an error, because XA handles allows local labels !
-          //printf("\nError ! Duplicate label : %s\n",label);
-          //outall();
-          //exit(1);
-          //break;
+          // Duplicate — module's definition wins over imported symbol
+          if (conditionalNestingLevel == 0)
+            m_ImportedSymbols.erase(foundLabel);
         }
         else
         {
-          // Insert new label in the set
           m_DefinedLabelsList.insert(foundLabel);
         }
       }
@@ -715,6 +715,76 @@ bool Linker::LoadLibrary(const std::string& path_library_files)
 
 
 
+void Linker::LoadSymbolFile(const std::string& path)
+{
+  // Load the optional global labels filter (-g): only import symbols that appear in the filter
+  std::set<std::string> symbolFilter;
+  if (!m_SymbolFilterFile.empty())
+  {
+    std::vector<std::string> filterData;
+    if (!LoadText(m_SymbolFilterFile, filterData))
+    {
+      ShowError("Cannot open symbol filter file: %s\n", m_SymbolFilterFile.c_str());
+    }
+    for (const auto& filterLine : filterData)
+    {
+      std::string label = StringTrim(filterLine);
+      if (label.empty() || label[0] == ';')
+        continue;
+      // Support equates format: "name = $addr" (strip from " =" onwards)
+      size_t eq = label.find(" =");
+      if (eq != std::string::npos)
+        label = StringTrim(label.substr(0, eq));
+      if (!label.empty())
+        symbolFilter.insert(label);
+    }
+    if (m_FlagVerbose)
+      printf("Loaded %d global labels from %s\n", (int)symbolFilter.size(), m_SymbolFilterFile.c_str());
+  }
+
+  std::vector<std::string> textData;
+  if (!LoadText(path, textData))
+  {
+    ShowError("Cannot open symbol file: %s\n", path.c_str());
+  }
+
+  if (m_FlagVerbose)
+    printf("Reading symbol file %s\n", path.c_str());
+
+  int importCount = 0;
+  int filteredCount = 0;
+  for (const std::string& lineEntry : textData)
+  {
+    std::string line = StringTrim(lineEntry);
+    if (line.empty() || line[0] == ';')
+      continue;
+
+    // Format: HEXADDR labelname
+    std::string hexAddr = StringTrim(StringSplit(line, " \t"));
+    std::string labelName = StringTrim(line);
+
+    if (hexAddr.empty() || labelName.empty())
+      continue;
+
+    // If a filter is active, skip symbols not in the global labels list
+    if (!symbolFilter.empty() && symbolFilter.find(labelName) == symbolFilter.end())
+    {
+      filteredCount++;
+      continue;
+    }
+
+    m_ImportedSymbols[labelName] = "$" + hexAddr;
+    m_DefinedLabelsList.insert(labelName);
+    importCount++;
+  }
+
+  if (m_FlagVerbose && !symbolFilter.empty())
+    printf("Imported %d symbols, filtered out %d local symbols\n", importCount, filteredCount);
+
+  m_SymbolFileName = path;
+}
+
+
 
 
 int Linker::Main()
@@ -750,7 +820,21 @@ int Linker::Main()
       m_PathLibraryFiles=GetStringValue();
     }
     else
-    if (IsSwitch("-s") || IsSwitch("-S"))
+    if (m_ptr_arg && m_ptr_arg[0] == '-' && m_ptr_arg[1] == 'S' && m_ptr_arg[2] == '\0')
+    {
+      // Import symbols from an external XA symbol file (case-sensitive: -S only, not -s)
+      // Deferred to after argument parsing so -g filter can be applied regardless of option order
+      m_first_param++;
+      m_remaining_argc--;
+      if (!ProcessNextArgument() || !IsParameter())
+      {
+        printf(" Must have file path after -S option\n");
+        exit(1);
+      }
+      m_SymbolFileName = GetStringValue();
+    }
+    else
+    if (IsSwitch("-s"))
     {
       // Directory to find source files.Next arg in line is the dir name
       if (!ProcessNextArgument() || !IsParameter())
@@ -842,6 +926,11 @@ int Linker::Main()
     ShowError(0);
   }
 
+  // Load symbol file (deferred from -S parsing so -g filter can be applied regardless of option order)
+  if (!m_SymbolFileName.empty())
+  {
+    LoadSymbolFile(m_SymbolFileName);
+  }
 
   if (!m_FlagQuiet)
   {
@@ -945,9 +1034,9 @@ int Linker::Main()
     // If -l option just print labels and then exit
     printf("\nDefined Labels : \n");
 
-    for (const std::string& labelName : m_DefinedLabelsList)
+    for (const auto& entry : m_DefinedLabelsList)
     {
-      printf("%s\n",labelName.c_str());
+      printf("%s\n", entry.c_str());
     }
     return 0;
   }
@@ -988,6 +1077,16 @@ int Linker::Main()
     "//\r\n"
     ,TOOL_VERSION_MAJOR,TOOL_VERSION_MINOR);
 
+  // Write imported symbols as equates
+  if (!m_ImportedSymbols.empty())
+  {
+    fprintf(gofile, ";\r\n; Imported symbols from %s\r\n;\r\n", m_SymbolFileName.c_str());
+    for (const auto& entry : m_ImportedSymbols)
+    {
+      fprintf(gofile, "%s = %s\r\n", entry.first.c_str(), entry.second.c_str());
+    }
+    fprintf(gofile, "\r\n");
+  }
 
   // Get lines from all files and put them in go.s
   for (const auto& inputFile : m_InputFileList)
@@ -1077,6 +1176,9 @@ int main(int argc, char* argv[])
       "  -b : Bare linking (don't include header and tail).\r\n"
       "  -f : Insert #file directives (require expanded XA assembler).\r\n"
       "  -cn: Defines if comments should be kept (-c1) or removed (-c0) [Default]. \r\n"
+      "  -S : Import symbols from an XA symbol file (-l output). Imported symbols are\r\n"
+      "       written as equates and prevent matching library files from being pulled in.\r\n"
+      "       e.g : link65 -S symbols_Kernel module.s\r\n"
       "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
       "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"
       );

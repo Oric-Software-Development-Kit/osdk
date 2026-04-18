@@ -63,6 +63,10 @@ Fixed a number of issues in the linker:
 - Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied
 
 1.4 - 2026/04/18
+- Added "-S" option to import symbols from an XA symbol file (-l output).
+  Imported symbols are written as equates in the output file and marked as defined,
+  preventing library files that define those symbols from being pulled in.
+  If the module source redefines an imported symbol, the module's definition wins.
 - Added "#pragma osdk import" directive to force-import library symbols without requiring dead code references
   Symbols listed after the pragma (space, tab, or comma separated) are treated as label references,
   causing Link65 to pull in the library files that define them.
