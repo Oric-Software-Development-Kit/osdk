@@ -18,4 +18,7 @@ extern int ga_blk(void);
 extern int b_open(void);
 extern ErrorCode b_close(void);
 
+extern int cll_getcur(void);
+extern void cll_clear(void);
+
 

@@ -1862,6 +1862,19 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 		//while (s[p]!=0 && s[p]!=';')
 		while (!is_end_of_line( ((char*)(s+p)) ))
 		{
+			// Test for unnamed label definition (bare ':' at line start)
+			if (gFlag_UnnamedLabels && s[p]==':' && s[p+1]!='+' && s[p+1]!='-')
+			{
+				er=afile->m_cSymbolData.DefineLabel_Unnamed((char*)s+p,&ll,&n);
+				if (er) break;
+				SymbolEntry& symbol_entry=afile->m_cSymbolData.GetSymbolEntry(n);
+				symbol_entry.Set(pc,gCurrentSegment);
+				p+=ll;
+				while (s[p]==' ') p++;
+				n=0;
+				continue;
+			}
+
 			// Test if the line starts by a keyword
 			if (!(er=t_keyword(s+p,&ll,&n)))		break;
 			if (er && er!=E_NOKEY)					break;
@@ -1945,29 +1958,29 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 			} 
 			else
 			{
-				if (operand) 
+				if (operand)
 				{
-					if (s[p]=='!' || s[p]=='@')
+					if (s[p]=='!')
 					{
 						cast=s[p];
 						operand= -operand+1;
 						p++;
-					} 
+					}
 					else
 					if (s[p]=='(' || s[p]=='-' || s[p]=='>' || s[p]=='<' || s[p]=='[' || s[p]=='^')
 					{
 						ptr_output[q++]=s[p++];
 						operand= -operand+1;
-					} 
+					}
 					else
 					if (s[p]=='*')
 					{
 						ptr_output[q++]=s[p++];
-					} 
+					}
 					else
-					if (isalpha(s[p]) || s[p]=='_')
+					if (isalpha(s[p]) || s[p]=='_' || s[p]=='@' || (s[p]==':' && gFlag_UnnamedLabels))
 					{
-						// This token is alphanumeric, we have to check if it exists in the list of known labels
+						// This token is alphanumeric (or @cheap / :unnamed), check if it exists in the list of known labels
 						er=afile->m_cSymbolData.l_such((char*)s+p,&ll,&n,&v,&afl);
 						if (!er)
 						{

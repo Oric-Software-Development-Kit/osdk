@@ -100,6 +100,12 @@ Change history for XA
   Includes raw binary file data directly in the output without needing bin2txt conversion.
   Offset specifies the starting byte position, length the number of bytes (0 = rest of file).
   Validates file existence, bounds, and checks for 16-bit address overflow.
+- Added cheap local labels: @-prefixed labels (e.g. @loop, @done) are scoped to the nearest
+  preceding standard label definition. Each new standard label resets the cheap local scope,
+  so multiple routines can reuse common names like @loop without collision.
+- Added unnamed labels (-a flag): bare ':' defines a positional label, ':+' and ':-' reference
+  the next/previous unnamed label, ':++'/':--' skip one, etc. The -a flag implies -M (MASM mode)
+  since ':' is normally used as a statement separator.
 
 */
 

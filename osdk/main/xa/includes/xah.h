@@ -64,6 +64,14 @@ enum SYMBOLSTATUS_e
 	eSYMBOLSTATUS_GLOBAL,		// 2 = Global symbol
 };
 
+enum LabelType_e
+{
+	eLABELTYPE_STANDARD=0,
+	eLABELTYPE_CHEAP,			// @label — scoped to nearest standard label
+	eLABELTYPE_UNNAMED,		// bare : definition
+	eLABELTYPE_UNNAMED_REF		// :+ :- :++ etc. — forward/backward reference
+};
+
 
 
 
@@ -124,7 +132,8 @@ enum ErrorCode
 	E_BIN				=-40,		// .bin pseudo-op (signal, like E_DSB)
 	E_AERROR			=-41,		// .assert failed
 	E_OUTOFDATA			=-42,		// .bin offset+length exceeds file size
-	E_ILLQUANT			=-43		// illegal quantity (negative offset/length)
+	E_ILLQUANT			=-43,		// illegal quantity (negative offset/length)
+	E_UNNAMEDREF		=-44		// unresolved unnamed label reference
 };
 
 
@@ -188,6 +197,14 @@ public:
 
 	const char* GetSymbolName() const	{ return ptr_label_name; }
 
+	LabelType_e GetLabelType() const	{ return m_label_type; }
+	void SetLabelType(LabelType_e t)	{ m_label_type=t; }
+
+	int GetBlockNext() const			{ return m_blknext; }
+	void SetBlockNext(int n)			{ m_blknext=n; }
+	int GetBlockPrev() const			{ return m_blkprev; }
+	void SetBlockPrev(int n)			{ m_blkprev=n; }
+
 	int DefineSymbol(char *ptr_src,int block_level);		// Returns hash
 
 private:
@@ -198,6 +215,9 @@ private:
 	int				nextindex;
 	char			*ptr_label_name;
 	int				label_name_lenght;
+	LabelType_e		m_label_type;
+	int				m_blknext;		// next label in definition order (-1 = none)
+	int				m_blkprev;		// previous label in definition order (-1 = none)
 };
 
 
@@ -245,6 +265,9 @@ public:
 
 	ErrorCode DefineSymbol(char *ptr_src,int *label_index,int block_level);
 	ErrorCode SearchSymbol(char *ptr_src,int *label_index);
+	ErrorCode SearchSymbol(char *ptr_src,int *label_index,LabelType_e label_type);
+	ErrorCode DefineLabel_Unnamed(char *ptr_src,int *size_read,int *x);
+	int ResolveUnnamed(int label_index);
 
 	SymbolEntry& GetSymbolEntry(int index)
 	{

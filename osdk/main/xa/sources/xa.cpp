@@ -40,6 +40,7 @@ int gFlag_w65816;
 int gFlag_n65816;
 
 int gFlagMasmCompatibilityMode = 0;
+int gFlag_UnnamedLabels = 0;
 int nolink = 0;
 int romable = 0;
 int romadr = 0;
@@ -122,6 +123,7 @@ static void usage(void)
 		"               A filename of '-' sets stdout as output file\n"
 		" -e filename = sets errorlog filename, default is none\n"
 		" -l filename = sets labellist filename, default is none\n"
+		" -a          = allow unnamed labels (:, :+, :-, etc.), implies -M\n"
 		" -M          = allow \":\" to appear in comments, for MASM compatibility\n"
 		" -R          = start assembler in relocating mode\n"
 		" -Llabel     = defines 'label' as absolute, undefined label even when linking\n"
@@ -194,6 +196,12 @@ int main(int argc,char *argv[])
 		{
 			switch (argv[i][1])
 			{
+			case 'a':
+				// Allow unnamed labels (:, :+, :-), implies MASM mode
+				gFlag_UnnamedLabels = 1;
+				gFlagMasmCompatibilityMode = 1;
+				break;
+
 			case 'M':
 				// MASM compatibility mode
 				gFlagMasmCompatibilityMode = 1;
@@ -812,7 +820,7 @@ static int pass1(void)
 
 
 
-#define   ANZERR	43
+#define   ANZERR	44
 #define   ANZWARN	0
 
 /*
@@ -871,7 +879,8 @@ static char *ertxt[] =
 	".bin",
 	"Assertion failed",
 	"Data underflow (offset+length exceeds file size)",
-	"Illegal quantity"
+	"Illegal quantity",
+	"Unresolved unnamed label reference"
 };
 
 static int gFlagMasmCompatibilityWeirdSwitch;

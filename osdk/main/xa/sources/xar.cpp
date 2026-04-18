@@ -559,7 +559,8 @@ void SymbolData::PrintSymbols(FILE *fp)
 	for (int label_index=0;label_index<m_nb_labels;label_index++)
 	{
 		SymbolEntry& symbol_entry=GetSymbolEntry(label_index);
-		//fprintf(fp,"%s, 0x%04x, %d, 0x%04x\n",symbol_entry.name,symbol_entry.value,symbol_entry.blk,symbol_entry.afl);
+		if (symbol_entry.m_label_type == eLABELTYPE_UNNAMED || symbol_entry.m_label_type == eLABELTYPE_UNNAMED_REF)
+			continue;
 		fprintf(fp,"%04x %s\n",symbol_entry.value,symbol_entry.ptr_label_name);
 	}
 }
@@ -645,6 +646,65 @@ ErrorCode SymbolData::SearchSymbol(char *ptr_src,int *label_index)
 }
 
 
+// Overload: search with label type awareness (for cheap local labels)
+ErrorCode SymbolData::SearchSymbol(char *ptr_src, int *label_index, LabelType_e label_type)
+{
+	int j=0;
+	while (ptr_src[j] && (isalnum(ptr_src[j])||(ptr_src[j]=='_')))  j++;
+
+	int hash=hashcode(ptr_src,j);
+	int i=m_hashindex[hash];
+	if (i>=m_max_labels)
+	{
+		return ERR_UNDEFINED_LABEL;
+	}
+
+	ErrorCode er=ERR_UNDEFINED_LABEL;
+	do
+	{
+		SymbolEntry	*ptr_symbol_entry=m_ptr_table_entries+i;
+		if (j==ptr_symbol_entry->label_name_lenght)
+		{
+			int k;
+			for (k=0;(k<j)&&(ptr_symbol_entry->ptr_label_name[k]==ptr_src[k]);k++);
+
+			if (j==k)
+			{
+				if (label_type == eLABELTYPE_CHEAP)
+				{
+					// Cheap locals: match by CLL scope counter instead of block stack test
+					if (ptr_symbol_entry->m_label_type == eLABELTYPE_CHEAP &&
+						ptr_symbol_entry->m_block_level == cll_getcur())
+					{
+						er=E_OK;
+						break;
+					}
+				}
+				else
+				{
+					// Standard: existing block visibility test
+					if (!b_test(ptr_symbol_entry->m_block_level))
+					{
+						er=E_OK;
+						break;
+					}
+				}
+			}
+		}
+
+		if (!i)
+		{
+			break;
+		}
+		i=ptr_symbol_entry->nextindex;
+	}
+	while (1);
+
+	*label_index=i;
+	return er;
+}
+
+
 int SymbolData::SaveSymbols(FILE *fp)
 {
 	int	i, afl, n=0;
@@ -657,10 +717,12 @@ int SymbolData::SaveSymbols(FILE *fp)
 	}
 
 	SymbolEntry	*ptr_symbol_entry;
-	for (i=0;i<m_nb_labels;i++) 
+	for (i=0;i<m_nb_labels;i++)
 	{
 		ptr_symbol_entry=m_ptr_table_entries+i;
-		if ((!ptr_symbol_entry->m_block_level) && ptr_symbol_entry->symbol_status) 
+		if ((!ptr_symbol_entry->m_block_level) && ptr_symbol_entry->symbol_status
+			&& ptr_symbol_entry->m_label_type != eLABELTYPE_UNNAMED
+			&& ptr_symbol_entry->m_label_type != eLABELTYPE_UNNAMED_REF)
 		{
 			n++;
 		}
@@ -670,7 +732,9 @@ int SymbolData::SaveSymbols(FILE *fp)
 	for (i=0;i<m_nb_labels;i++)
 	{
 		ptr_symbol_entry=m_ptr_table_entries+i;
-		if ((!ptr_symbol_entry->m_block_level) && (ptr_symbol_entry->symbol_status==eSYMBOLSTATUS_VALID)) 
+		if ((!ptr_symbol_entry->m_block_level) && (ptr_symbol_entry->symbol_status==eSYMBOLSTATUS_VALID)
+			&& ptr_symbol_entry->m_label_type != eLABELTYPE_UNNAMED
+			&& ptr_symbol_entry->m_label_type != eLABELTYPE_UNNAMED_REF)
 		{
 			fprintf(fp, "%s",ptr_symbol_entry->ptr_label_name);
 			fputc(0,fp);

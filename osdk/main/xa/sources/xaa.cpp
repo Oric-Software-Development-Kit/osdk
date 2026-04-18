@@ -138,11 +138,31 @@ static ErrorCode evaluate_term(signed char *s,int operator_priority, int *v, int
 	else
 	if (s[pp]==T_LABEL)
 	{
-		SymbolEntry& symbol_entry=afile->m_cSymbolData.GetSymbolEntry(cval(s+pp+1));
-		er=symbol_entry.Get(v,&afl);
-		if (er==ERR_UNDEFINED_LABEL && (gCurrentSegment!=eSEGMENT_ABS) && fundef ) 
+		int lab_idx = cval(s+pp+1);
+		SymbolEntry& symbol_entry=afile->m_cSymbolData.GetSymbolEntry(lab_idx);
+
+		// Resolve unnamed label references (:+, :-, etc.)
+		if (symbol_entry.GetLabelType() == eLABELTYPE_UNNAMED_REF)
 		{
-			if ( nolink || (afl==eSEGMENT_UNDEF)) 
+			int resolved = afile->m_cSymbolData.ResolveUnnamed(lab_idx);
+			if (resolved < 0)
+			{
+				er = E_UNNAMEDREF;
+			}
+			else
+			{
+				SymbolEntry& resolved_entry = afile->m_cSymbolData.GetSymbolEntry(resolved);
+				er = resolved_entry.Get(v,&afl);
+			}
+		}
+		else
+		{
+			er=symbol_entry.Get(v,&afl);
+		}
+
+		if (er==ERR_UNDEFINED_LABEL && (gCurrentSegment!=eSEGMENT_ABS) && fundef )
+		{
+			if ( nolink || (afl==eSEGMENT_UNDEF))
 			{
 				er = E_OK;
 				*v = 0;

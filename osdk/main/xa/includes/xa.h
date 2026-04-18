@@ -11,6 +11,7 @@ extern int gFlag_w65816;
 extern int gFlag_n65816;
 
 extern int gFlagMasmCompatibilityMode;
+extern int gFlag_UnnamedLabels;
 extern int nolink;
 extern int noglob;
 extern int gFlag_ShowBlocks;
