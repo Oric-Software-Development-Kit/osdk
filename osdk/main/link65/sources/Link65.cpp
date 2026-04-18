@@ -98,6 +98,8 @@ public:
 
   bool LoadLibrary(const std::string& path_library_files);
 
+  void AddReferencedLabel(const std::string& labelName, const std::string& fileName, int lineNumber);
+
   void AddInputFile(const std::string& filePath, int sortPriority);
 
   void FilterLine(const std::string& sourceLine, bool keepQuotedStrings);
@@ -132,6 +134,27 @@ public:
   std::vector<ReferencedLabelEntry>	m_ReferencedLabelsList;
   std::set<std::string>				m_DefinedLabelsList;
 };
+
+
+void Linker::AddReferencedLabel(const std::string& labelName, const std::string& fileName, int lineNumber)
+{
+  for (auto& labelEntry : m_ReferencedLabelsList)
+  {
+    if (labelEntry.label_name == labelName)
+    {
+      ++labelEntry.reference_count;
+      return;
+    }
+  }
+
+  ReferencedLabelEntry labelEntry;
+  labelEntry.label_name      = labelName;
+  labelEntry.m_IsResolved    = false;
+  labelEntry.file_name       = fileName;
+  labelEntry.line_number     = lineNumber;
+  labelEntry.reference_count = 1;
+  m_ReferencedLabelsList.push_back(labelEntry);
+}
 
 
 void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
@@ -206,6 +229,20 @@ void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
                   if (!m_LanguageTag.empty() && condTag == m_LanguageTag)
                   {
                     parseReplacementPairs(line);
+                  }
+                }
+                else if (token == "import")
+                {
+                  // Force-import library symbols: #pragma osdk import _memset, _memcpy, mul16i
+                  // Adds each symbol as a referenced label, causing Link65 to pull in the library files that define them.
+                  while (true)
+                  {
+                    std::string symbol = StringTrim(StringSplit(line, " \t,"));
+                    if (symbol.empty())
+                    {
+                      break;
+                    }
+                    AddReferencedLabel(symbol, m_CurrentFileName, m_CurrentLineNumber);
                   }
                 }
                 else
@@ -596,31 +633,7 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
       else
       if (state == e_LabelReference)
       {
-        // A label reference.
-        // Store it if not already in list.
-        bool undefinedLabel=true;
-        for (auto& labelEntry : m_ReferencedLabelsList)
-        {
-          if (labelEntry.label_name == foundLabel)
-          {
-            ++labelEntry.reference_count;    // One more reference
-            undefinedLabel=false;
-            break;
-          }
-        }
-
-        if (undefinedLabel)
-        {
-          // Allocate memory for label name and store it
-          ReferencedLabelEntry labelEntry;
-          labelEntry.label_name		 = foundLabel;
-          labelEntry.m_IsResolved  = false;
-          labelEntry.file_name     = filename;         // Store the filename of the first reference to the label
-          labelEntry.line_number   = line_number;      // as well as the line number, to make it easier to locate issue
-          labelEntry.reference_count = 1;
-
-          m_ReferencedLabelsList.push_back(labelEntry);
-        }
+        AddReferencedLabel(foundLabel, filename, line_number);
       }
       if (isDefineLine)
         break;  // Don't parse the macro body (after the colon) as code
