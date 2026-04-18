@@ -75,21 +75,16 @@ Change history for XA
 - Fixed the defined() operator not working in #if directives (only worked in #elif)
 - Added #error preprocessor directive: stops assembly with a custom error message.
   Correctly skipped inside false #if/#ifdef branches. Supports macro expansion in message text.
-- Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and
-  relocatable addresses (e.g. #print DEFINE - *). The pointer arithmetic check is now
-  bypassed for #print, matching the existing behavior of #if.
+- Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and relocatable addresses (e.g. #print DEFINE - *). 
+  The pointer arithmetic check is now bypassed for #print, matching the existing behavior of #if.
 - Fixed the last line of a source file being silently skipped when it lacks a trailing newline.
   The preprocessor now preserves non-empty lines terminated by EOF instead of discarding them.
-- Numeric literals with trailing invalid characters now produce a syntax error instead of being
-  silently accepted. Affects hex ($FF), binary (%01), and octal (&77) literals.
+- Numeric literals with trailing invalid characters now produce a syntax error instead of being silently accepted. Affects hex ($FF), binary (%01), and octal (&77) literals.
   For example, $FFg previously parsed as $FF with the trailing 'g' silently ignored.
-- Fixed 0x hex prefix parsing reading from the wrong offset (skipped only the '0', not the 'x'),
-  causing 0xFF to be parsed as value 0.
-- 65816 instructions are now disabled by default. Values exceeding 16 bits (e.g. $BB80B from a
-  typo) now produce an error instead of silently generating 65816 long addressing opcodes.
+- Fixed 0x hex prefix parsing reading from the wrong offset (skipped only the '0', not the 'x'), causing 0xFF to be parsed as value 0.
+- 65816 instructions are now disabled by default. Values exceeding 16 bits (e.g. $BB80B from a typo) now produce an error instead of silently generating 65816 long addressing opcodes.
   Use '-w' (lowercase) to explicitly enable 65816 mode. The '-W' flag is kept for compatibility.
-- Fixed division by zero in expression evaluator checking the wrong variable (always passed),
-  causing undefined behavior instead of reporting an error.
+- Fixed division by zero in expression evaluator checking the wrong variable (always passed), causing undefined behavior instead of reporting an error.
 - Added .assert pseudo-opcode: .assert expression, "message"
   Stops assembly with a custom message if expression evaluates to zero (false).
   Example: .assert *<$fffa, "code hit vectors!"
@@ -100,12 +95,10 @@ Change history for XA
   Includes raw binary file data directly in the output without needing bin2txt conversion.
   Offset specifies the starting byte position, length the number of bytes (0 = rest of file).
   Validates file existence, bounds, and checks for 16-bit address overflow.
-- Added cheap local labels: @-prefixed labels (e.g. @loop, @done) are scoped to the nearest
-  preceding standard label definition. Each new standard label resets the cheap local scope,
-  so multiple routines can reuse common names like @loop without collision.
-- Added unnamed labels (-a flag): bare ':' defines a positional label, ':+' and ':-' reference
-  the next/previous unnamed label, ':++'/':--' skip one, etc. The -a flag implies -M (MASM mode)
-  since ':' is normally used as a statement separator.
+- Added cheap local labels: @-prefixed labels (e.g. @loop, @done) are scoped to the nearest preceding standard label definition. 
+  Each new standard label resets the cheap local scope, so multiple routines can reuse common names like @loop without collision.
+- Added unnamed labels (-a flag): bare ':' defines a positional label, ':+' and ':-' reference the next/previous unnamed label, ':++'/':--' skip one, etc. 
+  The -a flag implies -M (MASM mode) since ':' is normally used as a statement separator.
 
 */
 
