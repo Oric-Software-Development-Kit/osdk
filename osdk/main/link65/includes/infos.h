@@ -63,6 +63,7 @@ Fixed a number of issues in the linker:
 - Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied
 
 1.4 - 2026/04/18
+- Added an error message for unrecognized "#pragma osdk" directives (previously silently ignored)
 - Added support for XA extended label syntax in the label tokenizer:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
   - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse

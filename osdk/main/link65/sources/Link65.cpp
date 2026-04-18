@@ -124,6 +124,9 @@ public:
   std::map<std::string, std::string>  m_StringReplacement;  ///< Used for fancy manipulations of text, including localization (replacing accentuated characters by others)
   std::string m_LanguageTag;                                 ///< Language tag for conditional replace_characters_if pragma (set by -r)
 
+  std::string m_CurrentFileName;                             ///< Current file being parsed (used by FilterLine for pragma error reporting)
+  int         m_CurrentLineNumber = 0;                       ///< Current line number being parsed (used by FilterLine for pragma error reporting)
+
   std::vector<FileEntry>			m_InputFileList;                ///< contains filenames to be linked based on 'm_SortPriority' for the order.
   std::vector<LabelEntry>			m_LibraryReferencesList;
   std::vector<ReferencedLabelEntry>	m_ReferencedLabelsList;
@@ -204,6 +207,10 @@ void Linker::FilterLine(const std::string& sourceLine,bool keepQuotedStrings)
                   {
                     parseReplacementPairs(line);
                   }
+                }
+                else
+                {
+                  ShowError("Unknown '#pragma osdk' directive '%s' in %s(%d)\n", token.c_str(), m_CurrentFileName.c_str(), m_CurrentLineNumber);
                 }
                 m_InputLinePtr = sourceLine.c_str() + sourceLine.length();
                 addCar = false;
@@ -489,6 +496,8 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
   {
     //  Get line file and parse it
     ++line_number;
+    m_CurrentFileName = filename;       // Reset every iteration: recursive ParseFile calls from #include overwrite these
+    m_CurrentLineNumber = line_number;
 
     // test
 #if 0
