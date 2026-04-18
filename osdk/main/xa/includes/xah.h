@@ -282,6 +282,7 @@ public:
 
 	int SaveSymbols(FILE *fp);
 	void PrintSymbols(FILE *fp);
+	void ExportEquates(FILE *fp, const char* prefix_filter, const char* exclude_file);
 
 	void ExitBlock(SEGMENT_e a,SEGMENT_e b);
 

@@ -97,15 +97,18 @@ Change history for XA
   Validates file existence, bounds, and checks for 16-bit address overflow.
 - Added cheap local labels: @-prefixed labels (e.g. @loop, @done) are scoped to the nearest preceding standard label definition. 
   Each new standard label resets the cheap local scope, so multiple routines can reuse common names like @loop without collision.
-- Added unnamed labels (-a flag): bare ':' defines a positional label, ':+' and ':-' reference the next/previous unnamed label, ':++'/':--' skip one, etc. 
+- Added unnamed labels (-a flag): bare ':' defines a positional label, ':+' and ':-' reference the next/previous unnamed label, ':++'/':--' skip one, etc.
   The -a flag implies -M (MASM mode) since ':' is normally used as a statement separator.
+- Added -E flag: exports global symbols as equates (name = $addr format, valid XA source).
+  Optional -P flag filters exports by name prefix (e.g. -P _ for public API symbols).
+  Optional -X flag excludes symbols found in a symbol file (e.g. -X symbols_Loader to strip imported symbols).
 
 */
 
 
 #define TOOL_VERSION_MAJOR	2
 #define TOOL_VERSION_MINOR	3
-#define TOOL_VERSION_PATCH	0
+#define TOOL_VERSION_PATCH	1
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s

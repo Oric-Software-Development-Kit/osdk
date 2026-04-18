@@ -57,6 +57,7 @@ static time_t tim2;
 static FILE *gOutputFileHandle;
 FILE *gErrorFileHandle;
 static FILE *gSymbolsFileHandle;
+static FILE *gEquatesFileHandle;
 static int ner = 0;
 char gError_UserMessage[MAXLINE];	// Buffer for #error directive message
 
@@ -123,6 +124,9 @@ static void usage(void)
 		"               A filename of '-' sets stdout as output file\n"
 		" -e filename = sets errorlog filename, default is none\n"
 		" -l filename = sets labellist filename, default is none\n"
+		" -E filename = export global symbols as equates (name = $addr)\n"
+		" -P prefix   = with -E, only export symbols starting with prefix\n"
+		" -X filename = with -E, exclude symbols found in this symbol file\n"
 		" -a          = allow unnamed labels (:, :+, :-, etc.), implies -M\n"
 		" -M          = allow \":\" to appear in comments, for MASM compatibility\n"
 		" -R          = start assembler in relocating mode\n"
@@ -176,6 +180,9 @@ int main(int argc,char *argv[])
 	char* ptr_output_filename	="a.o65";
 	char* ptr_error_filename	=NULL;
 	char* ptr_symbols_filename	=NULL;
+	char* ptr_equates_filename	=NULL;
+	char* ptr_equates_prefix	=NULL;
+	char* ptr_equates_exclude	=NULL;
 
 	if (gPreprocessor.Init())
 	{
@@ -325,6 +332,21 @@ int main(int argc,char *argv[])
 				}
 				break;
 
+			case 'E':
+				if (argv[i][2]==0)	ptr_equates_filename=argv[++i];
+				else				ptr_equates_filename=argv[i]+2;
+				break;
+
+			case 'P':
+				if (argv[i][2]==0)	ptr_equates_prefix=argv[++i];
+				else				ptr_equates_prefix=argv[i]+2;
+				break;
+
+			case 'X':
+				if (argv[i][2]==0)	ptr_equates_exclude=argv[++i];
+				else				ptr_equates_exclude=argv[i]+2;
+				break;
+
 			case 'b':
 				// set segment base addresses
 				switch (argv[i][2])
@@ -378,7 +400,17 @@ int main(int argc,char *argv[])
 		 exit(0);
 	 }
 
+	 if (ptr_equates_prefix && !ptr_equates_filename)
+	 {
+		 fprintf(stderr, "Warning: -P option has no effect without -E\n");
+	 }
+	 if (ptr_equates_exclude && !ptr_equates_filename)
+	 {
+		 fprintf(stderr, "Warning: -X option has no effect without -E\n");
+	 }
+
 	 gSymbolsFileHandle	=xfopen(ptr_symbols_filename,"w");
+	 gEquatesFileHandle	=xfopen(ptr_equates_filename,"w");
 	 gErrorFileHandle	=xfopen(ptr_error_filename,"w");
 	 if (!strcmp(ptr_output_filename,"-"))
 	 {
@@ -513,6 +545,11 @@ int main(int argc,char *argv[])
 		 afile->m_cSymbolData.PrintSymbols(gSymbolsFileHandle);
 	 }
 
+	 if (gEquatesFileHandle)
+	 {
+		 afile->m_cSymbolData.ExportEquates(gEquatesFileHandle, ptr_equates_prefix, ptr_equates_exclude);
+	 }
+
 	 tim2=time(NULL);
 	 if (bFlagVerbose)
 	 {
@@ -523,6 +560,7 @@ int main(int argc,char *argv[])
 
 	 if (gErrorFileHandle)		fclose(gErrorFileHandle);
 	 if (gSymbolsFileHandle)	fclose(gSymbolsFileHandle);
+	 if (gEquatesFileHandle)	fclose(gEquatesFileHandle);
 	 if (gOutputFileHandle)		fclose(gOutputFileHandle);
 
 	 gPreprocessor.Terminate();
