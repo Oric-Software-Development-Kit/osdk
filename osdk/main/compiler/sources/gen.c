@@ -29,7 +29,12 @@
  */
 
 
-char *version="/* 16-bit code V1.39 */\n";
+#include "infos.h"
+
+#define _COMP_XSTR(s) _COMP_STR(s)
+#define _COMP_STR(s)  #s
+
+char *version="/* 16-bit code V" _COMP_XSTR(TOOL_VERSION_MAJOR) "." _COMP_XSTR(TOOL_VERSION_MINOR) " */\n";
 #include "c.h"
 #include <string.h>
 #include <stdio.h>
@@ -325,9 +330,13 @@ void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         printf("\tlabel=\"%s\";\n",f->x.name);
     }
     localsize=offset=tmpsize=nbregs=0; fname=f->x.name;
+    busy=0; busy_flt=0;
 
-    for (i=0;i<32;i++) flt_temp[i]->x.name="******";
-    for (i=8;i<32;i++) temp[i]->x.name="******";
+    /* Only tmp0-tmp7 are available (declared in zp_crt.inc).
+     * Mark tmp8-tmp31 as permanently busy so gettmp() will hit the
+     * "Too complex expression" error instead of emitting ******. */
+    for (i=8;i<32;i++) busy |= (1u<<i);
+    for (i=0;i<32;i++) busy_flt |= (1u<<i);
 
     for (i = 0; caller[i] && callee[i]; i++) {
         caller[i]->x.name=stringf(graph_output?"param(%d)":"(ap),%d",offset);
@@ -401,7 +410,9 @@ static void gettmp(Node p) {
                 p->x.name = flt_temp[t]->x.name;
                 return;
             }
-    perror("Too complex expression"); exit(1);
+    fprintf(stderr, "Error in function '%s': expression too complex (out of temporary registers, max 8).\n"
+                    "Simplify the expression by splitting it into smaller statements with intermediate variables.\n", fname);
+    exit(1);
 }
 
 static void releasetmp(Node p) {
