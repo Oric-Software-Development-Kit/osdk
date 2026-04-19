@@ -97,7 +97,7 @@ SET OSDKLIB=%OSDK%\lib/
 :Lib
 
 SET OSDKB=%OSDK%\BIN
-SET OSDKT=%OSDK%\TMP
+IF "%OSDKT%"=="" SET OSDKT=%OSDK%\TMP
 SET OSDKLINKLIST=
 SET TMP=%OSDKT%
 SET TEMP=%OSDKT%
@@ -279,7 +279,7 @@ IF %OSDKVERBOSITY% GEQ 2 ECHO Linking
 ::ECHO %OSDKLINKLIST%
 ::cd 
 ::ECHO ON
-ECHO %OSDKB%\link65.exe %OSDKLINK% -d %OSDKLIB% -o %OSDKT%\linked.s -f -q %OSDKLINKLIST% >%OSDKT%\link.bat
+ECHO %OSDKB%\link65.exe %OSDKLINK% -d %OSDKLIB% -i %OSDKLIB% -o %OSDKT%\linked.s -f -q %OSDKLINKLIST% >%OSDKT%\link.bat
 ::ECHO %OSDKB%\link65.exe %OSDKLINK% -d %OSDK%\lib/ -o %OSDKT%\linked.s -s %OSDKT%\ -f -q %OSDKFILE% >%OSDKT%\link.bat
 ::pause
 CALL %OSDKT%\link.bat
@@ -293,7 +293,7 @@ IF ERRORLEVEL 1 GOTO ErFailure
 :: (-W -C are meant to disallow the 65816 and 65c02 instructions)
 ::%OSDKB%\xa.exe %OSDKT%\linked.s -o final.out -e xaerr.txt -l xalbl.txt
 IF %OSDKVERBOSITY% GEQ 2 ECHO Assembling
-%OSDKB%\xa.exe %OSDKT%\linked.s -o build\final.out -e build\xaerr.txt -l build\symbols -bt %OSDKADDR% -DASSEMBLER=XA %OSDKXAPARAMS% -DOSDKNAME_%OSDKNAME%
+%OSDKB%\xa.exe -I%OSDKLIB% %OSDKT%\linked.s -o build\final.out -e build\xaerr.txt -l build\symbols -bt %OSDKADDR% -DASSEMBLER=XA %OSDKXAPARAMS% -DOSDKNAME_%OSDKNAME%
 IF NOT EXIST "build\final.out" GOTO ErFailure
 
 
