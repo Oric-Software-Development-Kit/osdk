@@ -3147,11 +3147,15 @@ skip :\
  sta ptr2,y :\
 
 #define LSHW\
- beq *+8 :\
+ .( :\
+ beq done :\
+loop :\
  asl tmp :\
  rol :\
  dex :\
- bne *-4 :\
+ bne loop :\
+done :\
+ .) :\
  ldx tmp :\
 
 #define LSHW_DDD(tmp1,tmp2,tmp3)\
@@ -3347,11 +3351,15 @@ skip :\
  sta ptr3,y :\
 
 #define RSHW\
- beq *+8 :\
+ .( :\
+ beq done :\
+loop :\
  lsr :\
  ror tmp :\
  dex :\
- bne *-4 :\
+ bne loop :\
+done :\
+ .) :\
  ldx tmp :\
 
 #define RSHW_DDD(tmp1,tmp2,tmp3)\
@@ -3870,66 +3878,85 @@ skip :\
  sta (tmp),y :\
 
 #define ASGNS_CR(adr1,reg2,length) \
+ .( :\
  ldx #0 :\
+loop :\
  lda adr1,x :\
  sta reg2,x :\
  inx :\
  cpx #length :\
- bne *-8 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_CC(adr1,adr2,length) \
+ .( :\
  ldx #0 :\
+loop :\
  lda adr1,x :\
  sta adr2,x :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_DR(adr1,reg2,length) \
+ .( :\
  ldx adr1 :\
  lda adr1+1 :\
  stx *+9 :\
  sta *+7 :\
  ldx #0 :\
+loop :\
  lda $1234,x :\
  sta reg2,x :\
  inx :\
  cpx #length :\
- bne *-8 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_DC(adr1,adr2,length) \
+ .( :\
  ldx adr1 :\
  lda adr1+1 :\
  stx *+9 :\
  sta *+7 :\
  ldx #0 :\
+loop :\
  lda $1234,x :\
  sta adr2,x :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_AR(ptr1,y1,reg2,length) \
+ .( :\
  ldx #0 :\
  ldy #y1 :\
+loop :\
  lda ptr1,y :\
  sta reg2,x :\
  iny :\
  inx :\
  cpx #length :\
- bne *-8 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_AC(ptr1,y1,adr2,length) \
+ .( :\
  ldx #0 :\
  ldy #y1 :\
+loop :\
  lda ptr1,y :\
  sta adr2,x :\
  iny :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_YR(ptr1,y1,reg2,length) \
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  sta *+12 :\
@@ -3937,13 +3964,16 @@ skip :\
  lda ptr1,y :\
  sta *+7 :\
  ldx #0 :\
+loop :\
  lda $1234,x :\
  sta reg2,x :\
  inx :\
  cpx #length :\
- bne *-8 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_YC(ptr1,y1,adr2,length) \
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  sta *+12 :\
@@ -3951,42 +3981,52 @@ skip :\
  lda ptr1,y :\
  sta *+7 :\
  ldx #0 :\
+loop :\
  lda $1234,x :\
  sta adr2,x :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_CA(adr1,ptr2,y2,length)\
+ .( :\
  ldx #0 :\
  ldy #y2 :\
+loop :\
  lda adr1,x :\
  sta ptr2,y :\
  inx :\
  iny :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_DA(adr1,ptr2,y2,length) \
+ .( :\
  ldx adr1 :\
  lda adr1+1 :\
  stx *+11 :\
  sta *+9 :\
  ldx #0 :\
  ldy #y2 :\
+loop :\
  lda $1234,x :\
  sta ptr2,y :\
  inx :\
  iny :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_AA(ptr1,y1,ptr2,y2,length)\
+ .( :\
  ldy #y1 :\
  sty tmp :\
  ldy #y2 :\
  sty tmp+1 :\
  ldx #length :\
+loop :\
  ldy tmp :\
  lda ptr1,y :\
  iny :\
@@ -3996,9 +4036,11 @@ skip :\
  iny :\
  sty tmp+1 :\
  dex :\
- bne *-15 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_AY(ptr1,y1,ptr2,y2,length)\
+ .( :\
  ldy #y2 :\
  lda ptr2,y :\
  sta *+16 :\
@@ -4007,15 +4049,18 @@ skip :\
  sta *+11 :\
  ldy #y1 :\
  ldx #0 :\
+loop :\
  lda ptr1,y :\
  sta $5678,x :\
  inx :\
  iny :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 
 #define ASGNS_YA(ptr1,y1,ptr2,y2,length)\
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  sta *+14 :\
@@ -4024,26 +4069,32 @@ skip :\
  sta *+9 :\
  ldx #0 :\
  ldy #y2 :\
+loop :\
  lda $1234,x :\
  sta ptr2,y :\
  inx :\
  iny :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_CZ(adr1,tmp1,length) \
+ .( :\
  ldx tmp1 :\
  lda tmp1+1 :\
  stx *+12 :\
  sta *+10 :\
  ldx #0 :\
+loop :\
  lda adr1,x :\
  sta $5678,x :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_DZ(adr1,tmp1,length) \
+ .( :\
  ldx adr1 :\
  lda adr1+1 :\
  stx *+19 :\
@@ -4053,58 +4104,76 @@ skip :\
  stx *+12 :\
  sta *+10 :\
  ldx #0 :\
+loop :\
  lda $1234,x :\
  sta $5678,x :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
 #define ASGNS_AZ(ptr1,y1,tmp1,length) \
+ .( :\
  ldy #y1 :\
  ldx tmp1 :\
  lda tmp1+1 :\
  stx *+11 :\
  sta *+9 :\
  ldx #0 :\
+loop :\
  lda ptr1,y :\
  sta $5678,x :\
  iny :\
  inx :\
  cpx #length :\
- bne *-9 :\
+ bne loop :\
+ .) :\
 
  
 #define EQ0W_D(tmp,label)\
+ .( :\
  lda tmp :\
  ora tmp+1 :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQ0W_Y(ptr,y2,label)\
+ .( :\
  ldy #y2 :\
  lda ptr,y :\
  iny :\
  ora ptr,y :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQ0W_C(tmp,label)\
+ .( :\
  lda #<(tmp) :\
  ora #>(tmp) :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
  
 #define EQW_DC(tmp2,cte1,label)\
+ .( :\
  lda #LOW(cte1) :\
  eor tmp2 :\
  sta tmp :\
  lda #HIGH(cte1) :\
  eor tmp2+1 :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_DA(tmp2,ptr1,y1,label)\
+ .( :\
  clc :\
  lda 0+ptr1 :\
  adc #y1 :\
@@ -4114,21 +4183,27 @@ skip :\
  adc #0 :\
  eor tmp2+1 :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_YC(ptr2,y2,cte1,label)\
+ .( :\
  lda #LOW(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
- bne *+12 :\
+ bne skip :\
  iny :\
  lda #HIGH(cte1) :\
  cmp ptr2,y :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_YA(ptr2,y2,ptr1,y1,label)\
+ .( :\
  clc :\
  lda 0+ptr1 :\
  adc #y1 :\
@@ -4140,20 +4215,26 @@ skip :\
  adc #0 :\
  eor ptr2,y :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_DD(tmp1,tmp2,label)\
+ .( :\
  lda tmp1 :\
  eor tmp2 :\
  sta tmp :\
  lda tmp1+1 :\
  eor tmp2+1 :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_DY(tmp1,ptr2,y2,label)\
+ .( :\
  lda tmp1 :\
  ldy #y2 :\
  eor ptr2,y :\
@@ -4162,10 +4243,13 @@ skip :\
  lda tmp1+1 :\
  eor ptr2,y :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_YD(ptr1,y1,tmp2,label)\
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  eor tmp2 :\
@@ -4174,47 +4258,62 @@ skip :\
  lda ptr1,y :\
  eor tmp2+1 :\
  ora tmp :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQW_YY(ptr1,y1,ptr2,y2,label)\
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  ldy #y2 :\
  cmp ptr2,y :\
- bne *+15 :\
+ bne skip :\
  ldy #y1+1 :\
  lda ptr1,y :\
  ldy #y2+1 :\
  cmp ptr2,y :\
- bne *+5 :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NE0W_D(tmp,label)\
+ .( :\
  lda tmp :\
  ora tmp+1 :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NE0W_Y(ptr,y2,label)\
+ .( :\
  ldy #y2 :\
  lda ptr,y :\
  iny :\
  ora ptr,y :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_DC(tmp2,cte1,label)\
+ .( :\
  lda #LOW(cte1) :\
  eor tmp2 :\
  sta tmp :\
  lda #HIGH(cte1) :\
  eor tmp2+1 :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_DA(tmp2,ptr1,y1,label)\
+ .( :\
  clc :\
  lda 0+ptr1 :\
  adc #y1 :\
@@ -4224,22 +4323,29 @@ skip :\
  adc #0 :\
  eor tmp2+1 :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_YC(ptr2,y2,cte1,label)\
+ .( :\
  lda #LOW(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
- beq *+5 :\
+ beq skip1 :\
  jmp label :\
+skip1 :\
  iny :\
  lda #HIGH(cte1) :\
  cmp ptr2,y :\
- beq *+5 :\
+ beq skip2 :\
  jmp label :\
+skip2 :\
+ .) :\
 
 #define NEW_YA(ptr2,y2,ptr1,y1,label)\
+ .( :\
  clc :\
  lda 0+ptr1 :\
  adc #y1 :\
@@ -4251,20 +4357,26 @@ skip :\
  adc #0 :\
  eor ptr2,y :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_DD(tmp1,tmp2,label)\
+ .( :\
  lda tmp1 :\
  eor tmp2 :\
  sta tmp :\
  lda tmp1+1 :\
  eor tmp2+1 :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_DY(tmp1,ptr2,y2,label)\
+ .( :\
  lda tmp1 :\
  ldy #y2 :\
  eor ptr2,y :\
@@ -4273,10 +4385,13 @@ skip :\
  lda tmp1+1 :\
  eor ptr2,y :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_YD(ptr1,y1,tmp2,label)\
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  eor tmp2 :\
@@ -4285,32 +4400,45 @@ skip :\
  lda ptr1,y :\
  eor tmp2+1 :\
  ora tmp :\
- beq *+5 :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEW_YY(ptr1,y1,ptr2,y2,label)\
+ .( :\
  ldy #y1 :\
  lda ptr1,y :\
  ldy #y2 :\
  cmp ptr2,y :\
- beq *+5 :\
+ beq skip1 :\
  jmp label :\
+skip1 :\
  ldy #y1+1 :\
  lda ptr1,y :\
  ldy #y2+1 :\
  cmp ptr2,y :\
- beq *+5 :\
+ beq skip2 :\
  jmp label :\
+skip2 :\
+ .) :\
 
 #define BRANCH_GEI(label)\
- bvc *+4 :\
+ .( :\
+ bvc noflip :\
  eor #$80 :\
- bmi *+5 :\
+noflip :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define BRANCH_GEU(label)\
- bcc *+5 :\
+ .( :\
+ bcc skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GEI_DC(tmp1,cte2,label)\
  lda tmp1 :\
@@ -4450,16 +4578,20 @@ skip :\
 
 #define BRANCH_LTI(label)\
  .( :\
- bvc *+4 :\
+ bvc noflip :\
  eor #$80 :\
+noflip :\
  bpl skip :\
  jmp label :\
 skip :\
  .) :\
 
 #define BRANCH_LTU(label)\
- bcs *+5 :\
+ .( :\
+ bcs skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LTI_DC(tmp1,cte2,label)\
  lda tmp1 :\
@@ -4604,7 +4736,7 @@ skip :\
  LTI_DD(tmp2,tmp1,label) :\
 
 #define GTI_DY(tmp1,ptr2,y2,label)\
- LTI_YD(tmp2,y2,tmp1,label) :\
+ LTI_YD(ptr2,y2,tmp1,label) :\
 
 #define GTI_YC(ptr1,y1,cte2,label)\
  LTI_CY(cte2,ptr1,y1,label) :\
@@ -4628,7 +4760,7 @@ skip :\
  GEI_DD(tmp2,tmp1,label) :\
 
 #define LEI_DY(tmp1,ptr2,y2,label)\
- GEI_YD(tmp2,y2,tmp1,label) :\
+ GEI_YD(ptr2,y2,tmp1,label) :\
 
 #define LEI_YC(ptr1,y1,cte2,label)\
  GEI_CY(cte2,ptr1,y1,label) :\
@@ -4652,7 +4784,7 @@ skip :\
  LTU_DD(tmp2,tmp1,label) :\
 
 #define GTU_DY(tmp1,ptr2,y2,label)\
- LTU_YD(tmp2,y2,tmp1,label) :\
+ LTU_YD(ptr2,y2,tmp1,label) :\
 
 #define GTU_YC(ptr1,y1,cte2,label)\
  LTU_CY(cte2,ptr1,y1,label) :\
@@ -4676,7 +4808,7 @@ skip :\
  GEU_DD(tmp2,tmp1,label) :\
 
 #define LEU_DY(tmp1,ptr2,y2,label)\
- GEU_YD(tmp2,y2,tmp1,label) :\
+ GEU_YD(ptr2,y2,tmp1,label) :\
 
 #define LEU_YC(ptr1,y1,cte2,label)\
  GEU_CY(cte2,ptr1,y1,label) :\
@@ -5401,154 +5533,230 @@ jump :\
 #define EQF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- bne *+5 :\
+ .( :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- bne *+5 :\
+ .( :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- bne *+5 :\
+ .( :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define EQF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- bne *+5 :\
+ .( :\
+ bne skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- beq *+5 :\
+ .( :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+5 :\
+ .( :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- beq *+5 :\
+ .( :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define NEF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+5 :\
+ .( :\
+ beq skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GEF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- bmi *+5 :\
+ .( :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GEF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- bmi *+5 :\
+ .( :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GEF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- bmi *+5 :\
+ .( :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GEF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- bmi *+5 :\
+ .( :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LTF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- bpl *+5 :\
+ .( :\
+ bpl skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LTF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- bpl *+5 :\
+ .( :\
+ bpl skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LTF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- bpl *+5 :\
+ .( :\
+ bpl skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LTF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- bpl *+5 :\
+ .( :\
+ bpl skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GTF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- beq *+7 :\
- bmi *+5 :\
+ .( :\
+ beq skip :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GTF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+7 :\
- bmi *+5 :\
+ .( :\
+ beq skip :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GTF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- beq *+7 :\
- bmi *+5 :\
+ .( :\
+ beq skip :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define GTF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+7 :\
- bmi *+5 :\
+ .( :\
+ beq skip :\
+ bmi skip :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LEF_DD(tmp1,tmp2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_D(tmp2) :\
- beq *+4 :\
- bpl *+5 :\
+ .( :\
+ beq dojmp :\
+ bpl skip :\
+dojmp :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LEF_DY(tmp1,ptr2,y2,label)\
  FLOAD1_C(tmp1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+4 :\
- bpl *+5 :\
+ .( :\
+ beq dojmp :\
+ bpl skip :\
+dojmp :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LEF_YD(ptr1,y1,tmp2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_D(tmp2) :\
- beq *+4 :\
- bpl *+5 :\
+ .( :\
+ beq dojmp :\
+ bpl skip :\
+dojmp :\
  jmp label :\
+skip :\
+ .) :\
 
 #define LEF_YY(ptr1,y1,ptr2,y2,label)\
  FLOAD1_A(ptr1,y1) :\
  FCOMP_Y(ptr2,y2) :\
- beq *+4 :\
- bpl *+5 :\
+ .( :\
+ beq dojmp :\
+ bpl skip :\
+dojmp :\
  jmp label :\
+skip :\
+ .) :\
 
 
 #define CALLW_DY(tmp1,size,ptr,y2)\
