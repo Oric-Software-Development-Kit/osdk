@@ -515,9 +515,16 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 		if (n==Kdsb)
 		{
 			gDsbLen = 1;
-			if (!(er=evaluate_expression(ptr_output+1,&bl,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,0))) 
+			if (!(er=evaluate_expression(ptr_output+1,&bl,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,0)))
 			{
-				er=E_OKDEF;
+				if (gCurrentSegment==eSEGMENT_ZERO && ptr_output[1+written_bytes]==',')
+				{
+					er=E_ZERODATA;
+				}
+				else
+				{
+					er=E_OKDEF;
+				}
 			}
 			gDsbLen = 0;
 		} 
@@ -958,6 +965,10 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 	}
 
 	*ptr_size_written += bl;
+	if (gCurrentSegment==eSEGMENT_ZERO && bl > 0 && n!=Kdsb && n!=Kalign)
+	{
+		er = E_ZERODATA;
+	}
 	if (bl > 0 && (TablePcSegment[gCurrentSegment] + bl) > 0x10000 && !gFlag_w65816)
 	{
 		er = E_PCOVERFLOW;

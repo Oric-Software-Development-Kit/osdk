@@ -133,7 +133,8 @@ enum ErrorCode
 	E_AERROR			=-41,		// .assert failed
 	E_OUTOFDATA			=-42,		// .bin offset+length exceeds file size
 	E_ILLQUANT			=-43,		// illegal quantity (negative offset/length)
-	E_UNNAMEDREF		=-44		// unresolved unnamed label reference
+	E_UNNAMEDREF		=-44,		// unresolved unnamed label reference
+	E_ZERODATA			=-45		// data output in .zero segment
 };
 
 

@@ -858,7 +858,7 @@ static int pass1(void)
 
 
 
-#define   ANZERR	44
+#define   ANZERR	45
 #define   ANZWARN	0
 
 /*
@@ -918,7 +918,8 @@ static char *ertxt[] =
 	"Assertion failed",
 	"Data underflow (offset+length exceeds file size)",
 	"Illegal quantity",
-	"Unresolved unnamed label reference"
+	"Unresolved unnamed label reference",
+	"Illegal output in .zero segment (only .dsb reservations allowed)"
 };
 
 static int gFlagMasmCompatibilityWeirdSwitch;
@@ -1033,23 +1034,23 @@ void errout(int er)
 	{
 		if (er>=-(ANZERR+ANZWARN) && er < -ANZERR)
 		{
-			sprintf(out,"%s(%u):  %04x: Warning - %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(), gPreprocessor.m_CurrentFile->GetCurrentLine(), TablePcSegment[gCurrentSegment], ertxt[-er-1]);
+			sprintf(out,"%s(%u):%04x: Warning - %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(), gPreprocessor.m_CurrentFile->GetCurrentLine(), TablePcSegment[gCurrentSegment], ertxt[-er-1]);
 		}
 		else
 		{
 			/* sprintf(out,"%s:Zeile %d: %04x:Unbekannter Fehler Nr.: %d\n",*/
-			sprintf(out,"%s(%u):  %04x: Unknown error # %d\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],er);
+			sprintf(out,"%s(%u):%04x: Unknown error # %d\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],er);
 			ner++;
 		}
 	}
 	else
 	{
 		if (er==ERR_UNDEFINED_LABEL)
-			sprintf(out,"%s(%u):  %04x:Label '%s' not defined\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],gError_LabelNamePointer);
+			sprintf(out,"%s(%u):%04x: Label '%s' not defined\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],gError_LabelNamePointer);
 		else if (er==E_USERERROR)
 			sprintf(out,"%s(%u): Error %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),gError_UserMessage);
 		else
-			sprintf(out,"%s(%u):  %04x:%s error\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],ertxt[-er-1]);
+			sprintf(out,"%s(%u):%04x: %s error\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],ertxt[-er-1]);
 
 		ner++;
 	}

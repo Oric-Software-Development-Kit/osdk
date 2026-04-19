@@ -114,6 +114,9 @@ Change history for XA
   Optional fill byte parameter: .align 256, $EA (default fill is 0).
 - Preprocessor directives can now have leading whitespace, matching standard C behavior.
   Previously, the '#' had to be the very first character on the line or the directive was ignored.
+- Emitting code or data in the .zero segment now produces an error. The .zero segment is only
+  for reserving space with .dsb (no fill byte). Use .text with *= for executable zero-page code.
+- Improved error message formatting: consistent "file(line):addr: message" layout.
 
 */
 
