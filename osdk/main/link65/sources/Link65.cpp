@@ -99,9 +99,8 @@ public:
   bool LoadLibrary(const std::string& path_library_files);
   void LoadSymbolFile(const std::string& path);
 
-  void AddReferencedLabel(const std::string& labelName, const std::string& fileName, int lineNumber);
-
   void AddInputFile(const std::string& filePath, int sortPriority);
+  void AddReferencedLabel(const std::string& labelName, const std::string& fileName, int lineNumber);
 
   void FilterLine(const std::string& sourceLine, bool keepQuotedStrings);
 
@@ -533,6 +532,8 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
 
   // Scanning the file
   m_FlagInCommentBloc = false;
+  int conditionalNestingLevel = 0;  // Track #ifdef/#ifndef/#if nesting depth
+  bool insideDefineBody = false;    // Track multi-line #define continuation
   int line_number = 0;
   for (const std::string& currentLine : textData)
   {
@@ -603,7 +604,7 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
     assert(sizeof(inpline)>filteredLine.size());
     strncpy(inpline,filteredLine.c_str(),MAX_LINE_SIZE);
     inpline[MAX_LINE_SIZE]=0;
-    
+
     char* nexToken=inpline-1;
     while (nexToken)
     {
@@ -636,6 +637,7 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
       {
         AddReferencedLabel(foundLabel, filename, line_number);
       }
+
       if (isDefineLine)
         break;  // Don't parse the macro body (after the colon) as code
     }
@@ -713,7 +715,6 @@ bool Linker::LoadLibrary(const std::string& path_library_files)
 
   return true;
 }
-
 
 
 void Linker::LoadSymbolFile(const std::string& path)

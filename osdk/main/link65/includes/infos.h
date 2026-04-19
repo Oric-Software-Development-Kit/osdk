@@ -62,7 +62,7 @@ Fixed a number of issues in the linker:
 1.3 - 2026/03/01
 - Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied
 
-1.4 - 2026/04/18
+1.4 - 2026/04/26
 - Added "-S" option to import symbols from an XA symbol file (-l output).
   Imported symbols are written as equates in the output file and marked as defined,
   preventing library files that define those symbols from being pulled in.
@@ -71,8 +71,7 @@ Fixed a number of issues in the linker:
   When used with -S, Link65 emits ".text / * = symbolname" at the top of the output,
   setting the assembly origin for the module without needing -bt or OSDKADDR.
 - Added "#pragma osdk import" directive to force-import library symbols without requiring dead code references
-  Symbols listed after the pragma (space, tab, or comma separated) are treated as label references,
-  causing Link65 to pull in the library files that define them.
+  Symbols listed after the pragma (space, tab, or comma separated) are treated as label references, causing Link65 to pull in the library files that define them.
   Example: #pragma osdk import _memset, _memcpy, mul16i, mul16u
 - Added an error message for unrecognized "#pragma osdk" directives (previously silently ignored)
 - Fixed false "Unresolved external" errors caused by C preprocessor macros in assembly files:
