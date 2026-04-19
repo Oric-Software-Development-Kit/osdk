@@ -90,6 +90,9 @@ public:
   virtual unsigned char *GetSecondaryBufferData()   { return 0; }
   virtual unsigned int GetSecondaryBufferSize()	  { return 0; }
 
+  virtual unsigned char *GetTertiaryBufferData()   { return 0; }
+  virtual unsigned int GetTertiaryBufferSize()     { return 0; }
+
 
 protected:
   PictureConverter(MACHINE machine);

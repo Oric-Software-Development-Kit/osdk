@@ -120,7 +120,19 @@ bool PictureConverter::Save(int output_format,const std::string& output_filename
       // Possibly we have a second buffer to save
       if (GetSecondaryBufferSize())
       {
+        std::string originalLabel=textFileGenerator.GetLabel();
+        textFileGenerator.SetLabel(originalLabel+"_charset");
         destString+=textFileGenerator.ConvertData((unsigned char*)GetSecondaryBufferData(),GetSecondaryBufferSize());
+        textFileGenerator.SetLabel(originalLabel);
+      }
+
+      // Possibly we have a tertiary buffer to save (dual charset attributes)
+      if (GetTertiaryBufferSize())
+      {
+        std::string originalLabel=textFileGenerator.GetLabel();
+        textFileGenerator.SetLabel(originalLabel+"_attributes");
+        destString+=textFileGenerator.ConvertData((unsigned char*)GetTertiaryBufferData(),GetTertiaryBufferSize());
+        textFileGenerator.SetLabel(originalLabel);
       }
 
       if (!SaveFile(output_filename.c_str(),destString.c_str(),destString.size()))

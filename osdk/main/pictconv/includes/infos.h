@@ -107,7 +107,12 @@ Version 1.1 - 2024/07/07
 Version 1.2 - 2025/06/22
 - Added the -f4 option to the Atari ST converter, with support for medium-resolution pictures
 
+Version 1.3 - 2026/04/19
+- Added the -f5z option for dual charset charmap generation (STD+ALT, max 192 characters instead of 96)
+- Charmap snapshot now shows frequency-based diagnostic coloring and dual charset row indicators
+- Added tertiary buffer support for per-row charset attribute data
+
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	2
+#define TOOL_VERSION_MINOR	3

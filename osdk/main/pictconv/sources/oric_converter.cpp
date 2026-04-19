@@ -80,7 +80,10 @@ public:
 OricPictureConverter::OricPictureConverter() :
 PictureConverter(MACHINE_ORIC),
   m_format(FORMAT_MONOCHROM),
-  m_flag_setbit6(true)
+  m_flag_setbit6(true),
+  m_charmap_dual_charset(false),
+  m_charmap_std_count(0),
+  m_charmap_alt_count(0)
 {
   m_Buffer.SetBufferSize(240,200);	// Default size
   m_Buffer.ClearBuffer(m_flag_setbit6);
@@ -889,6 +892,92 @@ bool OricPictureConverter::Convert(const ImageContainer& sourcePicture)
 
 bool OricPictureConverter::TakeSnapShot(ImageContainer& sourcePicture)
 {
+  if (m_format==FORMAT_CHARMAP)
+  {
+    int charWidth =m_Buffer.m_buffer_cols;    // tiles per row
+    int charHeight=m_Buffer.m_buffer_height;  // tile rows
+    unsigned int charCount=m_SecondaryBuffer.m_buffer_size/8;
+
+    unsigned int maxFreq=m_charmap_dual_charset ? 192 : 96;
+
+    if (!sourcePicture.Allocate(charWidth*6,charHeight*8,32))
+      return false;
+
+    // Count character frequencies from the tilemap
+    unsigned int freq[192]={};
+    unsigned char* tilemap=m_Buffer.m_buffer;
+    for (unsigned int i=0;i<m_Buffer.m_buffer_size;i++)
+    {
+      unsigned int idx=tilemap[i]-32;
+      if (idx<maxFreq) freq[idx]++;
+    }
+
+    // In dual charset mode, get the attribute buffer for row charset indicators
+    unsigned char* attrBuf=m_charmap_dual_charset ? m_TertiaryBuffer.GetBufferData() : 0;
+
+    // Render each tile
+    unsigned char* charset=m_SecondaryBuffer.m_buffer;
+    for (int tileY=0;tileY<charHeight;tileY++)
+    {
+      for (int tileX=0;tileX<charWidth;tileX++)
+      {
+        unsigned int charIdx=tilemap[tileY*charWidth+tileX]-32;
+
+        // In dual charset mode, offset ALT characters by stdCount for charset lookup
+        unsigned int charsetOffset=0;
+        if (m_charmap_dual_charset && attrBuf && attrBuf[tileY]==9)
+        {
+          charsetOffset=m_charmap_std_count;
+        }
+
+        unsigned int count=(charIdx<maxFreq)?freq[charIdx]:0;
+
+        for (int line=0;line<8;line++)
+        {
+          unsigned char bitmap=0;
+          if ((charsetOffset+charIdx)<charCount)
+            bitmap=charset[(charsetOffset+charIdx)*8+line];
+
+          if (line==0)
+          {
+            // First line: frequency-based diagnostic color
+            ORIC_COLOR color;
+            if (count<5)        color=ORIC_COLOR_RED;
+            else if (count<20)  color=ORIC_COLOR_YELLOW;
+            else if (count<100) color=ORIC_COLOR_GREEN;
+            else                color=ORIC_COLOR_WHITE;
+
+            // In dual charset mode, use cyan (STD) or magenta (ALT) for leftmost column
+            if (m_charmap_dual_charset && tileX==0 && attrBuf)
+            {
+              color=(attrBuf[tileY]==8) ? ORIC_COLOR_CYAN : ORIC_COLOR_MAGENTA;
+            }
+
+            OricRgbColor rgb;
+            rgb.SetOricColor(color);
+            for (int bit=0;bit<6;bit++)
+              sourcePicture.WriteColor(rgb,tileX*6+bit,tileY*8);
+          }
+          else
+          {
+            // Lines 1-7: render charset bitmap, inverse if single-occurrence
+            bool inverse=(count==1);
+            for (int bit=0;bit<6;bit++)
+            {
+              bool pixel=(bitmap&(1<<(5-bit)))!=0;
+              if (inverse) pixel=!pixel;
+
+              OricRgbColor rgb;
+              rgb.SetOricColor(pixel?ORIC_COLOR_WHITE:ORIC_COLOR_BLACK);
+              sourcePicture.WriteColor(rgb,tileX*6+bit,tileY*8+line);
+            }
+          }
+        }
+      }
+    }
+    return true;
+  }
+
   if (!sourcePicture.Allocate(m_Buffer.m_buffer_width,m_Buffer.m_buffer_height,32))
   {
     return false;
@@ -1011,10 +1100,33 @@ void OricPictureConverter::SaveToFile(long handle,int output_format)
   switch (output_format)
   {
   case DEVICE_FORMAT_RAWBUFFER_WITH_XYHEADER:
+    if (m_format==FORMAT_CHARMAP && m_charmap_dual_charset)
+    {
+      // 4-byte header: charWidth, charHeight, stdCount, altCount
+      unsigned char w=static_cast<unsigned char>(m_Buffer.m_buffer_cols);
+      unsigned char h=static_cast<unsigned char>(m_Buffer.m_buffer_height);
+      unsigned char cs=static_cast<unsigned char>(m_charmap_std_count);
+      unsigned char ca=static_cast<unsigned char>(m_charmap_alt_count);
+      write(handle,&w,1);
+      write(handle,&h,1);
+      write(handle,&cs,1);
+      write(handle,&ca,1);
+    }
+    else
+    if (m_format==FORMAT_CHARMAP)
+    {
+      // 3-byte header: charWidth (tiles), charHeight (tiles), charCount
+      unsigned char w=static_cast<unsigned char>(m_Buffer.m_buffer_cols);
+      unsigned char h=static_cast<unsigned char>(m_Buffer.m_buffer_height);
+      unsigned char c=static_cast<unsigned char>(GetSecondaryBufferSize()/8);
+      write(handle,&w,1);
+      write(handle,&h,1);
+      write(handle,&c,1);
+    }
+    else
     {
       unsigned char x=static_cast<unsigned char>(get_buffer_width());
       unsigned char y=static_cast<unsigned char>(get_buffer_height());
-
       write(handle,&x,1);
       write(handle,&y,1);
     }
@@ -1040,6 +1152,12 @@ void OricPictureConverter::SaveToFile(long handle,int output_format)
     }
     break;
   }
+  // In dual charset mode, write attributes first
+  if (m_format==FORMAT_CHARMAP && m_charmap_dual_charset)
+  {
+    write(handle,GetTertiaryBufferData(),GetTertiaryBufferSize());
+  }
+
   write(handle,(unsigned char*)m_Buffer.m_buffer,GetBufferSize());
 
   // Possibly we have a second buffer to save

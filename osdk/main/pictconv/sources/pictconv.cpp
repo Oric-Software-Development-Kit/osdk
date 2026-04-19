@@ -22,6 +22,7 @@ PictConv
 
 #include "defines.h"
 #include "hires.h"
+#include "oric_converter.h"
 #include "image.h"
 
 //#include <conio.h>
@@ -67,7 +68,8 @@ int __cdecl main(int argc,char *argv[])
     "         -f2 => RVB conversion\r\n"
     "         -f3 => Twilight masks\r\n"
     "         -f4 => RB conversion\r\n"
-    "         -f5 => CHAR generator\r\n"
+    "         -f5 => CHAR generator (single charset, max 96 chars)\r\n"
+    "         -f5z => CHAR generator (dual charset STD+ALT, max 192 chars)\r\n"
     "         -f6 => Sam method (Img2Oric)\r\n"
     "         -f7 => AIC encoding\r\n"
     "       -Atari ST:\r\n"
@@ -141,6 +143,7 @@ int __cdecl main(int argc,char *argv[])
   bool	flag_testing   = false;
   bool  flagUpdateTest = false;
   bool  flagVerbosity  = false;
+  bool  flagExtendedFormat = false;
 
   TextFileGenerator textFileGenerator;
   textFileGenerator.SetLabel("_LabelPicture");
@@ -162,6 +165,10 @@ int __cdecl main(int argc,char *argv[])
     if (argumentParser.IsSwitch("-f"))
     {
       switchFormat=argumentParser.GetIntegerValue(0);
+      if (argumentParser.GetSeparator("z"))
+      {
+        flagExtendedFormat=true;
+      }
     }
     else
     if (argumentParser.IsSwitch("-m"))
@@ -335,6 +342,13 @@ int __cdecl main(int argc,char *argv[])
   if (!Hires.SetFormat(switchFormat))
   {
     ShowError("Invalid format (-f) for the selected machine (-m)");
+  }
+
+  if (flagExtendedFormat)
+  {
+    OricPictureConverter* oricConverter=dynamic_cast<OricPictureConverter*>(pictureConverter);
+    if (oricConverter)
+      oricConverter->set_dual_charset(true);
   }
 
   if (!Hires.SetPaletteMode(switchPalette))

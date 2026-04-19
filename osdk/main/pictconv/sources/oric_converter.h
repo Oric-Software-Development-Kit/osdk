@@ -308,6 +308,12 @@ public:
   virtual unsigned char *GetSecondaryBufferData() { return m_SecondaryBuffer.GetBufferData(); }
   virtual unsigned int GetSecondaryBufferSize()	  { return m_SecondaryBuffer.GetBufferSize(); }
 
+  virtual unsigned char *GetTertiaryBufferData() { return m_TertiaryBuffer.GetBufferData(); }
+  virtual unsigned int GetTertiaryBufferSize()   { return m_TertiaryBuffer.GetBufferSize(); }
+
+  bool get_dual_charset()              { return m_charmap_dual_charset; }
+  void set_dual_charset(bool flag)     { m_charmap_dual_charset=flag; }
+
   unsigned int get_buffer_width()		{ return m_Buffer.get_buffer_width(); }
   unsigned int get_buffer_height()		{ return m_Buffer.get_buffer_height(); }
 
@@ -318,11 +324,15 @@ protected:
 private:
   GeneratedBuffer m_Buffer;
   GeneratedBuffer m_SecondaryBuffer;
+  GeneratedBuffer m_TertiaryBuffer;
 
   FORMAT	  m_format;
   ORIC_COLOR      m_PaletteAIC[2][2];         ///< [even/odd scanline[paper/ink color]
 
   bool		  m_flag_setbit6;
+  bool            m_charmap_dual_charset;
+  unsigned int    m_charmap_std_count;
+  unsigned int    m_charmap_alt_count;
 };
 
 #endif
