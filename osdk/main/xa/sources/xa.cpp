@@ -858,7 +858,7 @@ static int pass1(void)
 
 
 
-#define   ANZERR	45
+#define   ANZERR	46
 #define   ANZWARN	0
 
 /*
@@ -919,7 +919,8 @@ static char *ertxt[] =
 	"Data underflow (offset+length exceeds file size)",
 	"Illegal quantity",
 	"Unresolved unnamed label reference",
-	"Illegal output in .zero segment (only .dsb reservations allowed)"
+	"Illegal output in .zero segment (only .dsb reservations allowed)",
+	"Address exceeds zero page ($00-$FF) for indirect/direct page mode"
 };
 
 static int gFlagMasmCompatibilityWeirdSwitch;

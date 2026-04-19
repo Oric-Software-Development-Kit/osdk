@@ -134,7 +134,8 @@ enum ErrorCode
 	E_OUTOFDATA			=-42,		// .bin offset+length exceeds file size
 	E_ILLQUANT			=-43,		// illegal quantity (negative offset/length)
 	E_UNNAMEDREF		=-44,		// unresolved unnamed label reference
-	E_ZERODATA			=-45		// data output in .zero segment
+	E_ZERODATA			=-45,		// data output in .zero segment
+	E_ZPOVER			=-46		// address exceeds zero page for indirect/direct page mode
 };
 
 

@@ -1734,7 +1734,7 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					if ((am<8) && !( ((ct[n][am]&0x400) && memode) || ((ct[n][am]&0x800) && xmode) ) || (am>=19 && am!=23))
 					{
 						if (vv[0]&0xff00)
-							er=E_OVERFLOW;
+							er=E_ZPOVER;
 						else
 							t[1]=vv[0];
 						if (rlt[0]) afile->u_set(TablePcSegment[gCurrentSegment]+1, rlt[0], lab[0], 1);

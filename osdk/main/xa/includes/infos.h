@@ -116,6 +116,8 @@ Change history for XA
   Previously, the '#' had to be the very first character on the line or the directive was ignored.
 - Emitting code or data in the .zero segment now produces an error. The .zero segment is only
   for reserving space with .dsb (no fill byte). Use .text with *= for executable zero-page code.
+- Zero page address overflow in indirect/direct page modes now produces a specific error message
+  instead of the generic "Overflow", making it clear the address exceeds the $00-$FF range.
 - Improved error message formatting: consistent "file(line):addr: message" layout.
 
 */
