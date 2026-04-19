@@ -1,0 +1,249 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+
+<HTML lang=fr dir=ltr>
+	<HEAD>
+		<meta name="robots" content="noindex">
+		<meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
+		<title>OSDK - MacroSplitter</title>
+		<link href="documentation.css" rel="stylesheet" type="text/css">
+	</HEAD>
+
+	<BODY>
+
+<hr>
+<A href="documentation.htm"><img src="arrow_back.gif"></A>
+<img src="pics/osdk_logo_small.png">
+<hr>
+
+		<h1>MacroSplitter</h1>
+
+<p id=chapter>Description</p>
+
+<p>MacroSplitter is used during the C compilation pipeline to reformat the assembly output
+produced by the macro expansion phase. The C compiler generates assembly code where multiple
+instructions are concatenated on a single line separated by semicolons. MacroSplitter splits
+these into individual lines so the assembler (XA) can process them.
+</p>
+
+<p>Starting with version 0.2, MacroSplitter includes an optional 6502 peephole optimizer
+that can remove redundant load and store instructions from the compiler output, resulting
+in smaller and faster code.
+</p>
+
+<p>Starting with version 0.3, MacroSplitter can also perform the macro expansion step itself
+via the <b>-M</b> flag, replacing the cpp.exe invocation in the build pipeline. When used this
+way, it reads the compiler's .c2 output directly, expands the MACROS.H definitions, and emits
+annotation comments showing the original macro call before each expanded block. This makes
+debugging the generated assembly much easier.
+</p>
+
+<p id=chapter>Utilisation</p>
+
+<p>To split a macro-expanded assembly file:
+</p>
+<pre>
+	%OSDK%\bin\MacroSplitter [switches] source_file destination_file
+</pre>
+
+<p>This tool is normally invoked automatically by the OSDK build system (make.bat)
+during the C compilation phase.
+</p>
+
+<p id=chapter>Switches</p>
+
+<p>Available switches:
+</p>
+<pre>
+-O               => Enable peephole optimization of the assembly output
+-M&lt;macrofile&gt;    => Expand macros from &lt;macrofile&gt; (replaces cpp.exe macro step)
+</pre>
+
+<p>The <b>-M</b> flag tells MacroSplitter to read the compiler's .c2 output directly and
+expand all MACROS.H definitions internally. It supports all macro types (object-like,
+function-like, nested), handles parenthesized arguments like <b>(ap)</b> and <b>(fp)</b>,
+and inserts annotation comments before each expanded block:
+</p>
+<pre>
+; === ENTER(1,6) ===
+	ldx #6
+	lda #1
+	jsr enter
+; === MOVW_YD((ap),0,tmp0) ===
+	ldy #0
+	lda (ap),y
+	sta tmp0
+	iny
+	lda (ap),y
+	sta tmp0+1
+</pre>
+
+<p>To enable the built-in macro expansion for your project, add the following to your
+<b>osdk_config.bat</b> file:
+</p>
+<pre>
+	SET OSDKMACROEXPAND=1
+</pre>
+
+<p>This can be combined with the optimizer:
+</p>
+<pre>
+	SET OSDKMACROEXPAND=1
+	SET OSDKMACRO=-O
+</pre>
+
+<p>When <b>OSDKMACROEXPAND</b> is not set (the default), the old pipeline using cpp.exe for
+macro expansion is used, and MacroSplitter only performs line splitting.
+</p>
+
+<p id=chapter>Optimization Patterns</p>
+
+<p>The optimizer applies two safe peephole patterns to the assembly output. These patterns
+target the redundant code sequences that the C compiler typically generates through macro
+expansion.
+</p>
+
+<p><b>Pattern 1 - Self-store elimination:</b> When a value is loaded and immediately stored
+back to the same location, the store is redundant and is removed.
+</p>
+<pre>
+Before:                After:
+  lda tmp0               lda tmp0
+  sta tmp0               (removed)
+</pre>
+
+<p><b>Pattern 2 - Load-after-store elimination:</b> When a value is stored to a location
+and immediately loaded back from the same location, the load is redundant and is removed.
+This is safe because the accumulator still holds the value, and the store instruction does
+not modify the processor flags.
+</p>
+<pre>
+Before:                After:
+  sta tmp0               sta tmp0
+  lda tmp0               (removed)
+</pre>
+
+<p><b>Pattern 3 - Dead store elimination:</b> When a value is stored to a location
+and immediately stored again to the same location, the first store is dead and is removed.
+</p>
+<pre>
+Before:                After:
+  sta tmp0               (removed)
+  sta tmp0               sta tmp0
+</pre>
+
+<p>This pattern will not be applied to writes targeting the Oric I/O page ($03xx) since
+each write to that page has a hardware side effect.
+</p>
+
+<p><b>Pattern 4 - Tail call optimization:</b> When a subroutine call is immediately followed
+by a return, the call can be converted to a jump. The called routine's own rts will return
+directly to the original caller.
+</p>
+<pre>
+Before:                After:
+  jsr MyRoutine          jmp MyRoutine
+  rts                    (removed)
+</pre>
+
+<p><b>Pattern 5 - Cross-register transfer:</b> When a value is stored from one register and
+later loaded into a different register from the same address, the load can be replaced
+with a register transfer instruction. The optimizer scans backward across intervening
+stores to different addresses, which are safe since they don't modify registers.
+</p>
+<pre>
+Before:                After:
+  stx tmp0               stx tmp0
+  sta tmp0+1             sta tmp0+1
+  lda tmp0               txa
+</pre>
+
+<p><b>Pattern 6 - Same-immediate reload:</b> When an immediate value is loaded, stored somewhere,
+and then the same immediate is loaded again, the second load is redundant since the
+accumulator still holds the value. The optimizer resolves <b>#&lt;(N)</b> and <b>#&gt;(N)</b>
+expressions for numeric literals, enabling it to detect cases like <b>#&lt;(0)</b> and
+<b>#&gt;(0)</b> which both evaluate to <b>#0</b>.
+</p>
+<pre>
+Before:                After:
+  lda #0                 lda #0
+  sta _gDelayStream      sta _gDelayStream
+  lda #0                 (removed)
+  sta _gDelayStream+1    sta _gDelayStream+1
+</pre>
+
+<p>All load/store patterns work with all three register pairs: lda/sta, ldx/stx, and ldy/sty.
+The optimizer respects labels and directives as barriers and will never
+optimize across them. Fold markers (.( and .) ) are not barriers since they are
+only label scoping directives and do not affect control flow.
+</p>
+
+<p>The optimizer runs in multiple passes to handle cascading eliminations where removing
+one instruction creates a new optimization opportunity.
+</p>
+
+<p>When optimization is enabled, the output places each instruction on its own line,
+even for macros that originally used colon separators. This ensures correct interaction
+with the linker's label reference scanner.
+</p>
+
+<p id=chapter>Verbosity</p>
+
+<p>The optimizer uses the existing <b>OSDKVERBOSITY</b> environment variable to control
+its output level:
+</p>
+<pre>
+Level 0   : Silent - no optimizer output
+Level 1-2 : Summary - one line showing total removed instructions
+Level 3+  : Detailed - prints each individual elimination with line number
+</pre>
+
+<p>Example output at verbosity level 3:
+</p>
+<pre>
+MacroSplitter: [line 10] Self-store eliminated: sta tmp0
+MacroSplitter: [line 31] Load-after-store eliminated: lda tmp0
+MacroSplitter: Optimizer removed 25 redundant instructions
+</pre>
+
+<p id=chapter>Historic</p>
+
+<p>Here is the list of all releases with a short description of things that changed:
+</p>
+
+<p id=dateentry>Version 0.3</p>
+<ul>
+<li>Added -M flag for built-in macro expansion (replaces the cpp.exe macro step)</li>
+<li>Emits annotation comments showing original macro calls before each expanded block</li>
+<li>Supports all MACROS.H definitions including nested expansion up to 16 levels deep</li>
+<li>Parenthesis-balanced argument parsing for args like (ap), (fp), (sp)</li>
+<li>New OSDKMACROEXPAND=1 environment variable enables the new pipeline in osdk_config.bat</li>
+</ul>
+
+<p id=dateentry>Version 0.2</p>
+<ul>
+<li>Added -O flag for optional 6502 peephole optimization</li>
+<li>Self-store elimination (lda X : sta X removes the redundant sta)</li>
+<li>Load-after-store elimination (sta X : lda X removes the redundant lda)</li>
+<li>Dead store elimination (sta X : sta X removes the first redundant sta, except for I/O page $03xx)</li>
+<li>Tail call optimization (jsr X : rts converts to jmp X)</li>
+<li>Cross-register transfer (stx X ... lda X replaced by txa, and similar combinations)</li>
+<li>Same-immediate reload elimination with #&lt;(N)/#&gt;(N) constant resolution</li>
+<li>Works with lda/sta, ldx/stx, and ldy/sty register pairs</li>
+<li>Replaced argument parsing with standard ArgumentParser</li>
+</ul>
+
+<p id=dateentry>Version 0.1</p>
+<ul>
+<li>Initial version, splits semicolon-separated instructions into separate lines</li>
+</ul>
+
+
+<hr>
+<A href="documentation.htm"><img src="arrow_back.gif"></A>
+<img src="pics/osdk_logo_small.png">
+<hr>
+
+	</BODY>
+</HTML>
+
+
