@@ -112,6 +112,8 @@ Change history for XA
 - The .align pseudo-opcode now works in absolute mode (previously only relocatable/o65).
   Accepts any power-of-2 value (e.g. .align 8, .align 16, .align 256 for page alignment).
   Optional fill byte parameter: .align 256, $EA (default fill is 0).
+- Preprocessor directives can now have leading whitespace, matching standard C behavior.
+  Previously, the '#' had to be the very first character on the line or the directive was ignored.
 
 */
 

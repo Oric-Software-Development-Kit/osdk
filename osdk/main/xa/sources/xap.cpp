@@ -1269,13 +1269,17 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 			total_line_lenght += read_lenght-1;
 		}
 
-		if (m_BufferLine[0]=='#')
+		// Skip leading whitespace to find potential '#' directive
+		char *ptr_hash = m_BufferLine;
+		while (*ptr_hash == ' ') ptr_hash++;
+
+		if (*ptr_hash=='#')
 		{
 			//
-			// If first character of the line is a '#', we have to
+			// If first non-whitespace character of the line is a '#', we have to
 			// call the preprocessor command interpretor.
 			//
-			if ((er=Preprocessor::HandleCommand(m_BufferLine+1)))
+			if ((er=Preprocessor::HandleCommand(ptr_hash+1)))
 			{
 				if (er!=1 && er!=E_USERERROR)
 				{
