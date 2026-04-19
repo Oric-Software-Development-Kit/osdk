@@ -109,6 +109,9 @@ Change history for XA
   str(NAME) expands to "value" where value is the macro's replacement text.
   Works with #define and -D command-line defines. If NAME is not defined, produces "NAME".
   Example: .byt str(VERSION) with -DVERSION=1.3.2 produces "1.3.2" in the output.
+- The .align pseudo-opcode now works in absolute mode (previously only relocatable/o65).
+  Accepts any power-of-2 value (e.g. .align 8, .align 16, .align 256 for page alignment).
+  Optional fill byte parameter: .align 256, $EA (default fill is 0).
 
 */
 

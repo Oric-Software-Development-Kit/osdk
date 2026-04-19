@@ -558,20 +558,34 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 			er=E_OKDEF;
 		} 
 		else
-		if (n==Kalign) 
+		if (n==Kalign)
 		{
 			int tmp;
-			if (gCurrentSegment!=eSEGMENT_ABS) 
+			if (!(er=evaluate_expression(ptr_output+1,&tmp,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,0)))
 			{
-				if (!(er=evaluate_expression(ptr_output+1,&tmp,&written_bytes,TablePcSegment[gCurrentSegment],&afl,&label,0))) 
+				if (tmp > 0 && (tmp & (tmp-1)) == 0)
 				{
-					if (tmp == 1 || tmp == 2 || tmp == 4 || tmp == 256) 
+					/* set o65 alignment header only in relocatable mode */
+					if (gCurrentSegment!=eSEGMENT_ABS)
 					{
 						set_align(tmp);
-						if (TablePcSegment[gCurrentSegment] & (tmp-1)) 
-						{ 
+					}
+
+					/* parse optional fill byte (default 0) */
+					int fill = 0;
+					if (ptr_output[1+written_bytes]==',')
+					{
+						int fill_written;
+						er=evaluate_expression(ptr_output+2+written_bytes,&fill,&fill_written,TablePcSegment[gCurrentSegment],&afl,&label,0);
+						if (!er && (fill>>8))
+							er=E_OVERFLOW;
+					}
+
+					if (!er)
+					{
+						if (TablePcSegment[gCurrentSegment] & (tmp-1))
+						{
 							/* not aligned */
-							int tmp2;
 							ptr_output[0]=Kdsb;
 							i=1;
 							bl=tmp=(tmp - (TablePcSegment[gCurrentSegment] & (tmp-1))) & (tmp-1);
@@ -581,30 +595,25 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 							ptr_output[i++]=((tmp)>>16)&255;
 							ptr_output[i++]=((tmp)>>24)&255;
 							ptr_output[i++]=',';
-							tmp2= 0xea;		// nop opcode
 							ptr_output[i++]=T_VALUE;
-							ptr_output[i++]=((tmp2)>>0)&255;
-							ptr_output[i++]=((tmp2)>>8)&255;
-							ptr_output[i++]=((tmp2)>>16)&255;
-							ptr_output[i++]=((tmp2)>>24)&255;
+							ptr_output[i++]=((fill)>>0)&255;
+							ptr_output[i++]=((fill)>>8)&255;
+							ptr_output[i++]=((fill)>>16)&255;
+							ptr_output[i++]=((fill)>>24)&255;
 							ptr_output[i++]=T_END;
-							*ll=11;
+							*ll=i;
 							er=E_OKDEF;
-						} 
-						else 
+						}
+						else
 						{
 							*ll=0;	/* ignore if aligned right */
 						}
-					} 
-					else 
-					{
-						er=E_ILLALIGN;
 					}
 				}
-			} 
-			else 
-			{
-				er=E_ILLSEGMENT;
+				else
+				{
+					er=E_ILLALIGN;
+				}
 			}
 		}
 		else
@@ -1465,12 +1474,12 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 			{
 				{
 					gDsbLen = 0;
-					
-					if (t[i+1]==',') 
+
+					if (t[i+1]==',')
 					{
 						er=evaluate_expression(t+2+i,&v,&l,TablePcSegment[gCurrentSegment],&afl,&label,0);
-					} 
-					else 
+					}
+					else
 					{
 						v=0;
 					}
@@ -1488,7 +1497,7 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					bl=j;
 			}
 			gDsbLen = 0;
-		} 
+		}
 		else
 		if (n>=0 && n<=Lastbef)
 		{
