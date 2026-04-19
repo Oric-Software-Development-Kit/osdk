@@ -4,7 +4,6 @@ CPPFLAGS += -I ../common/includes
 
 FI_PATH := ../../../../shared_libraries/freeimage/v3.12.0
 NS_PATH := ../../../../shared_libraries/nanosvg
-UT_PATH := ../../../../shared_libraries/unittestcpp/v1.4
 CPPFLAGS += -DFREEIMAGE_LIB
 ifeq ($(PLATFORM),win32)
 CPPFLAGS += -I libs
@@ -22,12 +21,7 @@ LDFLAGS += -L ../common -lcommon $(COMMON_EXTRA_LDFLAGS)
 SOURCES := $(notdir $(wildcard sources/*.cpp))
 # filter out some test sources...
 SOURCES := $(filter-out %video.cpp,$(SOURCES))
-ifneq ($(DEBUG),)
-SOURCES += $(notdir $(wildcard sources/Tests/*.cpp))
-CPPFLAGS += -I $(UT_PATH)/src
-LDFLAGS += -L $(UT_PATH) -lUnitTest++
-endif
-VPATH = sources sources/Tests
+VPATH = sources
 CPPFLAGS += -I sources -I includes
 OBJS := $(subst .cpp,.o,$(SOURCES))
 #OBJS := $(SOURCES:.cpp,.o)

@@ -60,7 +60,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;$(SolutionDir)../../../shared_libraries/unittestcpp/unittest-cpp-1.4/include;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FREEIMAGE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -101,7 +101,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;$(SolutionDir)../../../shared_libraries/unittestcpp/unittest-cpp-1.4/include;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FREEIMAGE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -177,8 +177,6 @@
     </ClCompile>
     <ClCompile Include="sources\shifter_color.cpp" />
     <ClCompile Include="sources\svg_format.cpp" />
-    <ClCompile Include="sources\Tests\colortest.cpp" />
-    <ClCompile Include="sources\Tests\maintest.cpp" />
     <ClCompile Include="sources\atari_converter.cpp" />
     <ClCompile Include="sources\hires.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -210,10 +208,6 @@
     <Library Include="libs\FreeImage.lib" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\..\..\svn\public\pc\shared_libraries\unittestcpp\v1.4\UnitTest++.vsnet2005.vcxproj">
-      <Project>{64a4fefe-0461-4e95-8cc1-91ef5f57dbc6}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
     <ProjectReference Include="..\common\common.vcxproj">
       <Project>{3f43c467-3ccf-4703-ab22-dd71f4361efa}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

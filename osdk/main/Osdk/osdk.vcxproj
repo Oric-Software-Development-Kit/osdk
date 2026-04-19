@@ -343,10 +343,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\..\..\svn\public\pc\shared_libraries\unittestcpp\v1.4\UnitTest++.vsnet2005.vcxproj">
-      <Project>{64a4fefe-0461-4e95-8cc1-91ef5f57dbc6}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
     <ProjectReference Include="..\bas2tap\bas2tap.vcxproj">
       <Project>{645966ba-5a15-4c5c-aa33-ba47477aeca4}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

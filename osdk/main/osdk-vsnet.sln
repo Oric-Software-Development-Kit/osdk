@@ -27,8 +27,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "osdk", "Osdk\osdk.vcxproj",
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xa", "xa\xa.vcxproj", "{ABA50B6B-5B5D-4A4A-8E57-9EC9FE7C94B5}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTest++.vsnet2005", "..\..\..\shared_libraries\unittestcpp\v1.4\UnitTest++.vsnet2005.vcxproj", "{64A4FEFE-0461-4E95-8CC1-91EF5F57DBC6}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SampleTweaker", "SampleTweaker\SampleTweaker.vcxproj", "{76BA31B2-4A46-4AF7-9A7D-0A2B48856E81}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TapTool", "TapTool\TapTool.vcxproj", "{5D38DD54-44D4-43A6-B501-B4F16855AD9E}"

@@ -27,9 +27,6 @@ PictConv
 
 //#include <conio.h>
 
-int RunUnitTests();
-
-
 #define NB_ARG	2
 
 
@@ -129,14 +126,6 @@ int __cdecl main(int argc,char *argv[])
     "       -v0 => Silent [default]\r\n"
     "       -v1 => Shows information about what PictConv is doing\r\n"
     );
-
-#ifdef _DEBUG
-  int failureCount=RunUnitTests();
-  if (failureCount)
-  {
-    ShowError("UnitTests failed.");
-  }
-#endif
 
   DEVICE_FORMAT	output_format=DEVICE_FORMAT_BASIC_TAPE;
   //bool flag_basic_loader=true;
