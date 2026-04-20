@@ -38,8 +38,7 @@ Here is the structure of the whole repository at the moment:
 <pre>
 \---pc
     +---shared_libraries
-    |   +---freeimage
-    |   \---unittestcpp
+    |   \---freeimage
     +---euphoric_tools
     |   +---4k8
     |   +---Bin2Tap
