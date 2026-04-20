@@ -30,7 +30,7 @@ that can remove redundant load and store instructions from the compiler output, 
 in smaller and faster code.
 </p>
 
-<p>Starting with version 0.3, MacroSplitter can also perform the macro expansion step itself
+<p>Starting with version 0.2, MacroSplitter can also perform the macro expansion step itself
 via the <b>-M</b> flag, replacing the cpp.exe invocation in the build pipeline. When used this
 way, it reads the compiler's .c2 output directly, expands the MACROS.H definitions, and emits
 annotation comments showing the original macro call before each expanded block. This makes
@@ -210,15 +210,6 @@ MacroSplitter: Optimizer removed 25 redundant instructions
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
-<p id=dateentry>Version 0.3</p>
-<ul>
-<li>Added -M flag for built-in macro expansion (replaces the cpp.exe macro step)</li>
-<li>Emits annotation comments showing original macro calls before each expanded block</li>
-<li>Supports all MACROS.H definitions including nested expansion up to 16 levels deep</li>
-<li>Parenthesis-balanced argument parsing for args like (ap), (fp), (sp)</li>
-<li>New OSDKMACROEXPAND=1 environment variable enables the new pipeline in osdk_config.bat</li>
-</ul>
-
 <p id=dateentry>Version 0.2</p>
 <ul>
 <li>Added -O flag for optional 6502 peephole optimization</li>
@@ -229,7 +220,11 @@ MacroSplitter: Optimizer removed 25 redundant instructions
 <li>Cross-register transfer (stx X ... lda X replaced by txa, and similar combinations)</li>
 <li>Same-immediate reload elimination with #&lt;(N)/#&gt;(N) constant resolution</li>
 <li>Works with lda/sta, ldx/stx, and ldy/sty register pairs</li>
-<li>Replaced argument parsing with standard ArgumentParser</li>
+<li>Added -M flag for built-in macro expansion (replaces the cpp.exe macro step)</li>
+<li>Emits annotation comments showing original macro calls before each expanded block</li>
+<li>Supports all MACROS.H definitions including nested expansion up to 16 levels deep</li>
+<li>Parenthesis-balanced argument parsing for args like (ap), (fp), (sp)</li>
+<li>New OSDKMACROEXPAND=1 environment variable enables the new pipeline in osdk_config.bat</li>
 </ul>
 
 <p id=dateentry>Version 0.1</p>
