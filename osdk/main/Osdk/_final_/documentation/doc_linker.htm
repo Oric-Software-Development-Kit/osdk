@@ -79,6 +79,30 @@ By default the output name will be 'go.s':
 	-r french
 </pre>
 
+<p>The -S imports symbols from an XA symbol file (-l output). Imported symbols are written as equates
+in the output file and marked as defined, preventing library files that define those symbols from being pulled in.
+If the module source redefines an imported symbol, the module's definition wins. It must be followed by a filename:
+</p>
+<pre>
+	-S symbols_Kernel
+</pre>
+
+<p>The -t injects a .text origin from an imported symbol. When used with -S, Link65 emits
+".text / * = symbolname" at the top of the output, setting the assembly origin for the module
+without needing -bt or OSDKADDR. It must be followed by a symbol name:
+</p>
+<pre>
+	-t _KernelEndText
+</pre>
+
+<p>The -g filters -S symbol imports using an XA equates file (from XA -E output).
+Only symbols present in the filter file are imported, preventing local labels from causing
+name collisions in modules. It must be followed by a filename:
+</p>
+<pre>
+	-g kernel_exports.h
+</pre>
+
 
 <p id=chapter>Pragma directives</p>
 
@@ -107,11 +131,30 @@ This allows multiple language-specific replacement tables to coexist in a single
 <p>Only the pragma whose tag matches the <b>-r</b> argument will be applied; the others are silently ignored.
 </p>
 
+<p><b>#pragma osdk import</b> forces the linker to import specific library symbols without requiring dead code references in the source.
+Symbols listed after the pragma (space, tab, or comma separated) are treated as label references, causing Link65 to pull in the library files that define them:
+</p>
+<pre>
+	#pragma osdk import _memset, _memcpy, mul16i, mul16u
+</pre>
+
 
 <p id=chapter>Historic</p>
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+<p id=dateentry>Version 1.4</p>
+<ul>
+<li>Added "-S" option to import symbols from an XA symbol file (-l output)</li>
+<li>Added "-t symbolname" option to inject a .text origin from an imported symbol</li>
+<li>Added "#pragma osdk import" directive to force-import library symbols without requiring dead code references</li>
+<li>Added an error message for unrecognized "#pragma osdk" directives (previously silently ignored)</li>
+<li>Fixed false "Unresolved external" errors caused by C preprocessor macros in assembly files</li>
+<li>Added "-g" option to filter -S symbol imports using an XA equates file</li>
+<li>Fixed "#pragma osdk" directives reporting the wrong filename after a #include</li>
+<li>Added support for XA extended label syntax in the label tokenizer (&amp; block escape, : unnamed labels)</li>
+</ul>
 
 <p id=dateentry>Version 1.3</p>
 - Fixed a bug where a comment on a line containing a string requiring localization would prevent the character replacement from being applied

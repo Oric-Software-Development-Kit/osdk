@@ -47,7 +47,8 @@ Label:  this is the label list
 
 <pre>
 '-C' 		gives error codes when using 65c02 opcodes. Default is not to complain.
-'-W' 		gives error codes when using 65816 opcodes. Default is not to complain.
+'-w'		enable 65816 opcodes (disabled by default).
+'-W' 		disable 65816 opcodes. This is now the default behavior.
 '-c'		    do not produce o65 executable, but object files that can contain undefined references.
 '-cc        almost identical to '-c' except the result is usable with CC65 tools.
 '-v' 		go into verbose mode
@@ -55,10 +56,14 @@ Label:  this is the label list
 '-o filename'	set output filename
 '-e filename'	set errorlog filename
 '-l filename'	set labellist filename
+'-E filename'	export global symbols as equates (name = $addr format, valid XA source).
+'-P prefix'	with -E, only export symbols starting with prefix (e.g. -P _ for public API).
+'-X filename'	with -E, exclude symbols found in a symbol file.
 '-r'		add crossreference list to labellist output (i.e list of filename/line where label is used)
 '-M'		allow ':' to appear in comments after a semicolon (MASM mode)
+'-a'		allow unnamed labels (:, :+, :-). Implies -M (MASM mode).
 '-b? adr'	set segment start address for ? = t(ext), d(ata), b(ss) or z(ero) segment.
-'-A adr'	If the _file_ starts at adr in a ROM, then the text segment need not be relocated. 
+'-A adr'	If the _file_ starts at adr in a ROM, then the text segment need not be relocated.
 			That of course only works, if the data/bss/zero segments are not occupied by other programs too!
 '-G'		omit writing the exported globals to the file.
 '-B'		Show lines with '.(' or '.)' pseudo opcodes
@@ -228,22 +233,20 @@ BigBuffer	.dsb 256</pre>
 		<li>The data segment is where some initialized data goes in (it's actually like a second text segment).</li>
 		<li>The data segment might be allocated separated from the text segment.</li>
 		<li>The contents of the bss and the zero segment are not saved, just the labels are evaluated. Here goes the uninitialized data stuff.</li>
-		<li>The zero segment allows allocation of zeropage space, bss is normal address space.</li>
+		<li>The zero segment allows allocation of zeropage space using .dsb only (no code or data). Use .text with *= for executable zero-page code. BSS is normal address space.</li>
 		</ul>
 		These opcodes can be used in relative and absolute mode.
 	</li>
 
 	<li>
-		<b>'.align'</b> aligns the current segment to a byte boundary given by the value. 
-		Allowed values are 2, 4, and 256. 
+		<b>'.align'</b> aligns the current segment to a byte boundary given by the value.
+		The value must be a power of 2 (e.g. 2, 4, 8, 16, 256).
+		An optional second parameter specifies the fill byte (default is 0).
+		Works in both relocatable and absolute mode.
 		When using relative mode, the align value is written to the file header, such that relocation keeps the alignment.
-		<p>Note: It seems that this directive is totaly bugged, at least I never managed to ge it to do what I wanted to do.
-		Since one of the most common use of allignement on the 6502 is to allign data on a multiple of 256 bytes (page), it's possible
-		to hack around by using this work around:
-		</p>
 		<pre>
-		.dsb 256-(*&255)
-		// The program counter from this point is alligned on the next multiple of 256</pre>
+	.align 256          ; align to page boundary, fill with 0
+	.align 256, $EA     ; align to page boundary, fill with NOP</pre>
 	</li>
 
 	<li>
@@ -254,6 +257,27 @@ BigBuffer	.dsb 256</pre>
 		<p><pre>
 		.fopt 0, "filename", 0
 		</pre>
+	</li>
+
+	<li>
+		<b>'.bin'</b> includes raw binary file data directly in the output.
+		The first parameter is the byte offset to start reading from, the second is the number of bytes
+		to include (0 means the rest of the file), and the third is the filename.
+		<pre>
+	.bin 0, 0, "sprites.raw"      ; include entire file
+	.bin 128, 64, "data.bin"      ; include 64 bytes starting at offset 128</pre>
+	</li>
+
+	<li>
+		<b>'.assert'</b> stops assembly with a custom error message if the expression evaluates to zero (false).
+		<pre>
+	.assert *&lt;$fffa, "code hit vectors!"</pre>
+	</li>
+
+	<li>
+		<b>'.asserteq'</b> stops assembly if the first value does not equal the second, reporting both values in decimal and hex.
+		<pre>
+	.asserteq EndTable-StartTable, 512, "table size wrong"</pre>
 	</li>
 </ul>
 
@@ -284,7 +308,33 @@ in the block hierachy, and you can use more than one '&'.
 	<p><pre>
 	-sysmem   +=4  ; here you can use ==, +=, -=, *=, /=, &=, |=
 	-syszp    =123
-	</pre>     
+	</pre>
+</li>
+<li>Labels prefixed with <b>'@'</b> are <b>cheap local labels</b>, scoped to the nearest preceding standard label definition.
+Each new standard label resets the cheap local scope, so multiple routines can reuse common names like @loop without collision:
+	<pre>
+	Routine1
+	    lda #10
+	@loop
+	    dex
+	    bne @loop       ; refers to Routine1's @loop
+	    rts
+
+	Routine2
+	    ldx #5
+	@loop
+	    dey
+	    bne @loop       ; refers to Routine2's @loop, no collision
+	    rts</pre>
+</li>
+<li>With the <b>'-a'</b> command line flag, a bare <b>':'</b> defines an <b>unnamed label</b>, and <b>':+'</b> / <b>':-'</b> reference the next / previous unnamed label respectively. Use <b>':++'</b> / <b>':--'</b> to skip one, etc. The -a flag implies -M (MASM mode).
+	<pre>
+	:                   ; first unnamed label
+	    lda $00
+	    beq :+          ; jump forward to next unnamed label
+	    jmp :-          ; jump back to previous unnamed label
+	:                   ; second unnamed label
+	    rts</pre>
 </li>
 </ul>
 
@@ -304,9 +354,15 @@ comments in '/*' and '*/'. Comments can be nested.
 
 #print expression        prints an expression to the error file (after preprocessing and calculating)
 
+#error message           stops assembly with a custom error message.
+                         Correctly skipped inside false #if/#ifdef branches.
+                         Supports macro expansion in message text.
+
 #printdef DEFINED        prints the definition of a preprocessor define to the error file.
 
 #define DEF  text	 defines 'DEF' by 'text'
+
+defined(DEF)             .... evaluates to 1 if DEF is defined, 0 otherwise; can be used in #if and #elif expressions
 
 #ifdef DEF               The source code from here to the following #endif
 			 or #else is only assembled if 'DEF' is defined
@@ -314,7 +370,7 @@ comments in '/*' and '*/'. Comments can be nested.
 
 #else                    just else... (optionally)
 
-#endif                   ends an #if-construct. This is a must to end #IF* 
+#endif                   ends an #if-construct. This is a must to end #IF*
 
 #ifndef  DEF             .... if DEF is not defined
 
@@ -326,7 +382,9 @@ comments in '/*' and '*/'. Comments can be nested.
 
 #elif expression         .... else if expression is not zero (optional, can be chained before #endif)
 
-defined(DEF)             .... evaluates to 1 if DEF is defined, 0 otherwise; can be used in #if and #elif expressions
+str(NAME)                expands to the string value of macro NAME (e.g. "value").
+                         Works with #define and -D defines. If NAME is not defined, produces "NAME".
+                         Example: .byt str(VERSION) with -DVERSION=1.3 produces "1.3" in the output.
 </pre>
 #iflused and #ifldef work an labels, not on preprocessor defs! With these
 commands a kind of library is easily built:
@@ -355,6 +413,31 @@ concatenated to it.
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+<p id=dateentry>2.3.1</p>
+<ul>
+<li>Fixed the defined() operator not working in #if directives (only worked in #elif)</li>
+<li>Fixed #print failing with "Illegal pointer arithmetic" when mixing absolute values and relocatable addresses</li>
+<li>Fixed the last line of a source file being silently skipped when it lacks a trailing newline (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Fixed 0x hex prefix parsing reading from the wrong offset, causing 0xFF to be parsed as value 0</li>
+<li>Fixed division by zero in expression evaluator checking the wrong variable (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Fixed #define macro expansion inside quoted strings in .byt directives (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Numeric literals with trailing invalid characters now produce a syntax error instead of being silently accepted</li>
+<li>65816 instructions are now disabled by default. Use '-w' to explicitly enable 65816 mode</li>
+<li>Emitting code or data in the .zero segment now produces an error</li>
+<li>Zero page address overflow now produces a specific error message instead of the generic "Overflow"</li>
+<li>Improved error message formatting: consistent "file(line):addr: message" layout</li>
+<li>Added #error preprocessor directive: stops assembly with a custom error message (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Added .assert pseudo-opcode: stops assembly with a custom message if expression evaluates to zero (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Added .asserteq pseudo-opcode: stops assembly if value != expected, reporting both values</li>
+<li>Added .bin pseudo-opcode: includes raw binary file data directly in the output (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Added cheap local labels: @-prefixed labels scoped to the nearest preceding standard label (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Added unnamed labels (-a flag): bare ':' defines, ':+'/':&#045;' reference next/previous (from <a href="https://www.floodgap.com/retrotech/xa/">official XA</a>)</li>
+<li>Added -E flag: exports global symbols as equates. Optional -P prefix filter and -X exclusion file</li>
+<li>Added str() preprocessor function for explicit macro-to-string conversion</li>
+<li>The .align pseudo-opcode now works in absolute mode with optional fill byte parameter</li>
+<li>Preprocessor directives can now have leading whitespace, matching standard C behavior</li>
+</ul>
 
 <p id=dateentry>2.3.0</p>
 - Added support for the defined() operator in preprocessor expressions

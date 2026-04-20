@@ -14,6 +14,8 @@
 :: - OSDKDISK - Name of the DSK file, if undefined, the DSK generation is skipped
 :: - OSDKINIST - Sedoric initialization string ran on floppy boot
 :: - OSDKTAP2DSKPARAMS - Extra parameters to the Tap2DSK
+:: - OSDKMACRO - To pass additional parameters to the macro splitter (use -O for optimization)
+:: - OSDKMACROEXPAND - Set to 1 to use MacroSplitter's built-in macro expansion (skips cpp.exe macro step)
 :: - OSDKVERBOSITY - How verbose is the build output?
 ::
 :: Used by other parts of the system
@@ -82,6 +84,20 @@ SET OSDKXAPARAMS=-W -C
 :EndXaParams
 
 ::
+:: Set the macro splitter params (use -O for optimization)
+::
+IF NOT "%OSDKMACRO%"=="" GOTO EndMacro
+SET OSDKMACRO=
+:EndMacro
+
+::
+:: Set the macro expander mode (set to 1 to use built-in macro expansion)
+::
+IF NOT "%OSDKMACROEXPAND%"=="" GOTO EndMacroExpand
+SET OSDKMACROEXPAND=
+:EndMacroExpand
+
+::
 :: Set the verbosity level, if not set, we default to 2
 ::
 IF NOT "%OSDKVERBOSITY%"=="" GOTO EndVerbosity
@@ -104,7 +120,7 @@ SET TEMP=%OSDKT%
 SET OCC=%OSDK%
 SET LCC65=%OSDK%
 SET LCC65DIR=%OSDK%
-SET OSDKVERSION=1.22
+SET OSDKVERSION=1.23
 
 ::
 :: Create a build directory if it does not exist
@@ -221,12 +237,15 @@ IF "%OSDKBRIEF%"=="" ECHO   - compile
 %OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKT%\%1.c >%OSDKT%\%1.c2
 IF ERRORLEVEL 1 GOTO ErFailure
 
+IF "%OSDKMACROEXPAND%"=="1" (
+IF "%OSDKBRIEF%"=="" ECHO   - expand macros and cleanup output
+%OSDKB%\macrosplitter.exe %OSDKMACRO% -M%OSDK%\macro\macros.h %OSDKT%\%1.c2 %OSDKT%\%1
+) ELSE (
 IF "%OSDKBRIEF%"=="" ECHO   - convert C to assembly code
 %OSDKB%\cpp.exe -lang-c++ -imacros %OSDK%\macro\macros.h  -DXA -traditional -P %OSDKT%\%1.c2 %OSDKT%\%1.s
-
 IF "%OSDKBRIEF%"=="" ECHO   - cleanup output
-::%OSDKB%\tr < %OSDKT%\%1.s > %OSDKT%\%1
-%OSDKB%\macrosplitter.exe %OSDKT%\%1.s %OSDKT%\%1
+%OSDKB%\macrosplitter.exe %OSDKMACRO% %OSDKT%\%1.s %OSDKT%\%1
+)
 SET OSDKLINKLIST=%OSDKLINKLIST% %OSDKT%\%1
 SHIFT
 GOTO FileLoop

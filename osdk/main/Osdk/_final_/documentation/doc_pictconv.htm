@@ -57,7 +57,8 @@ PC paint program (PaintShopPro, PhotoShop, ...), in a format displayable on the 
   -f2 => RVB conversion
   -f3 => Twilight masks
   -f4 => RB conversion
-  -f5 => charactermap generator
+  -f5 => charactermap generator (single charset, max 96 characters)
+  -f5z => charactermap generator (dual charset STD+ALT, max 192 characters)
   -f6 => Sam method (Img2Oric)
   -f7 => AIC encoding
 <b>Atari ST</b>:
@@ -397,6 +398,14 @@ Lena
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+<p id=dateentry>Version 1.3</p>
+<ul>
+<li>Fixed the -f5 charmap generator mode</li>
+<li>Added the -f5z option for dual charset charmap generation (STD+ALT, max 192 characters instead of 96)</li>
+<li>Charmap snapshot now shows frequency-based diagnostic coloring and dual charset row indicators</li>
+<li>Added tertiary buffer support for per-row charset attribute data</li>
+</ul>
 
 <p id=dateentry>Version 1.2</p>
 <ul>
