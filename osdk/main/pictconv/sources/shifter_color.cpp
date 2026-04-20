@@ -47,7 +47,7 @@ static_assert(ShifterColor::ValueFromSte( 7)==14, "ValueFromSte");
 static_assert(ShifterColor::ValueFromSte(15)==15, "ValueFromSte");
 
 // GetBigEndianValue
-static_assert(ShifterColor(RgbColor(  0,  1,  0)).GetBigEndianValue()==0x0001, "BigEndian black");
+static_assert(ShifterColor(RgbColor(  0,  0,  0)).GetBigEndianValue()==0x0000, "BigEndian black");
 static_assert(ShifterColor(RgbColor(255,  0,  0)).GetBigEndianValue()==0x000F, "BigEndian red");
 static_assert(ShifterColor(RgbColor(  0,255,  0)).GetBigEndianValue()==0xF000, "BigEndian green");
 static_assert(ShifterColor(RgbColor(  0,  0,255)).GetBigEndianValue()==0x0F00, "BigEndian blue");
