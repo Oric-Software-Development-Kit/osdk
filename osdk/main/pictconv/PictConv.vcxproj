@@ -60,7 +60,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\shared_libraries\nanosvg\src;$(ProjectDir)..\..\..\shared_libraries\freeimage\v3.12.0\Dist;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;FREEIMAGE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -78,14 +78,14 @@
     <Link>
       <AdditionalOptions>
  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>$(ProjectDir)\libs\freeimaged.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImaged.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalLibraryDirectories>$(ProjectDir)\libs</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\shared_libraries\freeimage\v3.12.0\Dist</AdditionalLibraryDirectories>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -101,7 +101,7 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>$(SolutionDir)../../../shared_libraries/nanosvg/src;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\shared_libraries\nanosvg\src;$(ProjectDir)..\..\..\shared_libraries\freeimage\v3.12.0\Dist;includes;../common/includes;sources;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;FREEIMAGE_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -118,12 +118,13 @@
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>libs\freeimage.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImage.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ProgramDatabaseFile>$(IntDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\shared_libraries\freeimage\v3.12.0\Dist</AdditionalLibraryDirectories>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -133,7 +134,6 @@
   <ItemGroup>
     <ClInclude Include="includes\defines.h" />
     <ClInclude Include="includes\dithering.h" />
-    <ClInclude Include="includes\FreeImage.h" />
     <ClInclude Include="includes\getpixel.h" />
     <ClInclude Include="sources\image.h" />
     <ClInclude Include="includes\infos.h" />
@@ -205,7 +205,7 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="libs\FreeImage.lib" />
+    <Library Include="$(ProjectDir)..\..\..\shared_libraries\freeimage\v3.12.0\Dist\FreeImage.lib" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\common.vcxproj">

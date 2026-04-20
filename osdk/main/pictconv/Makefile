@@ -2,14 +2,14 @@ include ../../../rules.mk
 
 CPPFLAGS += -I ../common/includes
 
-FI_PATH := ../../../../shared_libraries/freeimage/v3.12.0
-NS_PATH := ../../../../shared_libraries/nanosvg
+FI_PATH := ../../../shared_libraries/freeimage/v3.12.0
+NS_PATH := ../../../shared_libraries/nanosvg
 CPPFLAGS += -DFREEIMAGE_LIB
 ifeq ($(PLATFORM),win32)
 CPPFLAGS += -I libs
 LDFLAGS += -L libs -lFreeImage
 else
-CPPFLAGS += -I $(FI_PATH)/ -I../../../../shared_libraries/freeimage/v3.12.0/Source/
+CPPFLAGS += -I $(FI_PATH)/ -I$(FI_PATH)/Source/
 LDFLAGS += -L $(FI_PATH)/ -lfreeimage $(MATH_LIBS)
 endif
 

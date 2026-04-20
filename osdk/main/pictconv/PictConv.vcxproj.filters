@@ -17,18 +17,12 @@
     <Filter Include="data">
       <UniqueIdentifier>{4a9ed198-12a4-49d0-803d-2adb3eaba21a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Libs">
-      <UniqueIdentifier>{735fbc23-7b05-4041-bf26-7d6ac970d667}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="includes\defines.h">
       <Filter>Sources</Filter>
     </ClInclude>
     <ClInclude Include="includes\dithering.h">
-      <Filter>Sources</Filter>
-    </ClInclude>
-    <ClInclude Include="includes\FreeImage.h">
       <Filter>Sources</Filter>
     </ClInclude>
     <ClInclude Include="includes\getpixel.h">
@@ -142,10 +136,5 @@
     <ResourceCompile Include="data\icones.rc">
       <Filter>data</Filter>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="libs\FreeImage.lib">
-      <Filter>Libs</Filter>
-    </Library>
   </ItemGroup>
 </Project>

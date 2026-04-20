@@ -86,34 +86,50 @@ void update_sector(int track, int sect, byte *contents)
   memcpy(disk[track][sect-1],contents,sizeof(sector));
 }
 
+char special_tape;
+char special_tape_index;
+char tape_file_prefix_length;
+char tape_file_prefix[10];
+
 void convert_basename(char *dest, char *name)
 {
-  static int filenumber=0;
-  int dest_offset=0, src_offset=0;
-  printf("Storing ");
-  while (dest_offset<9 && src_offset<17 && name[src_offset])
-  {
-    if (name[src_offset]>='a' && name[src_offset]<='z')
-      name[src_offset]-=0x20;
-
-    if ((name[src_offset]>='0' && name[src_offset]<='9')
-      || (name[src_offset]>='A' && name[src_offset]<='Z')) 
+    if (special_tape)
     {
-      putchar(name[src_offset]);
-      dest[dest_offset++]=name[src_offset];
+        ++special_tape_index;
+		printf("%s%d", tape_file_prefix, special_tape_index);
+        int dest_offset = sprintf(dest, "%s%d", tape_file_prefix, special_tape_index);
+		while (dest_offset < 9)
+			dest[dest_offset++] = ' ';
     }
-    src_offset++;
-  }
-  if (dest_offset) 
-  {
-    while (dest_offset<9)
-      dest[dest_offset++]=' ';
-  }
-  else
-  {
-    printf("NONAME%03d",filenumber);
-    sprintf(dest,"NONAME%03d",filenumber++);
-  }
+    else
+    {
+        static int filenumber=0;
+        int dest_offset=0, src_offset=0;
+        printf("Storing ");
+        while (dest_offset<9 && src_offset<17 && name[src_offset])
+        {
+        if (name[src_offset]>='a' && name[src_offset]<='z')
+            name[src_offset]-=0x20;
+
+        if ((name[src_offset]>='0' && name[src_offset]<='9')
+            || (name[src_offset]>='A' && name[src_offset]<='Z')) 
+        {
+            putchar(name[src_offset]);
+            dest[dest_offset++]=name[src_offset];
+        }
+        src_offset++;
+        }
+        if (dest_offset) 
+        {
+        while (dest_offset<9)
+            dest[dest_offset++]=' ';
+        }
+        else
+        {
+            printf("NONAME%03d",filenumber);
+            sprintf(dest,"NONAME%03d",filenumber++);
+        }
+	}
 }
 
 void store_file(byte *buf, char *name, byte *header)
@@ -148,15 +164,23 @@ void store_file(byte *buf, char *name, byte *header)
   descriptor[11]=sectors>>8;
 
   convert_basename((char*)(directory+dir_offset),name);
-  if (exec)
+  if (special_tape)
   {
-    sprintf((char*)(directory+dir_offset+9),"COM");
-    printf(".COM");
+	  sprintf((char*)(directory + dir_offset + 9), "TAP");
+	  printf(".TAP");
   }
   else
   {
-    sprintf((char*)(directory+dir_offset+9),"%s",block?"BIN":"BAS");
-    printf(".%s",block?"BIN":"BAS");
+      if (exec)
+      {
+        sprintf((char*)(directory+dir_offset+9),"COM");
+        printf(".COM");
+      }
+      else
+      {
+        sprintf((char*)(directory+dir_offset+9),"%s",block?"BIN":"BAS");
+        printf(".%s",block?"BIN":"BAS");
+      }
   }
   printf("\n");
   directory[dir_offset+12]=desc_track;
@@ -315,14 +339,43 @@ int main(int argc, char *argv[])
 
   for (tape_num=1; tape_num<argc-1; tape_num++)
   {
-    if (argv[tape_num][0]=='-') continue;
-    tape=fopen(argv[tape_num],"rb");
+      special_tape_index = 0;
+      special_tape = 0;
+      char* source_tape_name = argv[tape_num];
+	  tape_file_prefix_length = 0;
+      tape_file_prefix[10];
+
+
+    if (source_tape_name[0]=='-') continue;
+
+    if (source_tape_name[0] == '#')
+    {
+        special_tape = 1;
+		source_tape_name++;
+        while ((*source_tape_name) && (*source_tape_name != '#'))
+        {
+			tape_file_prefix[tape_file_prefix_length++] = *source_tape_name;
+            source_tape_name++;
+        };
+        if (*source_tape_name == '#')
+        {
+            source_tape_name++;
+        }
+        else
+        {
+			fprintf(stderr, "'%s' is an invalid name: There should be two # symbols when using the special dumping mode\n", argv[tape_num]);
+			exit(1);
+        }
+    }
+	tape_file_prefix[tape_file_prefix_length] = 0;
+
+    tape=fopen(source_tape_name,"rb");
     if (tape==NULL)
     {
-      fprintf(stderr,"Cannot read tape image %s\n",argv[tape_num]);
+      fprintf(stderr,"Cannot read tape image %s\n", source_tape_name);
       exit(1);
     }
-    printf("Reading %s\n",argv[tape_num]);
+    printf("Reading %s\n", source_tape_name);
 
 
     while (fgetc(tape)!=EOF)
@@ -389,7 +442,7 @@ int main(int argc, char *argv[])
       end  =(header[4]<<8)+header[5];
       for (i=0; i<end+1-start; i++)
         file_buffer[i]=fgetc(tape);
-      printf("Found %s\n",name);
+      printf("Found \"%s\",A#%04X,E#%04X Size:%d Exec:%02x\n", name, start, end, 1+end-start, header[3]); // int exec = header[3];
       store_file(file_buffer,name,header);
       bitmap[4]++; // number of files
       dir_offset+=16;
