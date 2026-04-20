@@ -3,9 +3,13 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir>$(SolutionDir)\Osdk\_final_\Bin\</OutDir>
-    <IntDir>$(SolutionDir)Build\$(ProjectName)\Release\</IntDir>
+    <OutDir>$(MSBuildThisFileDirectory)..\Osdk\_final_\Bin\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\Build\$(ProjectName)\Release\</IntDir>
   </PropertyGroup>
-  <ItemDefinitionGroup />
+  <ItemDefinitionGroup>
+    <Link>
+      <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup />
 </Project>
