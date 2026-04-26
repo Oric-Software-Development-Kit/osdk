@@ -1061,6 +1061,8 @@ void errout(int er)
 			sprintf(out,"%s(%u):%04x: Label '%s' not defined\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],gError_LabelNamePointer);
 		else if (er==E_USERERROR)
 			sprintf(out,"%s(%u): Error %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),gError_UserMessage);
+		else if (er==E_AERROR)
+			sprintf(out,"%s(%u):%04x: %s\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],gError_UserMessage);
 		else
 			sprintf(out,"%s(%u):%04x: %s error\n",gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentLine(),TablePcSegment[gCurrentSegment],ertxt[-er-1]);
 

@@ -127,6 +127,8 @@ Change history for XA
   no longer triggers spurious warnings about unrelated segments.
 - Fixed comparison operators (<, >, <=, >=, ==, !=) between labels causing "Illegal pointer
   arithmetic" errors. Comparing any two addresses now works regardless of segment.
+- Improved .assert/.asserteq error reporting: the assertion message is now included on the
+  same line as the file/line/address information instead of being printed on a separate line.
 
 */
 

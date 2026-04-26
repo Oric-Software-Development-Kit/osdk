@@ -1276,11 +1276,13 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 			{
 				er=E_SYNTAX;
 			}
-			/* print the message if assertion failed */
+			/* extract the message and report if assertion failed */
 			if (!er)
 			{
+				char *msg = gError_UserMessage;
+				int msgpos = 0;
 				if (!result)
-					fprintf(stderr, "Assertion failed: ");
+					msgpos = sprintf(msg, "Assertion failed: ");
 				if (t[i]=='\"')
 				{
 					i++;
@@ -1289,7 +1291,7 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					while (i<k)
 					{
 						if (!result)
-							fprintf(stderr, "%c", t[i]);
+							msg[msgpos++] = t[i];
 						i++;
 					}
 				}
@@ -1299,14 +1301,15 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					if (!(er=evaluate_expression(t+i,&c,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
 					{
 						if (!result)
-							fprintf(stderr, "%c", c);
+							msg[msgpos++] = (char)c;
 						i+=l;
 					}
 				}
+				if (!result)
+					msg[msgpos] = 0;
 			}
 			if (!er && !result)
 			{
-				fprintf(stderr, "\n");
 				return E_AERROR;
 			}
 			*ll=0;
@@ -1348,10 +1351,11 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 			{
 				er=E_SYNTAX;
 			}
-			/* print the message if assertion failed */
+			/* extract the message and report if assertion failed */
 			if (!er && value!=expected)
 			{
-				fprintf(stderr, "Assertion failed: ");
+				char *msg = gError_UserMessage;
+				int msgpos = sprintf(msg, "Assertion failed: ");
 				if (t[i]=='\"')
 				{
 					i++;
@@ -1359,7 +1363,7 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					i++;
 					while (i<k)
 					{
-						fprintf(stderr, "%c", t[i]);
+						msg[msgpos++] = t[i];
 						i++;
 					}
 				}
@@ -1368,11 +1372,11 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 					int c;
 					if (!(er=evaluate_expression(t+i,&c,&l,TablePcSegment[gCurrentSegment],&afl,&label,1)))
 					{
-						fprintf(stderr, "%c", c);
+						msg[msgpos++] = (char)c;
 						i+=l;
 					}
 				}
-				fprintf(stderr, " (got %d/$%04x, expected %d/$%04x)\n", value, value&0xffff, expected, expected&0xffff);
+				sprintf(msg+msgpos, " (got %d/$%04x, expected %d/$%04x)", value, value&0xffff, expected, expected&0xffff);
 				return E_AERROR;
 			}
 			*ll=0;
