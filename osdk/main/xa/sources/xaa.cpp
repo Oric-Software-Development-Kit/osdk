@@ -211,15 +211,21 @@ static ErrorCode evaluate_term(signed char *s,int operator_priority, int *v, int
 			pp+=1;
 			if (!(er=evaluate_term(s,OperatorPriorityTable[o],&w, nafl, label)))
 			{
-				if (afl || *nafl) 
-				{	
-					// check pointer arithmetic 
-					if ((afl == *nafl) && (afl!=eSEGMENT_UNDEF) && o==eOPERATOR_SUBTRACT) 
+				if (afl || *nafl)
+				{
+					// check pointer arithmetic
+					if ((afl == *nafl) && (afl!=eSEGMENT_UNDEF) && o==eOPERATOR_SUBTRACT)
 					{
-						// subtract two pointers 
-						afl = 0; 	
-					} 
-					else 
+						// subtract two pointers
+						afl = 0;
+					}
+					else
+					if (o>=eOPERATOR_INFERIOR && o<=eOPERATOR_DIFFERENT)
+					{
+						// compare two pointers (result is absolute boolean)
+						afl = 0;
+					}
+					else
 					if (((afl && !*nafl) || (*nafl && !afl)) && o==eOPERATOR_ADD) 
 					{
 						// add constant to pointer

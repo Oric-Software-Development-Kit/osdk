@@ -125,6 +125,8 @@ Change history for XA
   The warnings (and o65 header alignment flags) now only apply in relocatable mode (-R).
   Also changed alignment tracking from global to per-segment, so a .align in one segment
   no longer triggers spurious warnings about unrelated segments.
+- Fixed comparison operators (<, >, <=, >=, ==, !=) between labels causing "Illegal pointer
+  arithmetic" errors. Comparing any two addresses now works regardless of segment.
 
 */
 
