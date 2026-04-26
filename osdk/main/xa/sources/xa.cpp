@@ -61,7 +61,7 @@ static FILE *gEquatesFileHandle;
 static int ner = 0;
 char gError_UserMessage[MAXLINE];	// Buffer for #error directive message
 
-static int align = 1;
+static int align[_eSEGMENT_MAX_] = { 1, 1, 1, 1, 1, 1 };
 
 static void printstat(void);
 static void usage(void);
@@ -475,47 +475,57 @@ int main(int argc,char *argv[])
 		 logout(out);
 	 }
 
-	 if (SectionTextBase & (align-1))
-	 {
-		 sprintf(out,"Warning: text segment ($%04x) start address doesn't align to %d!\n",SectionTextBase,align);
-		 logout(out);
-	 }
-	 if (SectionDataBase & (align-1))
-	 {
-		 sprintf(out,"Warning: data segment ($%04x) start address doesn't align to %d!\n",SectionDataBase,align);
-		 logout(out);
-	 }
-	 if (SectionBssBase & (align-1))
-	 {
-		 sprintf(out,"Warning: bss segment ($%04x) start address doesn't align to %d!\n",SectionBssBase,align);
-		 logout(out);
-	 }
-	 if (SectionZeroBase & (align-1))
-	 {
-		 sprintf(out,"Warning: zero segment ($%04x) start address doesn't align to %d!\n",SectionZeroBase,align);
-		 logout(out);
-	 }
 	 if (gFlag_n65816>0)
 		 fmode |= 0x8000;
 
-	 switch (align)
+	 if (relmode)
 	 {
-	 case 1:
-		 break;
-	 case 2:
-		 fmode |= 1;
-		 break;
-	 case 4:
-		 fmode |= 2;
-		 break;
-	 case 256:
-		 fmode |=3;
-		 break;
-	 }
+		 /* alignment warnings only matter in relocatable mode where the loader places segments */
+		 if (SectionTextBase & (align[eSEGMENT_TEXT]-1))
+		 {
+			 sprintf(out,"Warning: text segment ($%04x) start address doesn't align to %d!\n",SectionTextBase,align[eSEGMENT_TEXT]);
+			 logout(out);
+		 }
+		 if (SectionDataBase & (align[eSEGMENT_DATA]-1))
+		 {
+			 sprintf(out,"Warning: data segment ($%04x) start address doesn't align to %d!\n",SectionDataBase,align[eSEGMENT_DATA]);
+			 logout(out);
+		 }
+		 if (SectionBssBase & (align[eSEGMENT_BSS]-1))
+		 {
+			 sprintf(out,"Warning: bss segment ($%04x) start address doesn't align to %d!\n",SectionBssBase,align[eSEGMENT_BSS]);
+			 logout(out);
+		 }
+		 if (SectionZeroBase & (align[eSEGMENT_ZERO]-1))
+		 {
+			 sprintf(out,"Warning: zero segment ($%04x) start address doesn't align to %d!\n",SectionZeroBase,align[eSEGMENT_ZERO]);
+			 logout(out);
+		 }
 
-	 if ((!er) && relmode)
-	 {
-		 afile->WriteRelocatableHeader(gOutputFileHandle, fmode,SectionTextLenght,SectionDataLenght,SectionBssLenght,SectionZeroLenght, 0);
+		 /* compute max alignment across all segments for o65 header */
+		 int max_align = 1;
+		 for (int s = 0; s < _eSEGMENT_MAX_; s++)
+			 if (align[s] > max_align) max_align = align[s];
+
+		 switch (max_align)
+		 {
+		 case 1:
+			 break;
+		 case 2:
+			 fmode |= 1;
+			 break;
+		 case 4:
+			 fmode |= 2;
+			 break;
+		 case 256:
+			 fmode |=3;
+			 break;
+		 }
+
+		 if (!er)
+		 {
+			 afile->WriteRelocatableHeader(gOutputFileHandle, fmode,SectionTextLenght,SectionDataLenght,SectionBssLenght,SectionZeroLenght, 0);
+		 }
 	 }
 
 
@@ -1016,7 +1026,8 @@ static ErrorCode getline(char *s)
 
 void set_align(int a)
 {
-	align = (a>align)?a:align;
+	if (a > align[gCurrentSegment])
+		align[gCurrentSegment] = a;
 }
 
 static void lineout(void)

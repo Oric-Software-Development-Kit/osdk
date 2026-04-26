@@ -120,12 +120,18 @@ Change history for XA
   instead of the generic "Overflow", making it clear the address exceeds the $00-$FF range.
 - Improved error message formatting: consistent "file(line):addr: message" layout.
 
+2.3.2
+- Fixed .align segment base address warnings firing in absolute mode where they are irrelevant.
+  The warnings (and o65 header alignment flags) now only apply in relocatable mode (-R).
+  Also changed alignment tracking from global to per-segment, so a .align in one segment
+  no longer triggers spurious warnings about unrelated segments.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	2
 #define TOOL_VERSION_MINOR	3
-#define TOOL_VERSION_PATCH	1
+#define TOOL_VERSION_PATCH	2
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s
