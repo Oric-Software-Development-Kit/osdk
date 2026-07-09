@@ -214,8 +214,11 @@ void progbeg(int argc,char *argv[]) {
     }
 }
 
+static void emit_ctype_flush(void);  /* defined below, after ctype_name */
+
 void progend(void) {
     if (graph_output) printf("}\n");
+    else emit_ctype_flush();
 }
 
 static bool is_temporary(Symbol s) {
@@ -1103,4 +1106,253 @@ void emit(Node p) {
     for (; p; p=p->x.next)
         if (optimizelevel==0) emitdag0(p);
         else emitdag(p);
+}
+
+/* ----------------------------------------------------------------
+ * .ctype annotation emission — write type info to assembly output
+ * so the debug toolchain can display structured variable data.
+ * ---------------------------------------------------------------- */
+
+/* Map struct/union types to their typedef names.
+   Populated by emit_stabtype() so that ctype_name() can use "score_entry"
+   instead of the compiler-generated numeric tag "129". */
+#define MAX_TYPEDEF_MAP 256
+static struct { Type type; const char *name; } typedef_map[MAX_TYPEDEF_MAP];
+static int typedef_map_count = 0;
+
+static const char *typedef_lookup(Type t) {
+    int i;
+    for (i = 0; i < typedef_map_count; i++)
+        if (typedef_map[i].type == t) return typedef_map[i].name;
+    return NULL;
+}
+
+static void typedef_register(Type t, const char *name) {
+    int i;
+    /* Update existing entry or add new one */
+    for (i = 0; i < typedef_map_count; i++)
+        if (typedef_map[i].type == t) { typedef_map[i].name = name; return; }
+    if (typedef_map_count < MAX_TYPEDEF_MAP) {
+        typedef_map[typedef_map_count].type = t;
+        typedef_map[typedef_map_count].name = name;
+        typedef_map_count++;
+    }
+}
+
+/* Build a type name string into buf (e.g. "int", "uchar", "*char",
+   "score_entry[24]").  Returns buf for convenience. */
+static char *ctype_name(Type t, char *buf, int bufsize)
+{
+    Type u;
+    if (!t) { buf[0] = '?'; buf[1] = 0; return buf; }
+
+    /* Strip const/volatile qualifiers */
+    u = unqual(t);
+
+    /* Exact pointer comparison with known type globals first —
+       this is the most reliable way to distinguish signed/unsigned. */
+    if (u == chartype)       { strncpy(buf, "char",   bufsize); }
+    else if (u == unsignedchar)   { strncpy(buf, "uchar",  bufsize); }
+    else if (u == shorttype)      { strncpy(buf, "short",  bufsize); }
+    else if (u == unsignedshort)  { strncpy(buf, "ushort", bufsize); }
+    else if (u == inttype)        { strncpy(buf, "int",    bufsize); }
+    else if (u == unsignedtype)   { strncpy(buf, "uint",   bufsize); }
+    else if (u == longtype)       { strncpy(buf, "long",   bufsize); }
+    else if (u == unsignedlong)   { strncpy(buf, "ulong",  bufsize); }
+    else if (u == floattype)      { strncpy(buf, "float",  bufsize); }
+    else if (u == doubletype)     { strncpy(buf, "double", bufsize); }
+    else if (u == voidtype)       { strncpy(buf, "void",   bufsize); }
+    else switch (u->op) {
+    case POINTER: {
+        char inner[128];
+        ctype_name(u->type, inner, sizeof(inner));
+        sprintf(buf, "*%s", inner);
+        break;
+    }
+    case ARRAY: {
+        char inner[128];
+        int count = (u->type && u->type->size > 0) ? u->size / u->type->size : 0;
+        ctype_name(u->type, inner, sizeof(inner));
+        sprintf(buf, "%s[%d]", inner, count);
+        break;
+    }
+    case STRUCT: {
+        const char *tn = typedef_lookup(u);
+        if (tn)
+            strncpy(buf, tn, bufsize);
+        else if (u->u.sym && u->u.sym->name && u->u.sym->name[0]
+                 && !(u->u.sym->name[0] >= '0' && u->u.sym->name[0] <= '9'))
+            strncpy(buf, u->u.sym->name, bufsize);
+        else
+            sprintf(buf, "struct_%d", u->size);
+        break;
+    }
+    case UNION: {
+        const char *tn = typedef_lookup(u);
+        if (tn)
+            strncpy(buf, tn, bufsize);
+        else if (u->u.sym && u->u.sym->name && u->u.sym->name[0]
+                 && !(u->u.sym->name[0] >= '0' && u->u.sym->name[0] <= '9'))
+            strncpy(buf, u->u.sym->name, bufsize);
+        else
+            sprintf(buf, "union_%d", u->size);
+        break;
+    }
+    case ENUM:
+        strncpy(buf, "int", bufsize);   /* enums are ints on 6502 */
+        break;
+    case FUNCTION:
+        strncpy(buf, "func", bufsize);
+        break;
+    default: {
+        /* Fallback by op */
+        static const char *fallback[] = {
+            "?","float","double","char","short","int","uint",
+            "ptr","void","struct","union","func","array","int","long"
+        };
+        if (u->op >= 1 && u->op <= 14)
+            strncpy(buf, fallback[u->op], bufsize);
+        else
+            strncpy(buf, "?", bufsize);
+        break;
+    }
+    }
+    buf[bufsize-1] = 0;
+    return buf;
+}
+
+/* Deferred struct/union type definitions — we collect the Type pointers during
+   compilation (registering typedef names immediately), then emit the .ctype struct
+   lines at progend() so that ALL typedef names are resolved before any field type
+   strings are generated.  This prevents inner struct references from showing
+   numeric tags (e.g. "struct_19" instead of "score_entry"). */
+#define MAX_DEFERRED_TYPES 256
+static struct { Type type; const char *name; } deferred_types[MAX_DEFERRED_TYPES];
+static int deferred_type_count = 0;
+
+/* Register a struct/union type for deferred emission.
+   Called from stabtype() for TYPEDEF and anonymous struct/union symbols. */
+void emit_stabtype(Symbol p)
+{
+    Type t;
+    const char *name;
+    int i;
+
+    if (graph_output) return;
+    if (!p || !p->type) return;
+
+    t = unqual(p->type);
+    if (!t) return;
+    if (t->op != STRUCT && t->op != UNION) return;
+
+    /* Prefer the typedef name (e.g. "score_entry") over the compiler-generated
+       numeric tag (e.g. "129") used for anonymous structs.  Fall back to the
+       tag name when the typedef is unnamed or absent. */
+    name = NULL;
+    if (p->name && p->name[0] && !(p->name[0] >= '0' && p->name[0] <= '9'))
+        name = p->name;
+    else if (t->u.sym && t->u.sym->name && t->u.sym->name[0]
+             && !(t->u.sym->name[0] >= '0' && t->u.sym->name[0] <= '9'))
+        name = t->u.sym->name;
+    if (!name) return;  /* skip anonymous types with no typedef */
+
+    /* Register this typedef immediately so ctype_name() can resolve it */
+    typedef_register(t, name);
+
+    /* Deduplicate: skip if this Type is already collected */
+    for (i = 0; i < deferred_type_count; i++)
+        if (deferred_types[i].type == t) return;
+
+    if (deferred_type_count < MAX_DEFERRED_TYPES) {
+        deferred_types[deferred_type_count].type = t;
+        deferred_types[deferred_type_count].name = name;
+        deferred_type_count++;
+    }
+}
+
+/* Deferred variable annotations — collected during compilation, emitted at
+   progend() after all typedef mappings are established. */
+#define MAX_DEFERRED_VARS 512
+static struct { const char *asmname; const char *cname; Type type; const char *func; } deferred_vars[MAX_DEFERRED_VARS];
+static int deferred_var_count = 0;
+
+/* Collect a variable for deferred .ctype emission.
+   Called from stabsym() for globals, externs, statics, and locals. */
+void emit_stabsym(Symbol p)
+{
+    if (graph_output) return;
+    if (!p || !p->type) return;
+    /* Only emit for data variables, not functions or compiler internals */
+    if (isfunc(p->type)) return;
+    if (!p->name) return;
+    if (p->scope == CONSTANTS || p->scope == LABELS) return;
+    /* Skip register-allocated variables */
+    if (p->x.adrmode == 'R') return;
+    /* Skip compiler-generated names (numeric temps, string literals) */
+    if (p->name[0] >= '0' && p->name[0] <= '9') return;
+    if (p->x.name && p->x.name[0] == 'L' && p->generated) return;
+
+    if (deferred_var_count < MAX_DEFERRED_VARS) {
+        /* Use x.name if available, else build the asm name from C name */
+        deferred_vars[deferred_var_count].asmname = p->x.name ? p->x.name : stringf("_%s", p->name);
+        deferred_vars[deferred_var_count].cname = p->name;
+        deferred_vars[deferred_var_count].type = p->type;
+        deferred_vars[deferred_var_count].func = fname;
+        deferred_var_count++;
+    }
+}
+
+/* Flush all deferred .ctype annotations.  Called from progend().
+   Struct definitions are emitted first (all typedef names are now registered),
+   then variable annotations (which reference those type names). */
+static void emit_ctype_flush(void)
+{
+    int i;
+    char tname[128];
+
+    /* Phase 1: emit deferred struct/union definitions */
+    for (i = 0; i < deferred_type_count; i++) {
+        Type t = deferred_types[i].type;
+        const char *name = deferred_types[i].name;
+        const char *kind = (t->op == STRUCT) ? "struct" : "union";
+        Field f;
+
+        print(".ctype %s %s %d", kind, name, t->size);
+        f = fieldlist(t);
+        while (f) {
+            ctype_name(f->type, tname, sizeof(tname));
+            print(" %s:%s:%d:%d", f->name, tname, f->offset, f->type ? f->type->size : 0);
+            f = f->link;
+        }
+        print("\n");
+    }
+    deferred_type_count = 0;
+
+    /* Phase 2: emit deferred variable annotations */
+    for (i = 0; i < deferred_var_count; i++) {
+        const char *asmname = deferred_vars[i].asmname;
+        ctype_name(deferred_vars[i].type, tname, sizeof(tname));
+        if (asmname[0] == '(') {
+            /* Local or parameter: (fp),N or (ap),N
+               Emit: .ctype local <func> <cname> <base> <offset> <type> <size>
+               where base is "fp" or "ap" and offset is the numeric part */
+            int off = 0;
+            const char *base = "fp";
+            if (asmname[1] == 'a') base = "ap";
+            /* Parse offset after ")," */
+            { const char *cp = asmname;
+              while (*cp && *cp != ',') cp++;
+              if (*cp == ',') off = atoi(cp + 1);
+            }
+            print(".ctype local %s %s %s %d %s %d\n",
+                  deferred_vars[i].func ? deferred_vars[i].func : "?",
+                  deferred_vars[i].cname ? deferred_vars[i].cname : "?",
+                  base, off, tname, deferred_vars[i].type->size);
+        } else {
+            /* Global/static variable */
+            print(".ctype var %s %s %d\n", asmname, tname,
+                  deferred_vars[i].type->size);
+        }
+    }
+    deferred_var_count = 0;
 }

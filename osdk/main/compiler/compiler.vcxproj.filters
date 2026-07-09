@@ -89,6 +89,9 @@
     <ClInclude Include="includes\version.h">
       <Filter>includes</Filter>
     </ClInclude>
+    <ClInclude Include="includes\infos.h">
+      <Filter>includes</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="data\icones.rc">

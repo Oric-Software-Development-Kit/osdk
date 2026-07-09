@@ -237,6 +237,7 @@
   <ItemGroup>
     <ClInclude Include="includes\c.h" />
     <ClInclude Include="includes\config.h" />
+    <ClInclude Include="includes\infos.h" />
     <ClInclude Include="includes\keywords.h" />
     <ClInclude Include="includes\ops.h" />
     <ClInclude Include="includes\token.h" />

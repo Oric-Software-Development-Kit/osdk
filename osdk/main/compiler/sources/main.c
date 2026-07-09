@@ -229,6 +229,8 @@ static void typestab(p, cl) Symbol p; Generic cl; {
 		*(Symbol *)cl = p;
 	if (p->sclass == TYPEDEF || p->sclass == 0)
 		stabtype(p);
+	if (p->type && !isfunc(p->type) && (p->sclass == EXTERN || p->sclass == STATIC))
+		stabsym(p);
 }
 
 struct callsite {

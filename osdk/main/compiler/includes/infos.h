@@ -24,7 +24,18 @@ Change history for the Compiler (6502 backend)
   and runs out of temporary registers (max 8), instead of silently emitting
   invalid assembly code (****** placeholders)
 
+1.41
+- Enabled stabline() to emit .csource directives when compiling with -g1 or
+  higher. Each C source line now produces a .csource "filename" linenum
+  annotation in the compiler output, allowing the assembler to map generated
+  code back to original C source locations for debugging.
+- Emit .ctype annotations under -g: the compiler now writes C variable and type
+  information (names, and types including pointers, arrays and structs) into the
+  output so the debugger can present typed variables. Types are collected during
+  code generation and flushed with typedef-name resolution. Non-debug builds are
+  unaffected.
+
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	40
+#define TOOL_VERSION_MINOR	41
