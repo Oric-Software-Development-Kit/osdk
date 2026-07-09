@@ -129,6 +129,19 @@ Change history for XA
   arithmetic" errors. Comparing any two addresses now works regardless of segment.
 - Improved .assert/.asserteq error reporting: the assertion message is now included on the
   same line as the file/line/address information instead of being printed on a separate line.
+- Added debug symbol output for the VS Code / GDB debugger (new -S <file> option). Writes an
+  extended "#SYM V2" symbol file listing each symbol with its source file and line, plus a
+  #FILES index, a #LINES address->(file,line) map, and a #TYPES section. Symbol source
+  locations are captured at definition time. Emitted only when -S is given; without it the
+  output is byte-for-byte unchanged.
+- Added .csource directive support for C source line mapping. The C compiler
+  emits .csource "filename" linenum directives which the assembler intercepts
+  during line reading (alongside #file/#line), recording T_CSOURCE tokens in
+  the intermediate buffer. During pass 2, T_CSOURCE sets the current file/line
+  for the line table, and subsequent T_LINE events are suppressed while a C
+  source mapping is active (preventing intermediate .s file line numbers from
+  overwriting the C source coordinates). T_FILE events reset to normal
+  assembly tracking.
 
 */
 

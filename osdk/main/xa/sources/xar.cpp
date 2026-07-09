@@ -367,7 +367,70 @@ int FileData::h_length()
 	return 26+m_options.o_length();
 }
 
+void FileData::WriteLineTable(FILE *fp)
+{
+	if (m_lineTable.empty()) return;
 
+	// Build file index: resolve paths and assign indices
+	std::map<std::string, int> fileIndex;		// raw path -> index
+	std::vector<std::string>   fileList;		// index -> resolved absolute path
+
+	for (const auto& entry : m_lineTable)
+	{
+		const std::string& rawPath = entry.second.first;
+		if (fileIndex.find(rawPath) == fileIndex.end())
+		{
+			std::string resolved = rawPath;
+#ifdef _WIN32
+			char abspath[_MAX_PATH];
+			if (_fullpath(abspath, rawPath.c_str(), _MAX_PATH))
+				resolved = abspath;
+#else
+			char *rp = realpath(rawPath.c_str(), NULL);
+			if (rp) { resolved = rp; free(rp); }
+#endif
+			fileIndex[rawPath] = (int)fileList.size();
+			fileList.push_back(resolved);
+		}
+	}
+
+	// Write file table
+	fprintf(fp, "#FILES\n");
+	for (int i = 0; i < (int)fileList.size(); i++)
+	{
+		fprintf(fp, "%d %s\n", i, fileList[i].c_str());
+	}
+
+	// Write line table (format: "HHHH fileIndex:line")
+	fprintf(fp, "#LINES\n");
+	for (const auto& entry : m_lineTable)
+	{
+		int fi = fileIndex[entry.second.first];
+		fprintf(fp, "%04x %d:%u\n", entry.first & 0xffff, fi, entry.second.second);
+	}
+}
+
+void FileData::WriteTypeTable(FILE *fp)
+{
+	if (m_ctypeLines.empty()) return;
+
+	// Deduplicate: struct definitions may appear multiple times (once per
+	// translation unit that includes the header).  Keep the first occurrence
+	// of each unique line.
+	std::set<std::string> seen;
+	std::vector<std::string> unique;
+	for (const auto& line : m_ctypeLines)
+	{
+		if (seen.insert(line).second)
+			unique.push_back(line);
+	}
+
+	fprintf(fp, "#TYPES\n");
+	for (const auto& line : unique)
+	{
+		fprintf(fp, "%s\n", line.c_str());
+	}
+}
 
 
 
@@ -565,6 +628,26 @@ void SymbolData::PrintSymbols(FILE *fp)
 		if (symbol_entry.m_label_type == eLABELTYPE_UNNAMED || symbol_entry.m_label_type == eLABELTYPE_UNNAMED_REF)
 			continue;
 		fprintf(fp,"%04x %s\n",symbol_entry.value,symbol_entry.ptr_label_name);
+	}
+}
+
+
+void SymbolData::PrintSymbolsExtended(FILE *fp)
+{
+	fprintf(fp, "#SYM V2\n");
+	for (int label_index=0;label_index<m_nb_labels;label_index++)
+	{
+		SymbolEntry& symbol_entry=GetSymbolEntry(label_index);
+		if (symbol_entry.m_label_type == eLABELTYPE_UNNAMED || symbol_entry.m_label_type == eLABELTYPE_UNNAMED_REF)
+			continue;
+		if (symbol_entry.m_source_file)
+		{
+			fprintf(fp,"%04x %s %s:%u\n",symbol_entry.value,symbol_entry.ptr_label_name,symbol_entry.m_source_file,symbol_entry.m_source_line);
+		}
+		else
+		{
+			fprintf(fp,"%04x %s\n",symbol_entry.value,symbol_entry.ptr_label_name);
+		}
 	}
 }
 

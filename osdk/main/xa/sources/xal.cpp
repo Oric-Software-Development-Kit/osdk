@@ -7,6 +7,7 @@
 /* structs and defs */
 
 #include "xah.h"
+#include "xah2.h"
 #include "xar.h"
 #include "xa.h"
 
@@ -381,6 +382,8 @@ ErrorCode SymbolData::DefineLabel_Unnamed(char *ptr_src, int *size_read, int *x)
 	entry->nextindex		= 0;
 	entry->m_blknext		= -1;
 	entry->m_blkprev		= -1;
+	entry->m_source_file	= NULL;
+	entry->m_source_line	= 0;
 
 	m_nb_labels++;
 
@@ -586,6 +589,31 @@ int SymbolEntry::DefineSymbol(char *ptr_src,int block_level)
 	m_label_type		=eLABELTYPE_STANDARD;
 	m_blknext			=-1;
 	m_blkprev			=-1;
+	// Capture source location at definition (resolve to absolute path)
+	PreprocessorFile_c *ppf = PreprocessorFile_c::GetCurrentFile();
+	if (ppf && !ppf->GetCurrentFileName().empty())
+	{
+		const char *raw = ppf->GetCurrentFileName().c_str();
+#ifdef _WIN32
+		char abspath[_MAX_PATH];
+		if (_fullpath(abspath, raw, _MAX_PATH))
+			m_source_file = strdup(abspath);
+		else
+			m_source_file = strdup(raw);
+#else
+		char *resolved = realpath(raw, NULL);
+		if (resolved)
+			m_source_file = resolved;
+		else
+			m_source_file = strdup(raw);
+#endif
+		m_source_line = ppf->GetCurrentLine();
+	}
+	else
+	{
+		m_source_file = NULL;
+		m_source_line = 0;
+	}
 	int hash=hashcode(ptr_src,j);
 	return hash;
 }
