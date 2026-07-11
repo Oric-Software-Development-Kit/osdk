@@ -87,8 +87,15 @@ Fixed a number of issues in the linker:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
   - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse
 
+1.5
+- Fixed the "-F" #file directive emitting an incorrect path. It stamped the current
+  working directory plus the file's basename, which mislabeled library sources (e.g.
+  the OSDK lib's printf.s / header.s) as living in the project directory and broke
+  source-level debugging (go-to-definition) for library symbols in the VS Code debugger.
+  Now emits the file's real absolute path (via _fullpath on Windows, realpath elsewhere).
+
 */
 
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	4
+#define TOOL_VERSION_MINOR	5
