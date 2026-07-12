@@ -24,7 +24,13 @@
                 "command": "osdk_build.bat",
                 "cwd": "${workspaceFolder}",
                 "output": "${workspaceFolder}/build/DBGZOO.tap",
-                "sources": ["${workspaceFolder}"]
+                "sources": [
+                    "${workspaceFolder}/main.c",
+                    "${workspaceFolder}/world.c",
+                    "${workspaceFolder}/game.h",
+                    "${workspaceFolder}/asm_data.s",
+                    "${workspaceFolder}/asm_helpers.s"
+                ]
             }
         }
     ]
