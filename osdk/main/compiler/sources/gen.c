@@ -1198,9 +1198,21 @@ static char *ctype_name(Type t, char *buf, int bufsize)
             sprintf(buf, "union_%d", u->size);
         break;
     }
-    case ENUM:
-        strncpy(buf, "int", bufsize);   /* enums are ints on 6502 */
+    case ENUM: {
+        /* Name the enum by its typedef/tag (e.g. "EntityKind") like a struct,
+           so the debugger can show the symbolic type and map values to names.
+           The underlying storage is still an int (see emit_ctype_flush, which
+           records the byte size); this only affects the displayed type. */
+        const char *tn = typedef_lookup(u);
+        if (tn)
+            strncpy(buf, tn, bufsize);
+        else if (u->u.sym && u->u.sym->name && u->u.sym->name[0]
+                 && !(u->u.sym->name[0] >= '0' && u->u.sym->name[0] <= '9'))
+            strncpy(buf, u->u.sym->name, bufsize);
+        else
+            strncpy(buf, "int", bufsize);   /* anonymous enum: fall back to int */
         break;
+    }
     case FUNCTION:
         strncpy(buf, "func", bufsize);
         break;
@@ -1230,6 +1242,13 @@ static char *ctype_name(Type t, char *buf, int bufsize)
 static struct { Type type; const char *name; } deferred_types[MAX_DEFERRED_TYPES];
 static int deferred_type_count = 0;
 
+/* Deferred enum type definitions — collected like structs, emitted at progend()
+   as ".ctype enum <name> <size> <NAME>=<val> ..." so the debugger can render an
+   enum-typed value both symbolically (KIND_HERO) and numerically. */
+#define MAX_DEFERRED_ENUMS 128
+static struct { Type type; const char *name; } deferred_enums[MAX_DEFERRED_ENUMS];
+static int deferred_enum_count = 0;
+
 /* Register a struct/union type for deferred emission.
    Called from stabtype() for TYPEDEF and anonymous struct/union symbols. */
 void emit_stabtype(Symbol p)
@@ -1243,7 +1262,7 @@ void emit_stabtype(Symbol p)
 
     t = unqual(p->type);
     if (!t) return;
-    if (t->op != STRUCT && t->op != UNION) return;
+    if (t->op != STRUCT && t->op != UNION && t->op != ENUM) return;
 
     /* Prefer the typedef name (e.g. "score_entry") over the compiler-generated
        numeric tag (e.g. "129") used for anonymous structs.  Fall back to the
@@ -1258,6 +1277,18 @@ void emit_stabtype(Symbol p)
 
     /* Register this typedef immediately so ctype_name() can resolve it */
     typedef_register(t, name);
+
+    if (t->op == ENUM) {
+        /* Collect the enum for deferred ".ctype enum" emission (dedup by Type) */
+        for (i = 0; i < deferred_enum_count; i++)
+            if (deferred_enums[i].type == t) return;
+        if (deferred_enum_count < MAX_DEFERRED_ENUMS) {
+            deferred_enums[deferred_enum_count].type = t;
+            deferred_enums[deferred_enum_count].name = name;
+            deferred_enum_count++;
+        }
+        return;
+    }
 
     /* Deduplicate: skip if this Type is already collected */
     for (i = 0; i < deferred_type_count; i++)
@@ -1331,6 +1362,23 @@ static void emit_ctype_flush(void)
         print("\n");
     }
     deferred_type_count = 0;
+
+    /* Phase 1b: emit deferred enum definitions.
+       Format: .ctype enum <name> <size> <ENUMERATOR>=<value> ...
+       The enumerator list lives on the tag symbol (u.idlist), NULL-terminated. */
+    for (i = 0; i < deferred_enum_count; i++) {
+        Type t = deferred_enums[i].type;
+        const char *name = deferred_enums[i].name;
+        print(".ctype enum %s %d", name, t->size);
+        if (t->u.sym && t->u.sym->u.idlist) {
+            Symbol *ids = t->u.sym->u.idlist;
+            int j;
+            for (j = 0; ids[j]; j++)
+                print(" %s=%d", ids[j]->name, ids[j]->u.value);
+        }
+        print("\n");
+    }
+    deferred_enum_count = 0;
 
     /* Phase 2: emit deferred variable annotations */
     for (i = 0; i < deferred_var_count; i++) {
