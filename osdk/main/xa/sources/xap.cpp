@@ -5,6 +5,7 @@
 #include <string.h>
 #include <vector>
 #include <map>
+#include <string>
 
 #include "xah.h"
 #include "xah2.h"
@@ -623,6 +624,126 @@ ErrorCode Preprocessor::command_define(char *k)
      
      return er;
 #endif
+}
+
+
+// Trim leading/trailing ASCII whitespace from a std::string in place.
+static void enum_trim(std::string &s)
+{
+	size_t a = 0, b = s.size();
+	while (a < b && (s[a] == ' ' || s[a] == '\t')) a++;
+	while (b > a && (s[b-1] == ' ' || s[b-1] == '\t')) b--;
+	s = s.substr(a, b - a);
+}
+
+// Parse a C "enum { ... }" declaration and register every enumerator as a
+// preprocessor #define (name -> value). XA has no C type system, so the tag
+// and typedef names are discarded and only the constants are kept -- this lets
+// a header shared by both the C compiler and the assembler use a real enum
+// instead of a parallel list of #defines.
+//
+// `content` points just past the `enum` keyword; the tag name, `{`, body and
+// `}` may all sit here or spread across the lines that follow. Values follow C
+// rules: an explicit `= <int>` sets the running value, otherwise the value is
+// the previous one plus one (0 for the first). A non-integer `= <expr>` is
+// passed through verbatim as the define's replacement text (XA resolves it at
+// use site); a subsequent implicit member then chains off it symbolically.
+ErrorCode Preprocessor::command_enum(char *content)
+{
+	std::string text = content;
+
+	// Accumulate following source lines until the closing '}' appears. Enum
+	// bodies routinely span many lines; comments are already stripped by the
+	// character-level reader, so a raw scan for '}' is safe.
+	while (text.find('}') == std::string::npos)
+	{
+		char tmp[MAXLINE];
+		int len = 0;
+		int c = m_CurrentFile->GetLine(tmp, MAXLINE, &len);
+		text += ' ';
+		text += tmp;
+		if (c == EOF)
+			break;
+	}
+
+	size_t open  = text.find('{');
+	size_t close = text.find('}');
+	if (open == std::string::npos || close == std::string::npos || close < open)
+		return E_SYNTAX;                        // malformed / unterminated enum
+
+	std::string body = text.substr(open + 1, close - open - 1);
+
+	long counter = 0;            // next implicit value
+	bool counterKnown = true;    // false once a value is a non-integer expression
+	std::string lastName;        // previous enumerator (implicit-after-expr chaining)
+
+	size_t i = 0, n = body.size();
+	while (i <= n)
+	{
+		size_t comma = body.find(',', i);
+		size_t end = (comma == std::string::npos) ? n : comma;
+		std::string member = body.substr(i, end - i);
+		i = end + 1;
+
+		std::string name, value;
+		size_t eq = member.find('=');
+		name = member.substr(0, (eq == std::string::npos) ? member.size() : eq);
+		if (eq != std::string::npos)
+			value = member.substr(eq + 1);
+
+		enum_trim(name);
+		if (name.empty())
+			continue;                           // trailing comma / blank entry
+
+		std::string defval;
+		if (!value.empty())
+		{
+			enum_trim(value);
+			// Accept a plain integer literal (decimal / 0x hex / octal).
+			char *endp = 0;
+			long v = strtol(value.c_str(), &endp, 0);
+			while (*endp == ' ' || *endp == '\t') endp++;
+			if (endp != value.c_str() && *endp == 0)
+			{
+				// Normalise to decimal so C literals the assembler can't read
+				// (0x.. hex, 0.. octal) become plain xa-compatible integers.
+				char num[24];
+				sprintf(num, "%ld", v);
+				defval = num;
+				counter = v + 1;
+				counterKnown = true;
+			}
+			else
+			{
+				defval = value;                 // opaque expression -> pass through
+				counterKnown = false;
+			}
+		}
+		else if (counterKnown)
+		{
+			char num[24];
+			sprintf(num, "%ld", counter);
+			defval = num;
+			counter++;
+		}
+		else
+		{
+			defval = lastName + "+1";           // chain symbolically off previous
+		}
+
+		// Register "name defval" through the normal #define path.
+		std::string decl = name + " " + defval;
+		char buf[MAXLINE];
+		strncpy(buf, decl.c_str(), MAXLINE - 1);
+		buf[MAXLINE - 1] = 0;
+		ErrorCode er = command_define(buf);
+		if (er != E_OK)
+			return er;
+
+		lastName = name;
+	}
+
+	return E_OK;
 }
 
 
@@ -1287,12 +1408,33 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 					logout("\n");
 				}
 			}
-		} 
+		}
 		else
 		{
-			er=(ErrorCode)1;
+			// A regular (non-'#') line. Before handing it to the assembler,
+			// check for a C 'enum' / 'typedef enum' declaration and, when not
+			// inside a suppressed #if branch, consume it here -- registering
+			// each enumerator as a #define. On success er==E_OK, so the outer
+			// loop simply fetches the next real line; a parse error propagates.
+			char *kw = ptr_hash;   // already past leading spaces
+			if (!strncmp(kw, "typedef", 7) && (kw[7] == ' ' || kw[7] == '\t'))
+			{
+				kw += 7;
+				while (*kw == ' ' || *kw == '\t') kw++;
+			}
+			if (m_LogicalOpcodesStack == 0
+			    && !strncmp(kw, "enum", 4)
+			    && (kw[4] == ' ' || kw[4] == '\t' || kw[4] == '{' || kw[4] == 0))
+			{
+				er = command_enum(kw + 4);
+				m_BufferLine[0] = 0;
+			}
+			else
+			{
+				er=(ErrorCode)1;
+			}
 		}
-		
+
 		if(c==EOF)
 		{
 			// If we have a non-empty regular line to return, don't let

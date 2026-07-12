@@ -142,6 +142,15 @@ Change history for XA
   source mapping is active (preventing intermediate .s file line numbers from
   overwriting the C source coordinates). T_FILE events reset to normal
   assembly tracking.
+- Added C 'enum' support in the preprocessor. A 'enum { ... }' or
+  'typedef enum { ... } Tag;' declaration (which XA previously rejected as a
+  syntax error) now has each enumerator registered as a #define: explicit
+  '= <int>' sets the running value (hex/octal literals are normalised to
+  decimal so the assembler can read them), an omitted value is previous+1
+  (0 for the first), and a non-integer '= <expr>' is passed through verbatim.
+  The tag/typedef name is discarded. Skipped inside not-taken #if branches.
+  This lets a header shared by the C compiler and the assembler use a single
+  real enum instead of a parallel list of #defines.
 
 */
 
