@@ -635,7 +635,14 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
       else
       if (state == e_LabelReference)
       {
-        AddReferencedLabel(foundLabel, filename, line_number);
+        // Link65 can't evaluate #ifdef/#ifndef/#if conditions (see the nesting
+        // tracking above), so a reference inside a conditional block may well be
+        // compiled out at assembly time. Don't demand it resolves — otherwise a
+        // symbol used only by a disabled block (e.g. the debugger module-id stamp
+        // in the CRT, guarded by #ifdef OSDK_MODULE_ID) raises a bogus
+        // "unresolved external" and pulls libraries that aren't really needed.
+        if (conditionalNestingLevel == 0)
+          AddReferencedLabel(foundLabel, filename, line_number);
       }
 
       if (isDefineLine)
