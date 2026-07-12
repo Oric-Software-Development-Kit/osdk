@@ -1,0 +1,31 @@
+{
+    // Oric debugging for this OSDK sample.
+    //
+    // This uses "launchScript": the extension runs the project's osdk_execute.bat with
+    // the gdb port and entry breakpoint injected via the environment, so Oricutron
+    // launches the OSDK way (auto-CLOAD, correct working dir, tape+symbols copied).
+    //
+    // Note there is deliberately NO "port" and NO OSDKGDBPORT in osdk_config.bat: the
+    // extension auto-picks a free port (viz uses port+1). The entry address for the
+    // initial breakpoint is taken from OSDKADDR in osdk_config.bat automatically.
+    // Set "stopOnEntry": true to halt at the program's first instruction; the default
+    // runs to your first breakpoint.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "oric-debug",
+            "request": "launch",
+            "name": "Build & Debug (Oric)",
+            "launchScript": "osdk_execute.bat",
+            "cwd": "${workspaceFolder}",
+            "symbolFile": "${workspaceFolder}/build/symbols_ext",
+            "stopOnEntry": false,
+            "build": {
+                "command": "osdk_build.bat",
+                "cwd": "${workspaceFolder}",
+                "output": "${workspaceFolder}/build/DBGZOO.tap",
+                "sources": ["${workspaceFolder}"]
+            }
+        }
+    ]
+}
