@@ -1288,6 +1288,10 @@ void emit_stabsym(Symbol p)
     if (p->scope == CONSTANTS || p->scope == LABELS) return;
     /* Skip register-allocated variables */
     if (p->x.adrmode == 'R') return;
+    /* A block-scoped local with no stack slot (optimized away, or a register with no
+       address) has no inspectable location — skip it so we don't emit it as a bogus
+       global var. Parameters (scope PARAM) and file-scope vars are unaffected. */
+    if (p->scope >= LOCAL && (!p->x.name || p->x.name[0] != '(')) return;
     /* Skip compiler-generated names (numeric temps, string literals) */
     if (p->name[0] >= '0' && p->name[0] <= '9') return;
     if (p->x.name && p->x.name[0] == 'L' && p->generated) return;
