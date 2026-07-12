@@ -26,5 +26,9 @@ int           g_score     = 1234;
 unsigned int  g_seed      = 0xACCA;
 long          g_total_xp  = 100000;
 
+// A bit-flag enum value: several status bits OR'd into one byte. The debugger
+// should show this as STATUS_AWAKE|STATUS_ARMED|STATUS_BOSS (= $0D|13).
+EntityStatus  g_hero_status = STATUS_AWAKE | STATUS_ARMED | STATUS_BOSS;
+
 // A C-defined byte that the ASSEMBLER writes into (see AsmXorChecksum).
 unsigned char g_asm_checksum = 0;

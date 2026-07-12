@@ -15,12 +15,24 @@
 #define NAME_LEN     8
 #define INVENTORY    3
 
-// An enum (the compiler stores these as ints).
+// A plain (sequential) enum: the debugger maps the stored value back to its name.
 typedef enum {
 	KIND_HERO   = 0,
 	KIND_GOBLIN = 1,
 	KIND_DRAGON = 2
 } EntityKind;
+
+// A bit-flag enum: each member is a distinct power-of-two bit, meant to be OR'd
+// together to pack several booleans into one byte (the classic 8-bit space-saver).
+// The debugger auto-detects the single-bit layout and decomposes a stored value
+// back into "A|B|C" instead of leaving you to check each bit by hand.
+typedef enum {
+	STATUS_NONE     = 0,
+	STATUS_AWAKE    = 1,
+	STATUS_POISONED = 2,
+	STATUS_ARMED    = 4,
+	STATUS_BOSS     = 8
+} EntityStatus;
 
 // A struct mixing an embedded char array, an enum, signed ints, an unsigned
 // char and an embedded int array. Inspecting one exercises nested members and
@@ -50,6 +62,7 @@ extern unsigned char g_frame;                   // 8-bit
 extern int           g_score;                   // signed 16-bit
 extern unsigned int  g_seed;                    // unsigned 16-bit
 extern long          g_total_xp;                // 32-bit
+extern EntityStatus  g_hero_status;             // bit-flags OR'd together
 extern unsigned char g_asm_checksum;            // written by the assembler
 
 // ---- Globals DEFINED IN ASSEMBLER (see asm_data.s) -------------------------
