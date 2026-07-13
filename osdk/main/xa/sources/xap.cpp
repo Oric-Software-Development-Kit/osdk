@@ -654,14 +654,32 @@ ErrorCode Preprocessor::command_enum(char *content)
 
 	// Accumulate following source lines until the closing '}' appears. Enum
 	// bodies routinely span many lines; comments are already stripped by the
-	// character-level reader, so a raw scan for '}' is safe.
+	// character-level reader, so a raw scan for '}' is safe. Preprocessor
+	// directives inside the body are honoured per line, exactly as the main line
+	// pump does: a '#' line is dispatched to HandleCommand (which maintains the
+	// #if stack), and lines inside a not-taken #if branch are skipped -- so a
+	// conditional member (#ifdef X ... #endif) resolves as it does in C. Macro
+	// expansion of member values still happens later, in command_define.
+	// (Backslash line-continuation and #include inside the body are not handled;
+	// neither occurs in an enum in practice.)
 	while (text.find('}') == std::string::npos)
 	{
 		char tmp[MAXLINE];
 		int len = 0;
 		int c = m_CurrentFile->GetLine(tmp, MAXLINE, &len);
-		text += ' ';
-		text += tmp;
+
+		char *p = tmp;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p == '#')
+		{
+			HandleCommand(p + 1);              // #ifdef/#else/#endif/... : update #if stack
+		}
+		else if (m_LogicalOpcodesStack == 0)   // active branch only
+		{
+			text += ' ';
+			text += tmp;
+		}
+
 		if (c == EOF)
 			break;
 	}
@@ -1461,12 +1479,27 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 	}
 	
 	er= (er==1) ? E_OK : er ;
-	
+
+	// '.ctype' debug directives are emitted verbatim by the C compiler with
+	// literal enumerator/field/type names. They must NOT be macro-expanded: an
+	// enumerator that is also a registered #define (which happens when the same
+	// enum lives in a header shared by C and assembler -- the asm side registers
+	// each enumerator via command_enum) would otherwise have its NAME rewritten
+	// to its VALUE, corrupting the debug symbol output (e.g. "KEYBOARD_QWERTY=0"
+	// becoming "0=0"). Pass the line through untouched.
+	char *ctp = m_BufferLine;
+	while (*ctp == ' ' || *ctp == '\t') ctp++;
+	if (!er && !strncmp(ctp, ".ctype ", 7))
+	{
+		strcpy(ptr_destination_line, m_BufferLine);
+	}
+	else
+	{
 	bool doIt=true;
 	while (!er && doIt)
 	{
 		doIt=false;
-		er=pp_replace(ptr_destination_line,m_BufferLine,-1,m_CurrentListIndex);	
+		er=pp_replace(ptr_destination_line,m_BufferLine,-1,m_CurrentListIndex);
 		if (!er)
 		{
 			// We do a hack to force multiple levels of token resolution...
@@ -1477,6 +1510,7 @@ ErrorCode Preprocessor::GetLine(char *ptr_destination_line)
 				doIt=true;
 			}
 		}
+	}
 	}
 	if (!er && m_FlagNewFileFound)		er=E_NEWFILE;
 	if (!er && m_FlagNewLineFound)		er=E_NEWLINE;

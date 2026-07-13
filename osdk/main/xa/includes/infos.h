@@ -148,11 +148,21 @@ Change history for XA
   '= <int>' sets the running value (hex/octal literals are normalised to
   decimal so the assembler can read them), an omitted value is previous+1
   (0 for the first), and a non-integer '= <expr>' is passed through verbatim.
-  The tag/typedef name is discarded. Skipped inside not-taken #if branches.
-  This lets a header shared by the C compiler and the assembler use a single
-  real enum instead of a parallel list of #defines.
-
-*/
+  The tag/typedef name is discarded. The whole declaration is skipped inside a
+  not-taken #if branch, and preprocessor conditionals INSIDE the body
+  (#ifdef/#ifndef/#else/#endif) are honoured per line, so conditional members
+  work (an excluded member is dropped and does not advance the running value).
+  Macro-valued members are expanded. (Backslash line-continuation and #include
+  inside the body are not handled.) This lets a header shared by the C compiler
+  and the assembler use a single real enum instead of a parallel #define list.
+- Fixed '.ctype' debug directives being macro-expanded. The C compiler emits
+  .ctype records (for the -S symbol file) with literal enumerator/field/type
+  names; these are now passed through verbatim instead of going through macro
+  replacement. Previously, when the same enum lived in a header shared by C and
+  assembler, the assembler side registered each enumerator as a #define (see
+  above), so an enumerator name appearing in a .ctype line got rewritten to its
+  value -- e.g. "enum KeyboardLayout KEYBOARD_QWERTY=0 ..." became
+  "enum KeyboardLayout 0=0 ...", corrupting the debugger's value->name map.
 
 
 #define TOOL_VERSION_MAJOR	2
