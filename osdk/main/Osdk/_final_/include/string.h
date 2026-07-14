@@ -7,13 +7,13 @@
 
 /* Copy s2 to s1, return s1 */
 
-extern char *strcpy(char *s1,char *s2);
+extern char *strcpy(char *s1,const char *s2);
 
 
 /* Use malloc() to allocate enough memory for the given string. Copy the */
 /* string to the new memory block, and return a pointer to that block.   */
 
-extern char *strdup(char *s);
+extern char *strdup(const char *s);
 
 
 /* Compare two strings. */
@@ -22,7 +22,7 @@ extern char *strdup(char *s);
    /*          ==0 if s1==s2, */
    /*          >0  if s1>s2,  */
 
-extern int strcmp(char *s1,char * s2);
+extern int strcmp(const char *s1,const char *s2);
 
 #define strcoll strcmp
 
@@ -31,29 +31,29 @@ extern int strcmp(char *s1,char * s2);
 
    /* The terminating null does not count. */
 
-extern int strlen(char *s);
+extern int strlen(const char *s);
 
 
 /* Copy s2 to s1, return s1+strlen(s2) */
 
-extern char *stpcpy(char *s1,char *s2);
+extern char *stpcpy(char *s1,const char *s2);
 
 
 /* s1 becomes the concatenation of s1 and s2. s1 is returned. */
 
-extern char *strcat(char *s1,char *s2);
+extern char *strcat(char *s1,const char *s2);
 
 
 /* Returns a pointer to the first occurence of the character c in the
    string s. If c does not occur in s, NULL is returned. */
 
-extern char *strchr(char *s,char c);
+extern char *strchr(const char *s,char c);
 
 
 /* Returns a pointer to the last occurence of the character c in the
    string s. If c does not occur in s, NULL is returned. */
 
-extern char *strrchr(char *s,char c);
+extern char *strrchr(const char *s,char c);
 
 
 /* Compares two strings in a case-insensitive manner. */
@@ -62,7 +62,7 @@ extern char *strrchr(char *s,char c);
    /*          ==0 if s1==s2, */
    /*          >0  if s1>s2,  */
 
-extern int *strcmpi(char *s1,char *s2);
+extern int *strcmpi(const char *s1,const char *s2);
 
 
 /* stricmp is exactly the same as strcmpi */
@@ -75,20 +75,20 @@ extern int *strcmpi(char *s1,char *s2);
    strlen(s1) is returned. This will point to the terminating null '\0'
    of s1. */
 
-extern int strcspn(char *s1,char *s2);
+extern int strcspn(const char *s1,const char *s2);
 
 
 /* Returns the index of (NOT pointer to) the first character of s1 that
    does NOT appear in s2. If s1 only contains characters that occur in
    s2, strlen(s1) is returned. */
 
-extern int strspn(char *s1,char *s2);
+extern int strspn(const char *s1,const char *s2);
 
 
 /* Same as strcspn() above, but returns a pointer instead of an
    index. */
 
-extern char *strpbrk(char *s1, char *s2);
+extern char *strpbrk(const char *s1, const char *s2);
 
 
 /* Use _tolower(c) to convert s to lower case. Returns s. */
@@ -116,7 +116,7 @@ extern char *strset(char *s, char c);
    haystack. Returns a pointer to the substring inside the string, or
    NULL if the substring does not occur in the string. */
 
-extern char *strstr(char *haystack, char *needle);
+extern char *strstr(const char *haystack, const char *needle);
 
 
 /* This function splits a string into 'tokens' separated by any of the
@@ -134,18 +134,18 @@ extern char *strstr(char *haystack, char *needle);
    If no more tokens can be found, NULL is returned. See the example
    programs (strings.s) for an sample of exactly how this works. */
 
-extern char *strtok(char *s, char *delim);
+extern char *strtok(char *s, const char *delim);
 
 
 /* Append n characters from s2 to s1, null-terminate the resultant
    string, and return s1 (the new string). */
 
-extern char *strncat(char *s1, char *s2, int n);
+extern char *strncat(char *s1, const char *s2, int n);
 
 
 /* Same as strcmp(), but only the first n characters are compared. */
 
-extern int strncmp(char *s1, char *s2, int n);
+extern int strncmp(const char *s1, const char *s2, int n);
 
 
 /* Copies n characters from s2 onto s1. CAUTION: the terminating null
@@ -153,13 +153,13 @@ extern int strncmp(char *s1, char *s2, int n);
    of s2. strncpy() returns the new string s1. This function is used
    to make sure we don't copy too many characters onto a string buffer. */
 
-extern char *strncpy(char *s1, char *s2, int n);
+extern char *strncpy(char *s1, const char *s2, int n);
 
 
 /* Same as strcmpi (or stricmp), but only compares the first n
    characters. */
 
-extern char *strncmpi(char *s1, char *s2, int n);
+extern char *strncmpi(const char *s1, const char *s2, int n);
 
 
 /* Same as strncmpi. */
