@@ -25,6 +25,9 @@
 			<li>Added support for 0b binary integer literals (e.g. 0b101 == 5)</li>
 		</ul>
 		</li>
+		<li>Fixed the C runtime int-to-float conversion (lib/header.s): the "cif" routine pointed into the middle of the ROM SGN function, which converts only the signed 8 bit value in the accumulator, so any runtime (float) cast of an int variable was wrong. It now uses the 16 bit ROM conversion with proper sign handling</li>
+		<li>Right shift of a signed value now performs an arithmetic shift (sign preserved, -16 &gt;&gt; 2 == -4) via the new ASRW macro family; unsigned &gt;&gt; keeps the logical shift</li>
+		<li>Added a naming glossary to MACROS.H and gen.c documenting the macro families (DIVU, MODI, RSHW, ASRW, CSBW...) and the operand addressing-mode suffix letters</li>
 		<li>Fixed several latent -O3 code generation bugs in the macro library (MACROS.H):
 		<ul>
 			<li>INDIRW_DY, SUBW_YYY, COMW_YY, ANDW_YYY, XORW_YYY and ORW_YYY generated invalid assembly (a store using a literal index or a direct label instead of the Y register), breaking any -O3 build containing expressions like "a = a - b" on stack-resident variables</li>

@@ -53,6 +53,10 @@ Change history for the Compiler (6502 backend)
   exactly when the fold consumed the last reference to its child; a shared
   child keeps sole ownership of its temporary (releasing it early was as
   harmful as not reserving it).
+- Right shift of a signed value now performs an ARITHMETIC shift (the sign
+  bit is replicated), matching every mainstream compiler: -16 >> 2 == -4.
+  It used to emit the same logical shift as unsigned >>, giving 16380.
+  Signed >> now emits the new ASRW macro family, unsigned >> keeps RSHW.
 
 */
 

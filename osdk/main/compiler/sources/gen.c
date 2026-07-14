@@ -886,6 +886,15 @@ static void emitdag0(Node p) {
     }
 }
 
+/* emitdag - emit one 16-bit macro call per dag operator (see MACROS.H for
+ * the full naming glossary). The lcc operator names combine an operation
+ * with a type letter: I = signed int, U = unsigned int, P = pointer,
+ * C/S = char/short (bytes), F/D = float/double, B = struct, V = void.
+ * So DIVU = unsigned divide, MODI = signed modulo, RSHI = signed right
+ * shift (arithmetic, emits ASRW), RSHU = unsigned right shift (logical,
+ * emits RSHW), CVIU = convert int to unsigned, INDIRC = load a char, etc.
+ * The emitted macro name appends one addressing-mode letter per operand
+ * (C constant, D direct, Z zero page pointer, A frame slot, Y indirect). */
 static void emitdag(Node p) {
 
     a = p->kids[0]; b = p->kids[1]; r=p;
@@ -922,7 +931,8 @@ static void emitdag(Node p) {
         case DIVU:                        binary("DIVU");   break;
         case MODI:                        binary("MODI");   break;
         case MODU:                        binary("MODU");   break;
-        case RSHU:  case RSHI:            binary("RSHW");   break;
+        case RSHU:                        binary("RSHW");   break;
+        case RSHI:                        binary("ASRW");   break;  /* signed >> keeps the sign */
         case LSHI:  case LSHU:
             if (optimizelevel>=2 && strcmp(b->x.name,"1")==0) {
                 unary("LSH1W");

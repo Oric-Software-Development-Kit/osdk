@@ -32,6 +32,14 @@ void main(void)
 	tk_check_eq(gi >> 2, (unsigned int)-4, "sar");    /* arithmetic shift on signed */
 	gu = 0xFFF0u;
 	tk_check_eq(gu >> 2, 0x3FFCu, "lsr");             /* logical shift on unsigned */
+	gi = -256; gj = 4;
+	tk_check_eq(gi >> gj, (unsigned int)-16, "sar-var");
+	gi = -1;
+	tk_check_eq(gi >> 15, (unsigned int)-1, "sar-all");
+	gi = 0x4000;
+	tk_check_eq(gi >> 3, 0x0800, "sar-pos");          /* positive stays logical-equal */
+	gu = 0x8000u; gj = 15;
+	tk_check_eq(gu >> gj, 1u, "lsr-var");
 
 	gu = 0xF0F0u; gv = 0x3C3Cu;
 	tk_check_eq(gu & gv, 0x3030u, "and");

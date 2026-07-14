@@ -1,5 +1,56 @@
 /* macros v1.33 for the 6502 code generator, F.Frances */
 
+/*
+   Naming convention
+   =================
+
+   The compiler emits one macro call per intermediate-code operation, named
+
+        <OPERATION><size>_<operand modes>
+
+   Operation + size (the "16-bit pseudo instructions"):
+        ADDW / SUBW     16 bit add / subtract
+        MULI / MULU     16 bit multiply, signed / unsigned (jsr mul16i/mul16u)
+        DIVI / DIVU     16 bit divide,   signed / unsigned
+        MODI / MODU     16 bit modulo,   signed / unsigned
+        LSHW            16 bit left shift (LSH1W: optimized shift-by-one)
+        RSHW            16 bit right shift, LOGICAL    (unsigned >>)
+        ASRW            16 bit right shift, ARITHMETIC (signed >>, keeps sign)
+        ANDW/ORW/XORW   16 bit bitwise and / or / exclusive or
+        COMW            16 bit complement (~), NEGI: negate (-)
+        INDIRB / INDIRW load (dereference) a byte / word
+        ASGNB / ASGNW   store a byte / word
+        ASGNS           struct copy (extra 'length' argument)
+        MOVW            word copy, CWB: word to byte truncation
+        CSBW / CZBW     byte to word, sign extended / zero extended
+        ADDF/SUBF/MULF/DIVF/NEGF/MOVF   float operations (5-byte, ROM based)
+        CIF / CFI       int to float / float to int conversion
+        EQW/NEW/EQ0W/NE0W and GTI/GEI/LTI/LEI (signed) GTU/GEU/LTU/LEU
+                        (unsigned): compare and branch to a label
+        ARGW/ARGF/ARGS  push a word / float / struct argument for a call
+        CALLV/CALLW/CALLF  call returning void / word / float
+        ENTER/LEAVE/RETW/LEAVEW  function prologue / epilogue / return
+
+   Operand mode suffix, one letter per operand in source order
+   (for ASGN*: value first, then destination; result always last):
+        C    constant: an immediate value or a label whose address is the
+             operand (for stores: the named location itself, e.g. a register
+             variable reg0..reg7)
+        D    direct: the 16 bit value stored at the named location
+             (a zero page temporary tmp0..tmp7, or an absolute label)
+        Z    a pointer stored in zero page, dereferenced (lda (tmpN),y);
+             only used where it must differ from D (INDIR*, ASGN* targets)
+        A    a frame location: the pair (pointer,offset), accessed with
+             lda (ptr),y - used for function parameters (ap) and locals (fp)
+        Y    like A but the operand is itself dereferenced through a
+             pointer read from the frame, or a folded "(tmpN),0" indirection
+        R    a register variable reg0..reg7 (zero page)
+
+   Example: ADDW_DCY(tmp0,_giarr+4,(fp),6) reads the word in tmp0 (D),
+   adds the constant _giarr+4 (C), and stores the result to the local
+   variable at (fp)+6 (Y).
+*/
+
 #ifdef XA
 #define LOW <
 #define HIGH >
@@ -10,6 +61,11 @@
 #define ZERO(n) .dsb n
 #endif
 
+/* -O0 aliases: at optimization level 0 the compiler emits the raw
+   intermediate opcode names (lcc's dag operators: ADDI = add integer,
+   DIVU = divide unsigned, MODI = modulo signed, RSHI = right shift
+   signed...) with every operand in a zero page temporary, so they all
+   map to the all-direct (_DDD) variant of the corresponding macro. */
 #define BANDU ANDW_DDD
 #define BORU  ORW_DDD
 #define BXORU XORW_DDD
@@ -34,7 +90,7 @@
 #define MODI  MODI_DDD
 #define MODU  MODU_DDD
 #define RSHU  RSHW_DDD
-#define RSHI  RSHW_DDD
+#define RSHI  ASRW_DDD
 #define LSHI  LSHW_DDD
 #define LSHU  LSHW_DDD
 #define INDIRC INDIRB_ZD
@@ -3548,6 +3604,214 @@ done :\
  iny :\
  lda ptr1,y :\
  RSHW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+
+; Arithmetic (sign preserving) 16 bit right shift, for signed >> :
+; identical to the RSHW family except the core injects the sign bit.
+#define ASRW\
+ .( :\
+ beq done :\
+loop :\
+ cmp #$80 :\
+ ror :\
+ ror tmp :\
+ dex :\
+ bne loop :\
+done :\
+ .) :\
+ ldx tmp :\
+
+#define ASRW_DDD(tmp1,tmp2,tmp3)\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ldx tmp2 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_DCD(tmp1,cte2,tmp3)\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ldx #cte2 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_DYD(tmp1,ptr2,y2,tmp3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_CDD(cte1,tmp2,tmp3)\
+ lda #LOW(cte1) :\
+ sta tmp :\
+ lda #HIGH(cte1) :\
+ ldx tmp2 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_CYD(cte1,ptr2,y2,tmp3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ lda #LOW(cte1) :\
+ sta tmp :\
+ lda #HIGH(cte1)+1 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_YDD(ptr1,y1,tmp2,tmp3)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ldx tmp2 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_YCD(ptr1,y1,cte2,tmp3)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ldx #cte2 :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_YYD(ptr1,y1,ptr2,y2,tmp3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ASRW :\
+ stx tmp3 :\
+ sta tmp3+1 :\
+
+#define ASRW_DDY(tmp1,tmp2,ptr3,y3)\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ldx tmp2 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_DCY(tmp1,cte2,ptr3,y3)\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ldx #cte2 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_DYY(tmp1,ptr2,y2,ptr3,y3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ lda tmp1 :\
+ sta tmp :\
+ lda tmp1+1 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_CDY(cte1,tmp2,ptr3,y3)\
+ lda #LOW(cte1) :\
+ sta tmp :\
+ lda #HIGH(cte1) :\
+ ldx tmp2 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_CYY(cte1,ptr2,y2,ptr3,y3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ lda #LOW(cte1) :\
+ sta tmp :\
+ lda #HIGH(cte1)+1 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_YDY(ptr1,y1,tmp2,ptr3,y3)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ldx tmp2 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_YCY(ptr1,y1,cte2,ptr3,y3)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ldx #cte2 :\
+ ASRW :\
+ ldy #y3+1 :\
+ sta ptr3,y :\
+ dey :\
+ txa :\
+ sta ptr3,y :\
+
+#define ASRW_YYY(ptr1,y1,ptr2,y2,ptr3,y3)\
+ ldy #y2 :\
+ lda ptr2,y :\
+ tax :\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ ASRW :\
  ldy #y3+1 :\
  sta ptr3,y :\
  dey :\
