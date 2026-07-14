@@ -35,6 +35,15 @@ Change history for the Compiler (6502 backend)
   extension), e.g. 0b1100101011111110 == 0xCAFE. Previously these produced
   a syntax error (found while investigating the oricCompilerBenchmark
   "0xcafe" sample failure).
+- Fixed a -O3 wrong-code bug: passing a dereferenced computed pointer to a
+  parameter of a different integer type (e.g. f(*(arr + i)) with f taking
+  unsigned) passed the ADDRESS instead of the value. Two combined defects:
+  the conversion no-op elision compared only operand/result names, ignoring
+  the addressing mode (so "(tmp0),0" was confused with "tmp0"), and the
+  temporary borrowed by a folded INDIR was released too early, letting the
+  parent allocate the same slot and clobber the pointer while dereferencing
+  it. Conversions now compare modes too, and the borrowed temporary stays
+  reserved until the parent has allocated its own result.
 
 */
 

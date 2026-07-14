@@ -23,6 +23,14 @@ void copy_font(void)
 	}
 }
 
+/* Return-position variant of the ptr-arith deref: at -O3 this folds
+ * into RETW_Y, unlike the argument-position variant which inserts a
+ * CVIU conversion (the shape of the 2026-07 elided-dereference bug). */
+int deref_ret(void)
+{
+	return *(giarr + 2 + gi);
+}
+
 void main(void)
 {
 	int s, l, c, n;
@@ -59,7 +67,8 @@ void main(void)
 	/* pointer arithmetic and double indirection */
 	gi = 3;
 	giarr[5] = 0x1234;
-	tk_check_eq(*(giarr + 2 + gi), 0x1234u, "ptr-arith");
+	tk_check_eq(*(giarr + 2 + gi), 0x1234u, "ptr-arith");   /* arg position (CVIU) */
+	tk_check_eq(deref_ret(), 0x1234u, "ptr-arith-ret");     /* return position */
 	gc = 'Q';
 	gcp = &gc;
 	gcpp = &gcp;

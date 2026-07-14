@@ -464,6 +464,29 @@ static char dereference(char adrmode)
 
 }
 
+/* An optimized (folded) INDIR borrows the temporary that holds the address
+ * it dereferences. That temporary was already released when the INDIR
+ * consumed its child, so without protection the parent node - or any node
+ * evaluated between the INDIR and its parent - could allocate the same slot
+ * and clobber the address before it is dereferenced. Example of the damage:
+ * MOVW_YD((tmp0),0,tmp0) reads the low byte through tmp0, overwrites tmp0
+ * with it, then reads the high byte through a corrupted pointer.
+ * reserve_borrowed() re-marks the slot busy at fold time; tmpalloc() frees
+ * it with release_borrowed() only after the parent allocated its result. */
+static void reserve_borrowed(Symbol s) {
+    int i;
+    for (i=0;i<32;i++)
+        if (s==temp[i]) { busy |= (1u<<i); return; }
+}
+
+static void release_borrowed(Node p) {
+    int i;
+    if (!p) return;
+    if (generic(p->op)!=INDIR || !p->x.optimized || p->count!=0) return;
+    for (i=0;i<32;i++)
+        if (p->x.result==temp[i]) { busy &= ~(1u<<i); return; }
+}
+
 static int needtmp(Node p) {
     Node left = p->kids[0];
     if (graph_output) return 0;
@@ -479,6 +502,7 @@ static int needtmp(Node p) {
                     p->x.result    = left->x.result;
                     p->x.name      = p->x.result->x.name;
                     p->x.adrmode   = left->x.adrmode;
+                    reserve_borrowed(p->x.result);
                     return 0;
                 }
 
@@ -494,6 +518,7 @@ static int needtmp(Node p) {
                     p->x.result    = left->x.result;
                     p->x.name      = left->x.result->x.name;
                     p->x.adrmode   = dereference(left->x.adrmode);
+                    reserve_borrowed(p->x.result);
                     return 0;
                 }
             }
@@ -561,6 +586,9 @@ static void tmpalloc(Node p) {
         break;
     }
     if (needtmp(p)) gettmp(p);
+    /* our folded-INDIR children may hold a reserved (borrowed) temporary:
+       now that our own result is allocated, their address slot can go */
+    release_borrowed(left); release_borrowed(right);
 }
 
 Node gen(Node p) {
@@ -922,16 +950,25 @@ static void emitdag(Node p) {
         case CVCI: case CVSI:             unary("CSBW");    break;
         case CVCU: case CVSU:             unary("CZBW");    break;
         case CVUC: case CVUS: case CVIC: case CVIS:
-            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0)
+            /* A conversion is a no-op only if operand and result are the SAME
+             * location: same name AND same addressing mode. Comparing names
+             * alone is not enough: after the -O3 INDIR folding, the operand
+             * can be "(tmp0),0" (mode 'I', the value POINTED TO by tmp0)
+             * while the result is "tmp0" (mode 'Z') - same name, and eliding
+             * the conversion would silently drop the dereference. */
+            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0
+                || a->x.adrmode!=p->x.adrmode)
                 unary("CWB");
             break;
         case CVPU: case CVUP: case CVIU: case CVUI:
-            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0)
+            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0
+                || a->x.adrmode!=p->x.adrmode)
                 unary("MOVW");
             break;
         case CVID:                        unary("CIF" );  break;
         case CVDF: case CVFD:
-            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0)
+            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0
+                || a->x.adrmode!=p->x.adrmode)
                 unary("MOVF");
             break;
         case CVDI:                        unary("CFI" );    break;
