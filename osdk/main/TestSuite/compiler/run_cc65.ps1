@@ -43,6 +43,29 @@ Remove-Item Env:\NoDefaultCurrentDirectoryInExePath -ErrorAction SilentlyContinu
 $env:OSDK = $osdk
 $env:OSDKBRIEF = 'YES'
 
+# ---------------------------------------------------------------- lock
+# Only one runner may drive the shared emulator sandbox at a time (see
+# run_tests.ps1). Stale locks (>30 min) are stolen.
+$lockFile = "$sandbox\.lock"
+$lockAcquired = $false
+for ($w = 0; $w -lt 360 -and -not $lockAcquired; $w++) {
+    try {
+        $fs = [System.IO.File]::Open($lockFile, 'CreateNew', 'Write', 'None')
+        $fs.Close(); $lockAcquired = $true
+    } catch {
+        if ((Test-Path $lockFile) -and ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalMinutes -gt 30) {
+            Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+        } else {
+            if ($w -eq 0) { Write-Host "sandbox busy (another runner is active), waiting..." }
+            Start-Sleep -Seconds 5
+        }
+    }
+}
+if (-not $lockAcquired) { throw "could not acquire sandbox lock $lockFile" }
+
+try {
+
+
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $csv = "$results\$stamp`_$Label.csv"
 $logdir = "$results\$stamp`_$Label-logs"
@@ -52,6 +75,9 @@ New-Item -ItemType Directory -Force $logdir | Out-Null
 $tests = Get-ChildItem $valdir -Filter "$Filter.c" | Sort-Object Name
 Write-Host "$($tests.Count) candidate test(s), levels: $($Levels -join ' ')"
 $tally = @{}
+
+# documented-slow tests (~10M cycles at 1MHz): per-test timeout override
+$slowTests = @{ 'compare7'=300; 'compare8'=300; 'compare9'=300; 'compare10'=300 }
 
 foreach ($test in $tests) {
     $name = $test.BaseName
@@ -112,7 +138,8 @@ SET OSDKCPPFLAGS=-I .
         $startArgs = @{ FilePath="$emuDir\oricutron.exe"; ArgumentList='-t','OSDK.TAP'; WorkingDirectory=$emuDir; PassThru=$true }
         if ($Headless) { $startArgs.WindowStyle = 'Minimized' }
         $proc = Start-Process @startArgs
-        $status = 'timeout'; $deadline = (Get-Date).AddSeconds($TimeoutSec)
+        $effTimeout = if ($slowTests.ContainsKey($name)) { $slowTests[$name] } else { $TimeoutSec }
+        $status = 'timeout'; $deadline = (Get-Date).AddSeconds($effTimeout)
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
             if ((Test-Path $printer) -and (Select-String -Path $printer -Pattern '@END' -Quiet -ErrorAction SilentlyContinue)) { $status = 'ok'; break }
@@ -138,6 +165,10 @@ SET OSDKCPPFLAGS=-I .
         "$name,$lvl,$status,$failures,$ticks,$tapBytes" | Out-File -Encoding ascii -Append $csv
         $tally[$status] = $tally[$status] + 1
     }
+}
+
+} finally {
+    Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "`nSummary:"; $tally.GetEnumerator() | Sort-Object Name | ForEach-Object { Write-Host ("  {0,-14} {1}" -f $_.Name, $_.Value) }

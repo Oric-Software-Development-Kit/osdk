@@ -49,6 +49,30 @@ Remove-Item Env:\NoDefaultCurrentDirectoryInExePath -ErrorAction SilentlyContinu
 $env:OSDK = $osdk
 $env:OSDKBRIEF = 'YES'
 
+# ---------------------------------------------------------------- lock
+# Only one runner may drive the shared emulator sandbox at a time:
+# concurrent runs race over OSDK.TAP and printer_out.txt and corrupt
+# each other's results. Stale locks (>30 min) are stolen.
+$lockFile = "$sandbox\.lock"
+$lockAcquired = $false
+for ($w = 0; $w -lt 360 -and -not $lockAcquired; $w++) {
+    try {
+        $fs = [System.IO.File]::Open($lockFile, 'CreateNew', 'Write', 'None')
+        $fs.Close(); $lockAcquired = $true
+    } catch {
+        if ((Test-Path $lockFile) -and ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalMinutes -gt 30) {
+            Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+        } else {
+            if ($w -eq 0) { Write-Host "sandbox busy (another runner is active), waiting..." }
+            Start-Sleep -Seconds 5
+        }
+    }
+}
+if (-not $lockAcquired) { throw "could not acquire sandbox lock $lockFile" }
+
+try {
+
+
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $csv = "$results\$stamp`_$Label.csv"
 "test,level,status,pass,fail,ticks,tap_bytes" | Out-File -Encoding ascii $csv
@@ -129,6 +153,10 @@ SET OSDKCOMP=-O$lvl
         Write-Host ("{0,-12} -O{1}  {2,-9} pass={3,-3} fail={4,-3} ticks={5,-5} tap={6}b" -f $name,$lvl,$status,$pass,$fail,$ticks,$tapBytes) -ForegroundColor $color
         "$name,$lvl,$status,$pass,$fail,$ticks,$tapBytes" | Out-File -Encoding ascii -Append $csv
     }
+}
+
+} finally {
+    Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host "`nResults written to $csv"
