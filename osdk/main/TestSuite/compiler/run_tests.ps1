@@ -60,7 +60,13 @@ foreach ($test in $tests) {
         $name = $test.BaseName
 
         # -------------------------------------------------- scaffold+build
-        if (Test-Path $scaffold) { Remove-Item -Recurse -Force $scaffold }
+        if (Test-Path $scaffold) {
+            try { Remove-Item -Recurse -Force $scaffold -ErrorAction Stop }
+            catch {
+                # a stale process is holding the folder: fall back to a unique one
+                $scaffold = "$suite\scaffold-$(Get-Date -Format 'HHmmss')"
+            }
+        }
         New-Item -ItemType Directory -Force $scaffold | Out-Null
         Copy-Item $test.FullName "$scaffold\main.c"
         Copy-Item "$suite\testkit\testkit.h" $scaffold
