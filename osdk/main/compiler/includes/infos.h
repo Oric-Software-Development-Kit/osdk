@@ -24,7 +24,19 @@ Change history for the Compiler (6502 backend)
   and runs out of temporary registers (max 8), instead of silently emitting
   invalid assembly code (****** placeholders)
 
+1.41
+- Fixed a regression introduced by the 1.40 temporary-register change: all 32
+  floating point temporaries were marked permanently busy, so ANY float
+  expression failed with "expression too complex". Float temporaries are
+  allocated on demand in the stack frame (the leading '*' in their name is the
+  "not allocated yet" marker tested by local()), they must not be treated like
+  the zero page integer temporaries.
+- Added support for 0b/0B binary integer literals (C23 / common compiler
+  extension), e.g. 0b1100101011111110 == 0xCAFE. Previously these produced
+  a syntax error (found while investigating the oricCompilerBenchmark
+  "0xcafe" sample failure).
+
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	40
+#define TOOL_VERSION_MINOR	41

@@ -552,6 +552,23 @@ int gettok() {
 				cp = rcp;
 				tsym = icon(n, overflow);
 				return ICON;
+			} else if (*token == '0' && (*rcp == 'b' || *rcp == 'B')) {
+				/* 0b binary literals (C23 / common compiler extension) */
+				while (*++rcp) {
+					if (*rcp == '0' || *rcp == '1')
+						d = *rcp - '0';
+					else
+						break;
+					if (n&~((unsigned)-1 >> 1))
+						overflow++;
+					else
+						n = (n<<1) + d;
+				}
+				if ((char *)rcp - token <= 2)
+					error("invalid binary constant\n");
+				cp = rcp;
+				tsym = icon(n, overflow);
+				return ICON;
 			} else if (*token == '0') {
 				int err = 0;
 				for ( ; map[*rcp]&DIGIT; rcp++) {

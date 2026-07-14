@@ -336,7 +336,12 @@ void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
      * Mark tmp8-tmp31 as permanently busy so gettmp() will hit the
      * "Too complex expression" error instead of emitting ******. */
     for (i=8;i<32;i++) busy |= (1u<<i);
-    for (i=0;i<32;i++) busy_flt |= (1u<<i);
+    /* Float temporaries are different: they are allocated on demand in the
+     * stack frame by local() (see gettmp), and the leading '*' in the name
+     * is the "not allocated yet" marker local() tests for. Reset the names
+     * so each function starts with fresh slots; do NOT mark them busy
+     * (that would make any float expression fail as "too complex"). */
+    for (i=0;i<32;i++) flt_temp[i]->x.name="******";
 
     for (i = 0; caller[i] && callee[i]; i++) {
         caller[i]->x.name=stringf(graph_output?"param(%d)":"(ap),%d",offset);
