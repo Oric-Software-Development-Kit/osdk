@@ -1130,6 +1130,13 @@ static void emitdag(Node p) {
             break;
         case EQD:   case EQF:             compare("EQF" ); break;
         case EQI:
+            /* == and != are symmetric: put a constant first operand on the
+             * right, the macro library only has constant-second variants
+             * (a constant first operand survives the front end when the
+             * expression cannot be normalized, e.g. 0 == -x with x unsigned) */
+            if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
+                Node t=a; a=b; b=t;
+            }
             if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("EQ0W");
             else compare("EQW" );
@@ -1148,6 +1155,10 @@ static void emitdag(Node p) {
         case LTU:                         compare("LTU" ); break;
         case NED:   case NEF:             compare("NEF" ); break;
         case NEI:
+            /* symmetric: constant first operand goes right (see EQI) */
+            if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
+                Node t=a; a=b; b=t;
+            }
             if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("NE0W");
             else compare("NEW" );
