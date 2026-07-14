@@ -19,10 +19,8 @@ param(
     [string]$Filter = 't_*',
     [string]$Label = 'run',
     [int]$TimeoutSec = 60,
-    [switch]$Headless      # run Oricutron on the SDL dummy driver (no window, no focus steal)
+    [switch]$Headless      # start Oricutron minimized so batch runs don't steal focus
 )
-
-if ($Headless) { $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy' }
 
 $ErrorActionPreference = 'Stop'
 $suite   = $PSScriptRoot
@@ -99,7 +97,9 @@ SET OSDKCOMP=-O$lvl
         $printer = "$emuDir\printer_out.txt"
         Remove-Item $printer -Force -ErrorAction SilentlyContinue
 
-        $proc = Start-Process "$emuDir\oricutron.exe" -ArgumentList '-t','OSDK.TAP' -WorkingDirectory $emuDir -PassThru
+        $startArgs = @{ FilePath="$emuDir\oricutron.exe"; ArgumentList='-t','OSDK.TAP'; WorkingDirectory=$emuDir; PassThru=$true }
+        if ($Headless) { $startArgs.WindowStyle = 'Minimized' }
+        $proc = Start-Process @startArgs
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($TimeoutSec)
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
