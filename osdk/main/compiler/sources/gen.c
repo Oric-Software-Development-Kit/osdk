@@ -52,6 +52,8 @@ static unsigned busy_flt;    /* busy_flt&(1<<t) == 1 if tmp t is used */
 static char *NamePrefix;     /* Prefix for all local names */
 static int omit_frame;       /* if no params and no locals */
 static int optimizelevel=3;  /* set by command line option -On */
+static int optstack[16];     /* saved levels for #pragma optimize(push,n) */
+static int optsp;            /* optstack stack pointer */
 static Symbol temp[32];      /* 32 symbols pointing to temporary variables... */
 static Symbol flt_temp[32];  /* 32 symbols pointing to temporary floating-point variables... */
 static char *regname[8];     /* 8 register variables names */
@@ -214,6 +216,28 @@ void progbeg(int argc,char *argv[]) {
     }
 }
 
+/* optimizeset/optimizepush/optimizepop - support for #pragma optimize.
+ * Code generation for a function runs before the lexer consumes its
+ * closing brace, so a pragma placed between two functions affects only
+ * the functions that follow it; a pragma inside a body affects that
+ * whole function. */
+void optimizeset(int level) {
+    if (!graph_output) optimizelevel = level;
+}
+
+int optimizepush(int level) {
+    if (optsp >= (int)(sizeof optstack / sizeof optstack[0])) return -1;
+    optstack[optsp++] = optimizelevel;
+    optimizeset(level);
+    return 0;
+}
+
+int optimizepop(void) {
+    if (optsp <= 0) return -1;
+    optimizelevel = optstack[--optsp];
+    return 0;
+}
+
 static void emit_ctype_flush(void);  /* defined below, after ctype_name */
 
 void progend(void) {
@@ -359,6 +383,12 @@ void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     omit_frame=(i==0 && localsize==6);
     if (!graph_output) {
         print("%s\n",fname);
+        /* Tag the entry code (ENTER prologue) with the function's definition
+           line: the last .csource emitted before it belongs to the PREVIOUS
+           function, so without this the debugger maps the entry address to
+           that function's closing brace. */
+        if (glevel && f->src.file)
+            print(".csource \"%s\" %d\n", f->src.file, f->src.y);
         if (optimizelevel>1 && omit_frame && nbregs==0)
             ;
         else print("\tENTER(%d,%d)\n",nbregs,localsize);

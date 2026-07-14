@@ -50,6 +50,39 @@ The "official" source repository whre all the changes for the compiler are made 
 </p>
 
 
+<p id=chapter>Changing the optimization level per function</p>
+
+<p>Since version 1.41, the optimization level can also be changed from the source code itself, overriding the -On command line option for the function definitions that follow:</p>
+
+<ul>
+<li>#pragma optimize(push, n) saves the current level and switches to level n (0 to 3)</li>
+<li>#pragma optimize(pop) restores the previously saved level</li>
+<li>#pragma optimize(n) switches to level n without saving the current one</li>
+</ul>
+
+<p>The main use case is debugging: at -O2 and above the compiler promotes frequently used parameters and local variables to zero page virtual registers, and can omit the stack frame entirely, which makes the locals of a function invisible to a source level debugger. Dropping the whole project to -O1 restores them, but the generated code may then become too large to fit in memory. Instead, only the functions being debugged can be wrapped in a pragma pair while the rest of the project stays fully optimized:</p>
+
+<pre>
+#pragma optimize(push, 1)   // locals stay on the stack frame, visible to the debugger
+void function_being_debugged(void)
+{
+    ...
+}
+#pragma optimize(pop)       // back to the level given on the command line
+</pre>
+
+<p>The same mechanism works the other way around: selected functions known to compile correctly at the more aggressive -O3 level can be raised individually while the rest of the project keeps the safer -O2 default.</p>
+
+<p>Some details worth knowing:</p>
+<ul>
+<li>A pragma placed between two functions applies to the functions that follow it; a pragma placed inside a function body applies to that entire function (code is generated when the closing brace is reached)</li>
+<li>push/pop pairs can be nested up to 16 levels deep; an unmatched pop or a malformed pragma produces a warning and is otherwise ignored</li>
+<li>Older versions of the compiler silently ignore the pragma, so source code using it remains compilable</li>
+</ul>
+
+<p>The mixed/debug_type_zoo sample shows the pragma in action: the project builds at -O2 while the two functions meant to be inspected in the debugger are compiled at -O1.</p>
+
+
 <p id=chapter>Data types</p>
 
 <p>Since the 6502 is an 8 bit processor, the data size are as follow:
@@ -74,6 +107,10 @@ Unfortunately, ROM releases are different, and thus any code calling these funct
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+<p id=dateentry>Version 1.41</p>
+ - Emits .csource line markers and .ctype type annotations when compiling with -g, so debuggers can map generated code back to the C source and display typed variables<br>
+ - New #pragma optimize(push, n) / #pragma optimize(pop) / #pragma optimize(n) to change the optimization level per function
 
 <p id=dateentry>Version 1.40</p>
  - The compiler now reports a proper error when an expression is too complex and runs out of temporary registers (max 8), instead of silently emitting invalid assembly code

@@ -59,9 +59,12 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 	}
+	/* progbeg must run before the first token is read: a #pragma optimize
+	   on the very first lines would otherwise be overwritten by the -On
+	   command line parsing done in progbeg */
+	progbeg(argc, argv);
 	inputInit(0);
 	t = gettok();
-	progbeg(argc, argv);
 	stabinit(firstfile, argc, argv);
 	program();
 	if (events.end)
