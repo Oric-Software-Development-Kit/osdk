@@ -17,6 +17,23 @@
 
 		<h1>Version history</h1>
 
+<p id=dateentry>Version 1.24</p>
+	<ul>
+		<li>Upgraded <A href="doc_compiler.htm">Compiler</A> to version X.XX:
+		<ul>
+			<li>Fixed a regression that made any floating point expression fail with "expression too complex" (introduced by the temporary-register error reporting of version 1.40, shipped in OSDK 1.23)</li>
+			<li>Added support for 0b binary integer literals (e.g. 0b101 == 5)</li>
+		</ul>
+		</li>
+		<li>Fixed several latent -O3 code generation bugs in the macro library (MACROS.H):
+		<ul>
+			<li>INDIRW_DY, SUBW_YYY, COMW_YY, ANDW_YYY, XORW_YYY and ORW_YYY generated invalid assembly (a store using a literal index or a direct label instead of the Y register), breaking any -O3 build containing expressions like "a = a - b" on stack-resident variables</li>
+			<li>Added the eight missing ASGNS struct-copy variants (CD, DD, AD, YD, CY, DY, YY, YZ) that the -O3 optimizer can emit for struct assignments through pointers (e.g. "*ps = *pt"); these previously stopped the build with an undefined macro</li>
+		</ul>
+		</li>
+		<li>New automated compiler execution test suite in TestSuite/compiler: builds C test programs at -O1/-O2/-O3, runs them in Oricutron, and collects pass/fail results, timing and code size from the emulated printer output</li>
+	</ul>
+
 <p id=dateentry>Version 1.23 - April 20th 2026</p>
 	<ul>
 		<li>Upgraded <A href="doc_assembler.htm">XA</A> to version 2.3.1:

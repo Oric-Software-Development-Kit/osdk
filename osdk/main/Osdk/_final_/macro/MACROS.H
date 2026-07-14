@@ -573,11 +573,11 @@ skip :\
  ldy #0 :\
  lda (tmp),y :\
  ldy #y2 :\
- sta ptr2,y2 :\
+ sta ptr2,y :\
  ldy #1 :\
  lda (tmp),y :\
  ldy #y2+1 :\
- sta ptr2,y2 :\
+ sta ptr2,y :\
 
 #define INDIRW_AY(ptr1,y1,ptr2,y2)\
  ldy #y1 :\
@@ -1144,7 +1144,7 @@ skip :\
  ldy #y2+1 :\
  sbc ptr2,y :\
  ldy #y3+1 :\
- sta ptr3+1 :\
+ sta ptr3,y :\
 
 #define COMW_DD(tmp1,tmp2)\
  lda tmp1 :\
@@ -1184,7 +1184,7 @@ skip :\
  lda ptr1,y :\
  eor #$FF :\
  ldy #y2+1 :\
- sta ptr2+1 :\
+ sta ptr2,y :\
 
 #define ANDW_DDD(tmp1,tmp2,tmp3)\
  lda tmp1 :\
@@ -1272,7 +1272,7 @@ skip :\
  ldy #y2+1 :\
  and ptr2,y :\
  ldy #y3+1 :\
- sta ptr3+1 :\
+ sta ptr3,y :\
 
 #define ANDW_DCD(tmp2,cte1,tmp3)\
  lda #LOW(cte1) :\
@@ -1400,7 +1400,7 @@ skip :\
  ldy #y2+1 :\
  eor ptr2,y :\
  ldy #y3+1 :\
- sta ptr3+1 :\
+ sta ptr3,y :\
 
 #define XORW_DCD(tmp2,cte1,tmp3)\
  lda #LOW(cte1) :\
@@ -1528,7 +1528,7 @@ skip :\
  ldy #y2+1 :\
  ora ptr2,y :\
  ldy #y3+1 :\
- sta ptr3+1 :\
+ sta ptr3,y :\
 
 #define ORW_DCD(tmp2,cte1,tmp3)\
  lda #LOW(cte1) :\
@@ -4129,7 +4129,161 @@ loop :\
  bne loop :\
  .) :\
 
- 
+#define ASGNS_CD(adr1,adr2,length) \
+ .( :\
+ ldx adr2 :\
+ lda adr2+1 :\
+ stx *+12 :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda adr1,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_DD(adr1,adr2,length) \
+ .( :\
+ ldx adr1 :\
+ lda adr1+1 :\
+ stx *+21 :\
+ sta *+19 :\
+ ldx adr2 :\
+ lda adr2+1 :\
+ stx *+12 :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda $1234,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_AD(ptr1,y1,adr2,length) \
+ .( :\
+ ldx adr2 :\
+ lda adr2+1 :\
+ stx *+13 :\
+ sta *+11 :\
+ ldx #0 :\
+ ldy #y1 :\
+loop :\
+ lda ptr1,y :\
+ sta $5678,x :\
+ iny :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_YD(ptr1,y1,adr2,length) \
+ .( :\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta *+24 :\
+ iny :\
+ lda ptr1,y :\
+ sta *+19 :\
+ ldx adr2 :\
+ lda adr2+1 :\
+ stx *+12 :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda $1234,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_CY(adr1,ptr2,y2,length) \
+ .( :\
+ ldy #y2 :\
+ lda ptr2,y :\
+ sta *+15 :\
+ iny :\
+ lda ptr2,y :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda adr1,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_DY(adr1,ptr2,y2,length) \
+ .( :\
+ ldx adr1 :\
+ lda adr1+1 :\
+ stx *+22 :\
+ sta *+20 :\
+ ldy #y2 :\
+ lda ptr2,y :\
+ sta *+15 :\
+ iny :\
+ lda ptr2,y :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda $1234,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_YY(ptr1,y1,ptr2,y2,length) \
+ .( :\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta *+25 :\
+ iny :\
+ lda ptr1,y :\
+ sta *+20 :\
+ ldy #y2 :\
+ lda ptr2,y :\
+ sta *+15 :\
+ iny :\
+ lda ptr2,y :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda $1234,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+#define ASGNS_YZ(ptr1,y1,tmp2,length) \
+ .( :\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta *+22 :\
+ iny :\
+ lda ptr1,y :\
+ sta *+17 :\
+ ldx tmp2 :\
+ lda tmp2+1 :\
+ stx *+12 :\
+ sta *+10 :\
+ ldx #0 :\
+loop :\
+ lda $1234,x :\
+ sta $5678,x :\
+ inx :\
+ cpx #length :\
+ bne loop :\
+ .) :\
+
+
 #define EQ0W_D(tmp,label)\
  .( :\
  lda tmp :\
