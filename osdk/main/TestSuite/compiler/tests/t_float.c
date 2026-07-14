@@ -26,10 +26,22 @@ void main(void)
 	gi = (int)(fa * 4.0);
 	tk_check_eq(gi, 6, "ftoi");
 	fc = (float)10;
-	tk_check(fc == 10.0, "itof");
+	tk_check(fc == 10.0, "itof-const");   /* folded at compile time */
+	gi = 10;
+	fc = (float)gi;
+	tk_check(fc == 10.0, "itof-pos");     /* runtime cif */
 	gi = -3;
 	fc = (float)gi;
 	tk_check(fc == -3.0, "itof-neg");
+	gi = 1000;
+	fc = (float)gi;
+	tk_check(fc == 1000.0, "itof-big");
+	gi = -1000;
+	fc = (float)gi;
+	tk_check(fc == -1000.0, "itof-negbig");
+	gi = 0;
+	fc = (float)gi;
+	tk_check(fc == 0.0, "itof-zero");
 
 	fc = scale(fa);
 	tk_check(fc == 4.0, "call");

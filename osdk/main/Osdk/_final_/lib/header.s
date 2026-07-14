@@ -232,12 +232,32 @@ true
 #define fdiv		$DDE7
 #define fneg		$E271
 #define fcomp		$DF4C
-#define cif			$DF24
+#define givayf		$DF40	; UNSIGNED 16bit A(high)/Y(low) to FPA (forces the sign
+							; byte positive). The historical cif value $DF24 was
+							; wrong: that is SGN's tail, converting only the signed
+							; 8bit value in A.
 
 
-cfi     
+cfi
 	jsr $DF8C
     ldx $D3
     lda $D4
     rts
+
+cif						; signed 16bit int in A (high) / Y (low) -> FPA
+	tax					; sets N from the high byte
+	bpl cif_positive
+	tya					; negative: negate the value, convert the
+	eor #$FF			; positive magnitude, then negate the float
+	clc
+	adc #1
+	tay
+	txa
+	eor #$FF
+	adc #0				; carry from the low byte increment propagates
+	jsr givayf
+	jmp fneg
+cif_positive
+	txa
+	jmp givayf
 
