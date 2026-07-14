@@ -605,11 +605,41 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
     strncpy(inpline,filteredLine.c_str(),MAX_LINE_SIZE);
     inpline[MAX_LINE_SIZE]=0;
 
-    char* nexToken=inpline-1;
-    while (nexToken)
+    //
+    // Parse each ':'-separated statement in an ISOLATED copy of the segment.
+    // Parseline uses strtok, which pokes NUL bytes into the buffer, and its
+    // opcode scan can run past the current statement into the following ones
+    // (it keeps scanning until it finds a known opcode). On a shared buffer
+    // that corruption could land inside a later segment and hide the
+    // remaining ':' separators from strchr, silently dropping the rest of
+    // the line: in the expanded MULI macro "... iny : lda (ap),y : ... :
+    // jsr mul16i" the trailing jsr was never seen, so the mul16i library
+    // dependency was missed and the build failed at assembly time.
+    // Preprocessor lines are kept whole: an #include path may legitimately
+    // contain ':' (drive letter).
+    char* segment=inpline;
+    if (isDefineLine || filteredLine.find('#') == filteredLine.find_first_not_of(" \t"))
+      segment=NULL; /* handled as a single whole-line segment below */
+    char segbuf[MAX_LINE_SIZE+1];
+    bool wholeLineDone=false;
+    while (segment || !wholeLineDone)
     {
-      char* tokenPtr=nexToken+1;
-      nexToken=strchr(tokenPtr,':');
+      char* tokenPtr;
+      if (segment)
+      {
+        char* nextColon=strchr(segment,':');
+        size_t seglen=nextColon ? (size_t)(nextColon-segment) : strlen(segment);
+        memcpy(segbuf,segment,seglen);
+        segbuf[seglen]=0;
+        tokenPtr=segbuf;
+        segment=nextColon ? nextColon+1 : NULL;
+        if (!segment) wholeLineDone=true;
+      }
+      else
+      {
+        tokenPtr=inpline;
+        wholeLineDone=true;
+      }
       LabelState state=Parseline(tokenPtr,parseIncludeFiles);
 
       std::string foundLabel;

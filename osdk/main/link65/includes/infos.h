@@ -87,8 +87,20 @@ Fixed a number of issues in the linker:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
   - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse
 
+1.5
+- Fixed label references being silently dropped on lines with multiple
+  ':'-separated statements: the statement scanner (strtok based) could run
+  past the current statement and poke NUL bytes into the following ones,
+  hiding the remaining ':' separators and ending the line scan early. In
+  practice a "jsr" at the end of a long expanded macro line (e.g. the
+  "jsr mul16i" of a -O3 MULI expansion following an "iny : lda (ap),y"
+  sequence) was never seen, the library dependency was missed, and the
+  build failed at assembly time with "Label 'mul16i' not defined".
+  Each statement is now parsed in an isolated buffer copy; preprocessor
+  lines are kept whole so #include paths containing ':' still work.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	4
+#define TOOL_VERSION_MINOR	5
