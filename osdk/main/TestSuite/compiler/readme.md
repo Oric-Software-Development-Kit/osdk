@@ -59,11 +59,27 @@ To compare two runs (e.g. before/after a compiler change):
 - `t_struct` at -O3: build fails because link65's dependency scan misses
   the `jsr mul16i` generated for variable struct indexing.
 
+## cc65 test/val import (run_cc65.ps1)
+
+Runs cc65's `test/val` suite (~313 SDCC-heritage regression tests)
+UNMODIFIED on the OSDK toolchain. The test files are GPL and are not part
+of this repository: point the runner at a cc65 checkout:
+
+    .\run_cc65.ps1 -Cc65 D:\path\to\cc65 [-Levels 2,3] [-Filter add*]
+
+Each test is included by `cc65shim\wrapper.c` with its `main` renamed;
+the wrapper repoints the $0238 output vector to the ROM printer routine
+so the test's own printf output lands in `printer_out.txt`, then reports
+the test's return value (its failure counter) and timing. `cc65shim\`
+also provides the standard headers OSDK lacks (limits.h, stdint.h, ...)
+with values documenting OSDK's real type sizes.
+
+Pre-filtered categories (recorded in the CSV, not run): `skipped-long`
+(16-bit long would run wrong rather than fail), `skipped-float`,
+`skipped-lib` (zlib/stdarg/...). Build errors and failing outputs are
+logged under `results\<stamp>_<label>-logs\`.
+
 ## Ideas for growth
 
-- Import cc65's `test/val` suite unmodified: put the tests on a SEDORIC
-  disk with an INIST of `PRSET:...` (tap2dsk `-i` option) so their printf
-  output is redirected to the printer (OSDK printf goes through the $0238
-  vector, which PR SET hooks). Boot with `-k microdisc -d disk.dsk`.
 - lcc's own `tst/` suite (same front end lineage), Dhrystone for a
   standard speed figure.

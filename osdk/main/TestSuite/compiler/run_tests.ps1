@@ -18,8 +18,11 @@ param(
     [string[]]$Levels = @('1','2','3'),
     [string]$Filter = 't_*',
     [string]$Label = 'run',
-    [int]$TimeoutSec = 60
+    [int]$TimeoutSec = 60,
+    [switch]$Headless      # run Oricutron on the SDL dummy driver (no window, no focus steal)
 )
+
+if ($Headless) { $env:SDL_VIDEODRIVER = 'dummy'; $env:SDL_AUDIODRIVER = 'dummy' }
 
 $ErrorActionPreference = 'Stop'
 $suite   = $PSScriptRoot
