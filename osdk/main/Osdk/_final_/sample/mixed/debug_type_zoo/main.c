@@ -8,6 +8,13 @@
 #include <stdio.h>
 #include "game.h"
 
+// The two functions below are the ones we single-step in the debugger, so they
+// are compiled at -O1 while the rest of the project stays at -O2: at -O2 the
+// compiler promotes frequently used locals to zero page registers and can omit
+// the stack frame, which makes them invisible to the debugger. The pragma
+// applies to the function definitions that follow it, until the matching pop.
+#pragma optimize(push, 1)
+
 // A function with several locals (loop counter, accumulator, a local array and
 // a pointer parameter) - gives the debugger a stack frame with locals to show.
 void describe(Entity *e)
@@ -37,6 +44,9 @@ int count_alive(void)
 
 	return alive;
 }
+
+// Back to the project-wide optimization level (-O2 from osdk_config.bat).
+#pragma optimize(pop)
 
 void main(void)
 {

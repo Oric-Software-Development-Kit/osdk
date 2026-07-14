@@ -38,6 +38,15 @@ What to inspect in the debugger
   * describe()   - break here to see a live stack frame with locals (line[],
                    total, j) and the pointer parameter.
 
+Optimization level and locals
+-----------------------------
+The project builds at -O2 (see osdk_config.bat), but at that level the compiler
+promotes busy locals to zero page virtual registers and can omit the stack
+frame, hiding them from the debugger. main.c therefore wraps describe() and
+count_alive() in #pragma optimize(push, 1) / #pragma optimize(pop) so exactly
+those two functions keep debugger-visible stack locals while everything else
+stays fully optimized (see the Compiler documentation).
+
 Cross-language symbol naming
 ----------------------------
 A C name Foo (function or global) is the assembler label _Foo. The linker
