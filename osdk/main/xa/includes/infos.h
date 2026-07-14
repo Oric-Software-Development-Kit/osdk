@@ -163,6 +163,16 @@ Change history for XA
   above), so an enumerator name appearing in a .ctype line got rewritten to its
   value -- e.g. "enum KeyboardLayout KEYBOARD_QWERTY=0 ..." became
   "enum KeyboardLayout 0=0 ...", corrupting the debugger's value->name map.
+- The #SYM V2 source location of a label is now its DEFINITION line. It used to
+  be the name's first textual occurrence: for a forward-referenced label (a
+  'jmp _Label' before the label) the recorded location was that reference,
+  sending debugger navigation to a call site instead of the definition. The
+  location is re-stamped when the label actually receives its value (position
+  label or '=' assignment); symbols never defined in the unit (imports) keep
+  the first-occurrence location as the best available. Pass 2 has no
+  preprocessor context and leaves the pass-1 stamp untouched.
+
+*/
 
 
 #define TOOL_VERSION_MAJOR	2

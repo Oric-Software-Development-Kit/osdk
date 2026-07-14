@@ -557,6 +557,38 @@ void SymbolEntry::Set(int v,SEGMENT_e afl)
 	value			= v;
 	symbol_status	=eSYMBOLSTATUS_VALID;
 	program_section	=afl;
+	// Re-stamp the source location: the entry was created (and stamped) at the
+	// name's FIRST occurrence, which for a forward-referenced label is a mere
+	// jmp/lda reference. Set() runs where the label actually gets its value —
+	// the definition line, which is what #SYM should point at. No-op without a
+	// preprocessor context (pass 2), so the pass-1 stamp survives; symbols that
+	// are never defined here (imports) keep their first-occurrence stamp.
+	CaptureSourceLocation();
+}
+
+// Record the current preprocessor position as this symbol's source location,
+// resolved to an absolute path. Leaves the previous stamp untouched when there
+// is no current file (pass 2 / internal definitions).
+void SymbolEntry::CaptureSourceLocation()
+{
+	PreprocessorFile_c *ppf = PreprocessorFile_c::GetCurrentFile();
+	if (!ppf || ppf->GetCurrentFileName().empty()) return;
+	const char *raw = ppf->GetCurrentFileName().c_str();
+	if (m_source_file) free((void*)m_source_file);
+#ifdef _WIN32
+	char abspath[_MAX_PATH];
+	if (_fullpath(abspath, raw, _MAX_PATH))
+		m_source_file = strdup(abspath);
+	else
+		m_source_file = strdup(raw);
+#else
+	char *resolved = realpath(raw, NULL);
+	if (resolved)
+		m_source_file = resolved;
+	else
+		m_source_file = strdup(raw);
+#endif
+	m_source_line = ppf->GetCurrentLine();
 }
 
 ErrorCode SymbolEntry::Get(int *v,int *afl)
@@ -589,31 +621,12 @@ int SymbolEntry::DefineSymbol(char *ptr_src,int block_level)
 	m_label_type		=eLABELTYPE_STANDARD;
 	m_blknext			=-1;
 	m_blkprev			=-1;
-	// Capture source location at definition (resolve to absolute path)
-	PreprocessorFile_c *ppf = PreprocessorFile_c::GetCurrentFile();
-	if (ppf && !ppf->GetCurrentFileName().empty())
-	{
-		const char *raw = ppf->GetCurrentFileName().c_str();
-#ifdef _WIN32
-		char abspath[_MAX_PATH];
-		if (_fullpath(abspath, raw, _MAX_PATH))
-			m_source_file = strdup(abspath);
-		else
-			m_source_file = strdup(raw);
-#else
-		char *resolved = realpath(raw, NULL);
-		if (resolved)
-			m_source_file = resolved;
-		else
-			m_source_file = strdup(raw);
-#endif
-		m_source_line = ppf->GetCurrentLine();
-	}
-	else
-	{
-		m_source_file = NULL;
-		m_source_line = 0;
-	}
+	// Stamp the current position as a FALLBACK location (this runs at the
+	// name's first occurrence, possibly a mere reference); Set() re-stamps it
+	// with the real definition line when the label gets its value.
+	m_source_file = NULL;
+	m_source_line = 0;
+	CaptureSourceLocation();
 	int hash=hashcode(ptr_src,j);
 	return hash;
 }

@@ -213,6 +213,8 @@ public:
 	int DefineSymbol(char *ptr_src,int block_level);		// Returns hash
 
 private:
+	void CaptureSourceLocation();	// stamp m_source_file/line from the current preprocessor position
+
 	int				m_block_level;
 	int				value;
 	SYMBOLSTATUS_e	symbol_status;   	// 0 = label value not valid/known, 1 = label value known
