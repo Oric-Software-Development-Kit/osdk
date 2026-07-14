@@ -30,6 +30,7 @@ typedef struct {
 	Node	next;		/* next node on linearized list */
 	char	optimized;
 	char	visited;
+	char	borrowed;	/* folded INDIR owns (reserved) the temp holding its address */
 } Xnode;
 
 typedef struct {

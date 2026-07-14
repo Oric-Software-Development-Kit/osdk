@@ -465,24 +465,31 @@ static char dereference(char adrmode)
 }
 
 /* An optimized (folded) INDIR borrows the temporary that holds the address
- * it dereferences. That temporary was already released when the INDIR
- * consumed its child, so without protection the parent node - or any node
- * evaluated between the INDIR and its parent - could allocate the same slot
- * and clobber the address before it is dereferenced. Example of the damage:
- * MOVW_YD((tmp0),0,tmp0) reads the low byte through tmp0, overwrites tmp0
- * with it, then reads the high byte through a corrupted pointer.
- * reserve_borrowed() re-marks the slot busy at fold time; tmpalloc() frees
- * it with release_borrowed() only after the parent allocated its result. */
-static void reserve_borrowed(Symbol s) {
+ * it dereferences. If the fold consumed the LAST reference to its child,
+ * that temporary was already released, so without protection the parent
+ * node - or any node evaluated between the INDIR and its parent - could
+ * allocate the same slot and clobber the address before it is
+ * dereferenced. Two observed damage patterns: MOVW_YD((tmp0),0,tmp0) reads
+ * the low byte through tmp0, overwrites the pointer with it, then reads
+ * the high byte through a corrupted pointer; and ADDW_DCD(tmp1,1,tmp0)
+ * overwriting a pointer that a following NEW_YD((tmp0),0,...) still needs.
+ * The fold re-marks the slot busy (borrow_temp) and tmpalloc() frees it
+ * (release_borrowed) only after the parent allocated its own result.
+ * When the child is still shared (count > 0) its temporary is still owned
+ * by the child itself and must NOT be managed here - freeing it early was
+ * just as harmful as not reserving it. */
+static int borrow_temp(Node p, Node left) {
     int i;
+    if (left->count > 0) return 0;      /* child still owns its temporary */
     for (i=0;i<32;i++)
-        if (s==temp[i]) { busy |= (1u<<i); return; }
+        if (left->x.result==temp[i]) { busy |= (1u<<i); return 1; }
+    return 0;                           /* not a temporary: nothing to own */
 }
 
 static void release_borrowed(Node p) {
     int i;
     if (!p) return;
-    if (generic(p->op)!=INDIR || !p->x.optimized || p->count!=0) return;
+    if (!p->x.borrowed || p->count!=0) return;
     for (i=0;i<32;i++)
         if (p->x.result==temp[i]) { busy &= ~(1u<<i); return; }
 }
@@ -502,7 +509,7 @@ static int needtmp(Node p) {
                     p->x.result    = left->x.result;
                     p->x.name      = p->x.result->x.name;
                     p->x.adrmode   = left->x.adrmode;
-                    reserve_borrowed(p->x.result);
+                    p->x.borrowed  = borrow_temp(p, left);
                     return 0;
                 }
 
@@ -518,7 +525,7 @@ static int needtmp(Node p) {
                     p->x.result    = left->x.result;
                     p->x.name      = left->x.result->x.name;
                     p->x.adrmode   = dereference(left->x.adrmode);
-                    reserve_borrowed(p->x.result);
+                    p->x.borrowed  = borrow_temp(p, left);
                     return 0;
                 }
             }
@@ -542,6 +549,7 @@ static int needtmp(Node p) {
 static void tmpalloc(Node p) {
     Node left = p->kids[0], right = p->kids[1];
     p->x.optimized=0;
+    p->x.borrowed=0;
     p->x.name="*******";
     p->x.adrmode='*';
     releasetmp(left); releasetmp(right);

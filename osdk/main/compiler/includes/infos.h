@@ -44,6 +44,15 @@ Change history for the Compiler (6502 backend)
   parent allocate the same slot and clobber the pointer while dereferencing
   it. Conversions now compare modes too, and the borrowed temporary stays
   reserved until the parent has allocated its own result.
+- Fixed another -O3 temporary lifetime bug of the same family, exposed once
+  struct code could finally link at -O3: when an address computation was
+  consumed by a folded INDIR, a later unrelated node could allocate the same
+  temporary and overwrite the address before the dereference (e.g. in
+  "p->a == a && p->b == b && p->c == c" the pointer held in tmp0 was
+  clobbered by the next subexpression). The borrow reservation now applies
+  exactly when the fold consumed the last reference to its child; a shared
+  child keeps sole ownership of its temporary (releasing it early was as
+  harmful as not reserving it).
 
 */
 
