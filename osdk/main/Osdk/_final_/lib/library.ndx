@@ -121,9 +121,12 @@
 	_doke
 	_call
 	_bang
+-atoi.s
+	_atoi
 -printf.s
 	_printf
     _sprintf
+	_fprintf
 -lprintf.s
 	_lprintf
 -scanf.s

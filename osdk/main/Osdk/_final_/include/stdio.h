@@ -46,6 +46,19 @@ extern void gets(char buf[]);
 
 extern void printf(const char *format,...);
 
+/* Minimal FILE support: the Oric has a single console, so the standard
+        streams all exist but are indistinguishable. fprintf accepts and
+        ignores the stream argument - it behaves exactly like printf.
+        This keeps portable code using fprintf(stderr, ...) compiling. */
+
+typedef void FILE;
+
+#define stdin  ((FILE*)0)
+#define stdout ((FILE*)1)
+#define stderr ((FILE*)2)
+
+extern void fprintf(FILE *stream, const char *format,...);
+
 /* Format and print to a buffer */
 
 extern void sprintf(char buf[], const char *format,...);
