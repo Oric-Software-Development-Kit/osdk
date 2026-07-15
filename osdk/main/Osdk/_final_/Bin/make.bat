@@ -15,8 +15,9 @@
 :: - OSDKINIST - Sedoric initialization string ran on floppy boot
 :: - OSDKTAP2DSKPARAMS - Extra parameters to the Tap2DSK
 :: - OSDKMACRO - To pass additional parameters to the macro splitter (use -O for optimization)
-:: - OSDKMACROEXPAND - Macro expansion mode: 1 (default) uses MacroSplitter's built-in expansion, 0 uses the external preprocessor
-:: - OSDKCPP - Path of the C preprocessor executable (defaults to the bundled cpp.exe)
+:: - OSDKMACROEXPAND - Macro expansion mode: 1 (default) uses MacroSplitter's built-in expansion, 0 uses the legacy cpp.exe pass
+:: - OSDKCPP - Path of the C preprocessor executable (defaults to the bundled mcpp.exe; set to %OSDK%\BIN\cpp.exe for the legacy preprocessor)
+:: - OSDKCPPMODEFLAGS - Dialect/include-mode flags matching OSDKCPP (defaulted automatically for mcpp.exe and cpp.exe)
 :: - OSDKVERBOSITY - How verbose is the build output?
 ::
 :: Used by other parts of the system
@@ -100,11 +101,18 @@ SET OSDKMACROEXPAND=1
 :EndMacroExpand
 
 ::
-:: Select the C preprocessor executable (override with OSDKCPP to test
-:: alternative preprocessor builds)
+:: Select the C preprocessor executable. Default is mcpp (C99, clear error
+:: messages); set OSDKCPP=%OSDK%\BIN\cpp.exe to use the legacy preprocessor.
+:: OSDKCPPMODEFLAGS carries the dialect/include-mode flags that differ
+:: between the two: it defaults to the mcpp flags when OSDKCPP is not set,
+:: and to the legacy cpp.exe flags when OSDKCPP is overridden.
 ::
-IF NOT "%OSDKCPP%"=="" GOTO EndCppSel
-SET OSDKCPP=%OSDK%\BIN\cpp.exe
+IF NOT "%OSDKCPP%"=="" GOTO CppOverridden
+SET OSDKCPP=%OSDK%\BIN\mcpp.exe
+IF "%OSDKCPPMODEFLAGS%"=="" SET OSDKCPPMODEFLAGS=-V199901L -I-
+GOTO EndCppSel
+:CppOverridden
+IF "%OSDKCPPMODEFLAGS%"=="" SET OSDKCPPMODEFLAGS=-lang-c++ -nostdinc
 :EndCppSel
 
 ::
@@ -241,7 +249,7 @@ IF "%OSDKBRIEF%"=="" ECHO Compiling %1.C
 
 IF "%OSDKBRIEF%"=="" ECHO   - preprocess
 :: the -DATMOS is for Contiki
-%OSDKCPP% -lang-c++ -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" -nostdinc %1.c %OSDKT%\%1.c
+%OSDKCPP% %OSDKCPPMODEFLAGS% -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" %1.c %OSDKT%\%1.c
 
 IF "%OSDKBRIEF%"=="" ECHO   - compile
 %OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKT%\%1.c >%OSDKT%\%1.c2
@@ -252,7 +260,8 @@ IF "%OSDKBRIEF%"=="" ECHO   - expand macros and cleanup output
 %OSDKB%\macrosplitter.exe %OSDKMACRO% -M%OSDK%\macro\macros.h %OSDKT%\%1.c2 %OSDKT%\%1
 ) ELSE (
 IF "%OSDKBRIEF%"=="" ECHO   - convert C to assembly code
-%OSDKCPP% -lang-c++ -imacros %OSDK%\macro\macros.h  -DXA -traditional -P %OSDKT%\%1.c2 %OSDKT%\%1.s
+:: This legacy path relies on gcc-specific options (-imacros -traditional), so it always uses the bundled cpp.exe
+%OSDK%\BIN\cpp.exe -lang-c++ -imacros %OSDK%\macro\macros.h  -DXA -traditional -P %OSDKT%\%1.c2 %OSDKT%\%1.s
 IF "%OSDKBRIEF%"=="" ECHO   - cleanup output
 %OSDKB%\macrosplitter.exe %OSDKMACRO% %OSDKT%\%1.s %OSDKT%\%1
 )
