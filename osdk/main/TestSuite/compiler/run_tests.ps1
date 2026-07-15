@@ -19,7 +19,8 @@ param(
     [string]$Filter = 't_*',
     [string]$Label = 'run',
     [int]$TimeoutSec = 60,
-    [switch]$Headless      # run Oricutron on a hidden desktop: no window, no focus steal
+    [switch]$Headless,     # run Oricutron on a hidden desktop: no window, no focus steal
+    [switch]$Turbo         # start the emulator at warp speed (--turbo, needs a build with the flag)
 )
 
 . "$PSScriptRoot\hidden_launch.ps1"
@@ -126,7 +127,7 @@ SET OSDKCOMP=-O$lvl
         $printer = "$emuDir\printer_out.txt"
         Remove-Item $printer -Force -ErrorAction SilentlyContinue
 
-        $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments '-t OSDK.TAP' -WorkDir $emuDir -Hidden:$Headless
+        $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments $(if ($Turbo) { '--turbo -t OSDK.TAP' } else { '-t OSDK.TAP' }) -WorkDir $emuDir -Hidden:$Headless
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($TimeoutSec)
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
