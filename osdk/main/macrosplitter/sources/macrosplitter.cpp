@@ -272,27 +272,36 @@ static bool TryParseAddress(const std::string& operand, long& result)
 	str = clean.c_str();
 
 	char* end = nullptr;
+	unsigned long value;
 
+	// Parse UNSIGNED: the compiler emits 16-bit constants sign-extended to
+	// 32 hex digits (e.g. the bitfield mask $fffff0ff for $f0ff), and a
+	// signed strtol would clamp those to LONG_MAX, silently corrupting the
+	// value (found the hard way: #>($fffff0ff) normalized to #255 instead
+	// of #240, breaking every signed-bitfield store).
 	if (str[0] == '$')
 	{
 		// $hex
-		result = strtol(str + 1, &end, 16);
+		value = strtoul(str + 1, &end, 16);
 	}
 	else if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
 	{
 		// 0xhex
-		result = strtol(str + 2, &end, 16);
+		value = strtoul(str + 2, &end, 16);
 	}
 	else if (str[0] >= '0' && str[0] <= '9')
 	{
-		// Decimal (or octal with leading 0, handled by strtol base 0)
-		result = strtol(str, &end, 0);
+		// Decimal (or octal with leading 0, handled by strtoul base 0)
+		value = strtoul(str, &end, 0);
 	}
 	else
 	{
 		// Symbolic name - can't resolve
 		return false;
 	}
+
+	// Truncate to 16 bits, the way XA evaluates address expressions
+	result = (long)(value & 0xFFFFul);
 
 	// Must have consumed the entire string
 	return (end != nullptr && *end == '\0');
