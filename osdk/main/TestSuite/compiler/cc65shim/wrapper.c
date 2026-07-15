@@ -20,6 +20,14 @@
  * (including the declaration it gets from stdlib.h) to our reporter. */
 static void tk_exit(int code);
 
+/* C89 emulation of the C11 _Static_assert keyword: a false condition
+ * makes the typedef'd array size negative, which is a (compile time)
+ * constraint violation - honest semantics, just a worse error message. */
+#define tk_sa_paste2(a,b) a##b
+#define tk_sa_paste(a,b) tk_sa_paste2(a,b)
+#define _Static_assert(cond, msg) \
+	typedef char tk_sa_paste(tk_static_assert_, __LINE__)[(cond) ? 1 : -1]
+
 #define main test_main
 #define exit tk_exit
 #include "testcase.c"
