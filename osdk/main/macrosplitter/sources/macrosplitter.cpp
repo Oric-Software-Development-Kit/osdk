@@ -98,6 +98,7 @@ struct Token
 	std::string mnemonic;       // Lowercase mnemonic (Instruction only)
 	std::string operand;        // Trimmed operand (Instruction only)
 	bool        eliminated;     // Marked for removal
+	bool        frozen;         // Inside a *+N/*-N span: no elimination or size change allowed
 	int         lineIndex;      // Source line for reassembly
 };
 
@@ -147,6 +148,7 @@ static Token ParseToken(const std::string& raw, int lineIndex)
 	Token tok;
 	tok.type = TokenType::Empty;
 	tok.eliminated = false;
+	tok.frozen = false;
 	tok.lineIndex = lineIndex;
 
 	std::string trimmed = TrimString(raw);
@@ -205,6 +207,17 @@ static std::vector<Token> TokenizeLine(const std::string& line, int lineIndex)
 {
 	std::vector<Token> tokens;
 	size_t start = 0;
+
+	// Comment lines are kept whole (they can contain ':' inside macro argument
+	// annotations) and act as barriers, like labels.
+	std::string trimmedLine = TrimString(line);
+	if (!trimmedLine.empty() && trimmedLine[0] == ';')
+	{
+		Token tok = ParseToken(trimmedLine, lineIndex);
+		tok.type = TokenType::Label;
+		tokens.push_back(tok);
+		return tokens;
+	}
 
 	while (start <= line.size())
 	{
@@ -506,6 +519,7 @@ static void ResolveRelativeBranches(std::vector<Token>& tokens, std::map<int, st
 		labelTok.type = TokenType::Label;
 		labelTok.text = resolutions[r].label;
 		labelTok.eliminated = false;
+		labelTok.frozen = false;
 		labelTok.lineIndex = -1;  // synthetic, handled separately in reassembly
 		tokens.insert(tokens.begin() + resolutions[r].targetIdx, labelTok);
 	}
@@ -569,6 +583,81 @@ static void NormalizeImmediateOperands(std::vector<Token>& tokens)
 }
 
 
+// Freeze regions covered by unresolved relative operands (*+N / *-N).
+// MACROS.H uses self-modifying stores like "sta *+7" to patch the operand of a
+// following instruction, and branches whose *+N target EstimateInstructionSize
+// could not resolve stay textual. In both cases the byte distance between the
+// reference and its target must not change, so every token of the enclosing
+// barrier-delimited region is frozen: no elimination and no size-changing
+// rewrite. Regions are small (macro expansion blocks are fenced by their
+// annotation comments), so very little optimization potential is lost.
+static void FreezeRelativeSpans(std::vector<Token>& tokens)
+{
+	size_t regionStart = 0;
+	bool regionHasRelative = false;
+	int frozenRegions = 0;
+
+	for (size_t i = 0; i <= tokens.size(); i++)
+	{
+		bool atEnd = (i == tokens.size());
+		bool isBarrier = (!atEnd && IsBarrier(tokens[i].type));
+
+		if (atEnd || isBarrier)
+		{
+			if (regionHasRelative)
+			{
+				for (size_t j = regionStart; j < i; j++)
+					tokens[j].frozen = true;
+				frozenRegions++;
+			}
+			regionStart = i + 1;
+			regionHasRelative = false;
+			continue;
+		}
+
+		if (tokens[i].type == TokenType::Instruction
+			&& tokens[i].operand.find('*') != std::string::npos)
+		{
+			regionHasRelative = true;
+		}
+	}
+
+	if (g_verbosity >= 3 && frozenRegions > 0)
+	{
+		printf("MacroSplitter: Froze %d region%s containing relative (*) operands\n",
+			frozenRegions, (frozenRegions != 1) ? "s" : "");
+	}
+}
+
+
+// Does this instruction leave the N/Z flags reflecting the given register?
+// Used to decide if a load-after-store elimination preserves flag semantics:
+// removing "lda X" right after "sta X" is only equivalent if the flags at
+// that point already describe A (e.g. NOT after an intervening ldy/cpx/inc).
+static bool SetsFlagsFromRegister(const Token& t, char reg)
+{
+	if (t.type != TokenType::Instruction)
+		return false;
+	const std::string& m = t.mnemonic;
+	if (reg == 'a')
+	{
+		if (m == "lda" || m == "adc" || m == "sbc" || m == "and"
+		 || m == "ora" || m == "eor" || m == "pla" || m == "txa" || m == "tya")
+			return true;
+		// Accumulator-mode shifts
+		if ((m == "asl" || m == "lsr" || m == "rol" || m == "ror")
+			&& (t.operand.empty() || t.operand == "a" || t.operand == "A"))
+			return true;
+		return false;
+	}
+	if (reg == 'x')
+		return m == "ldx" || m == "tax" || m == "tsx" || m == "inx" || m == "dex";
+	if (reg == 'y')
+		return m == "ldy" || m == "tay" || m == "iny" || m == "dey";
+	return false;
+}
+
+
 // Store/Load pairs for pattern matching
 struct RegisterPair
 {
@@ -599,59 +688,6 @@ static const CrossRegisterTransfer g_crossTransfers[] =
 	{ "stx", "lda", "txa" },
 	{ "sty", "lda", "tya" }
 };
-
-
-static int RunOptimizationPass(std::vector<Token>& tokens)
-{
-	int eliminatedCount = 0;
-
-	for (size_t i = 0; i + 1 < tokens.size(); i++)
-	{
-		Token& a = tokens[i];
-		Token& b = tokens[i + 1];
-
-		// Skip already eliminated tokens or non-instructions
-		if (a.eliminated || b.eliminated)
-			continue;
-		if (a.type != TokenType::Instruction || b.type != TokenType::Instruction)
-			continue;
-
-		// Check if b is a barrier (shouldn't happen for instructions, but be safe)
-		if (IsBarrier(b.type))
-			continue;
-
-		for (int p = 0; p < 3; p++)
-		{
-			const RegisterPair& rp = g_registerPairs[p];
-
-			// Pattern 1: Self-store elimination (load X : store X -> remove store)
-			if (a.mnemonic == rp.load && b.mnemonic == rp.store && a.operand == b.operand)
-			{
-				b.eliminated = true;
-				eliminatedCount++;
-				if (g_verbosity >= 3)
-				{
-					printf("MacroSplitter: [line %d] Self-store eliminated: %s\n", b.lineIndex + 1, b.text.c_str());
-				}
-				break;
-			}
-
-			// Pattern 2: Load-after-store elimination (store X : load X -> remove load)
-			if (a.mnemonic == rp.store && b.mnemonic == rp.load && a.operand == b.operand)
-			{
-				b.eliminated = true;
-				eliminatedCount++;
-				if (g_verbosity >= 3)
-				{
-					printf("MacroSplitter: [line %d] Load-after-store eliminated: %s\n", b.lineIndex + 1, b.text.c_str());
-				}
-				break;
-			}
-		}
-	}
-
-	return eliminatedCount;
-}
 
 
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
@@ -696,6 +732,11 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 	std::map<int, std::vector<std::string>> labelsBeforeLine;
 	ResolveRelativeBranches(allTokens, labelsBeforeLine);
 
+	// Any *+N reference left after resolution (self-modifying stores like
+	// "sta *+7" from MACROS.H, or branches that couldn't be resolved) freezes
+	// its whole region: the byte distance to the target must not change.
+	FreezeRelativeSpans(allTokens);
+
 	// Normalize #<(N) / #>(N) immediates to plain numbers for matching
 	NormalizeImmediateOperands(allTokens);
 
@@ -727,6 +768,11 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 			if (a.type != TokenType::Instruction || b.type != TokenType::Instruction)
 				continue;
 
+			// Frozen tokens sit inside a *+N span: removing or resizing
+			// anything there would break the relative reference.
+			if (a.frozen || b.frozen)
+				continue;
+
 			for (int p = 0; p < 3; p++)
 			{
 				const RegisterPair& rp = g_registerPairs[p];
@@ -746,8 +792,21 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 				}
 
 				// Pattern 2: Load-after-store elimination
-				if (a.mnemonic == rp.store && b.mnemonic == rp.load && a.operand == b.operand)
+				// Guards: I/O page reads have hardware side effects and must
+				// stay; and the load refreshes N/Z from the value, so it can
+				// only go if the flags already reflect A (the instruction
+				// before the store set them from the accumulator).
+				if (a.mnemonic == rp.store && b.mnemonic == rp.load && a.operand == b.operand
+					&& !IsIOPageAddress(b.operand))
 				{
+					size_t prev = i;
+					while (prev > 0 && allTokens[prev - 1].eliminated)
+						prev--;
+					bool flagsSafe = (prev > 0)
+						&& SetsFlagsFromRegister(allTokens[prev - 1], rp.load[2]);
+					if (!flagsSafe)
+						break;
+
 					int bytes = EstimateInstructionSize(b.mnemonic, b.operand);
 					b.eliminated = true;
 					eliminated++;
@@ -811,7 +870,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 			// Scan backward from b, skipping stores to different addresses (they don't
 			// modify any register or the target memory).
 			if ((b.mnemonic == "lda" || b.mnemonic == "ldx" || b.mnemonic == "ldy")
-				&& !b.operand.empty() && b.operand[0] != '#' && b.operand[0] != '(')
+				&& !b.operand.empty() && b.operand[0] != '#' && b.operand[0] != '('
+				&& !IsIOPageAddress(b.operand))
 			{
 				size_t scanPos = j;
 				int scanCount = 0;
