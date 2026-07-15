@@ -10,6 +10,10 @@ struct S gsarr[4];
 struct S *gsp, *gsp2;
 int gidx;
 
+/* consecutive initialized const structs, for the data-packing check */
+const struct S ka = { 1, 2, 3 };
+const struct S kb = { 4, 5, 6 };
+
 void fill(struct S *p, int base)
 {
 	p->a = base;
@@ -90,6 +94,10 @@ void main(void)
 	fill(&gs, 0xa34);
 	take_struct(gs);                     /* struct parameter by value */
 	tk_check(same(&gt, 0xa34), "param");
+
+	/* consecutive const struct initializers must emit exactly sizeof
+	   bytes each - no padding or leaked values between the labels */
+	tk_check_eq((unsigned int)((char*)&kb - (char*)&ka), sizeof(struct S), "data-packing");
 
 	tk_end();
 }
