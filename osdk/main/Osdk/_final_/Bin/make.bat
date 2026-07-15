@@ -257,7 +257,9 @@ setlocal
 SET INCLUDE=
 SET C_INCLUDE_PATH=
 SET CPLUS_INCLUDE_PATH=
-%OSDKCPP% %OSDKCPPMODEFLAGS% -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" %1.c %OSDKT%\%1.c
+:: Project include dirs (OSDKCPPFLAGS) come BEFORE the bundled OSDK include,
+:: so a project can override a bundled header with its own copy.
+%OSDKCPP% %OSDKCPPMODEFLAGS% %OSDKCPPFLAGS% -I %OSDK%\include -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" %1.c %OSDKT%\%1.c
 endlocal
 
 IF "%OSDKBRIEF%"=="" ECHO   - compile

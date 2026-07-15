@@ -10,8 +10,11 @@
  */
 #include "testkit.h"
 
+/* The sample keeps its original directory depth (scaffold/sample/) so its
+   own relative includes like "../sort-helper.h" resolve as they do in the
+   benchmark tree. */
 #define main bench_main
-#include "testcase.c"
+#include "sample/testcase.c"
 #undef main
 
 int main(void)

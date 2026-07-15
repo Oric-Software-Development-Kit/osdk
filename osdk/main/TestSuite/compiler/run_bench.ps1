@@ -93,15 +93,20 @@ foreach ($dir in $dirs) {
         catch { $scaffold = "$suite\scaffold-bench-$(Get-Date -Format 'HHmmss')" }
     }
     New-Item -ItemType Directory -Force $scaffold | Out-Null
+    New-Item -ItemType Directory -Force "$scaffold\sample" | Out-Null
     Copy-Item "$suite\benchshim\benchmain.c" "$scaffold\main.c"
+    # library glue shims (conio/types/compat) + testkit at scaffold root, so
+    # <conio.h> and "compat.h" resolve via -I .
     Copy-Item "$suite\benchshim\*.h" $scaffold
     Copy-Item "$suite\benchshim\cport.s" $scaffold
     Copy-Item "$suite\testkit\testkit.h" $scaffold
     Copy-Item "$suite\testkit\tk_io.s" $scaffold
-    Copy-Item $src.FullName "$scaffold\testcase.c"
-    # shared helper headers used by the sort samples
+    # the sample keeps a directory below scaffold, so its "../sort-helper.h"
+    # style includes point back at scaffold root
+    Copy-Item $src.FullName "$scaffold\sample\testcase.c"
     Copy-Item "$samples\*.h" $scaffold -ErrorAction SilentlyContinue
-    Copy-Item "$($dir.FullName)\*.h" $scaffold -ErrorAction SilentlyContinue
+    # sample-local helper headers stay beside the sample
+    Copy-Item "$($dir.FullName)\*.h" "$scaffold\sample" -ErrorAction SilentlyContinue
     @"
 SET OSDKADDR=`$400
 SET OSDKNAME=BENCH
