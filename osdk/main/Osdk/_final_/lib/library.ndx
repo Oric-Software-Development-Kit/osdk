@@ -1,6 +1,4 @@
 -header.s
-	enter
-	leave
 	_exit
 	exit
 	true
@@ -16,6 +14,9 @@
 	fdiv
 	fneg
 	fcomp
+-frame.s
+	enter
+	leave
 -tail.s
 	endcode
 -irq.s

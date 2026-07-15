@@ -249,7 +249,16 @@ IF "%OSDKBRIEF%"=="" ECHO Compiling %1.C
 
 IF "%OSDKBRIEF%"=="" ECHO   - preprocess
 :: the -DATMOS is for Contiki
+:: setlocal: mcpp honors the INCLUDE/C_INCLUDE_PATH environment variables, so
+:: building from a Visual Studio developer prompt would silently pull MSVC
+:: system headers for any #include the OSDK does not provide. Clear them for
+:: the preprocessor call only.
+setlocal
+SET INCLUDE=
+SET C_INCLUDE_PATH=
+SET CPLUS_INCLUDE_PATH=
 %OSDKCPP% %OSDKCPPMODEFLAGS% -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" %1.c %OSDKT%\%1.c
+endlocal
 
 IF "%OSDKBRIEF%"=="" ECHO   - compile
 %OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKT%\%1.c >%OSDKT%\%1.c2
