@@ -134,6 +134,15 @@ SET OSDKCPPFLAGS=-I .
             continue
         }
         $tapBytes = (Get-Item $tap).Length
+        # programs load at $800 and must stay below ~$B400 (screen/ROM above):
+        # a TAP beyond ~44KB cannot fit in the Oric's memory and would hang
+        # during the tape load without any output
+        if ($tapBytes -gt 44000) {
+            Write-Host ("{0,-28} -O{1}  toobig    tap={2}b exceeds Oric RAM" -f $name, $lvl, $tapBytes) -ForegroundColor DarkYellow
+            "$name,$lvl,toobig,,,$tapBytes" | Out-File -Encoding ascii -Append $csv
+            $tally['toobig'] = $tally['toobig'] + 1
+            continue
+        }
 
         # -------------------------------------------------- run
         $emuDir = "$sandbox\Oricutron"
