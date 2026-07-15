@@ -19,8 +19,10 @@ param(
     [string]$Filter = 't_*',
     [string]$Label = 'run',
     [int]$TimeoutSec = 60,
-    [switch]$Headless      # start Oricutron minimized so batch runs don't steal focus
+    [switch]$Headless      # run Oricutron on a hidden desktop: no window, no focus steal
 )
+
+. "$PSScriptRoot\hidden_launch.ps1"
 
 $ErrorActionPreference = 'Stop'
 $suite   = $PSScriptRoot
@@ -84,6 +86,9 @@ foreach ($test in $tests) {
     foreach ($lvl in $Levels) {
         $name = $test.BaseName
 
+        # keep the sandbox lock fresh so a long run isn't mistaken for stale
+        try { (Get-Item $lockFile -ErrorAction Stop).LastWriteTime = Get-Date } catch {}
+
         # -------------------------------------------------- scaffold+build
         if (Test-Path $scaffold) {
             try { Remove-Item -Recurse -Force $scaffold -ErrorAction Stop }
@@ -121,9 +126,7 @@ SET OSDKCOMP=-O$lvl
         $printer = "$emuDir\printer_out.txt"
         Remove-Item $printer -Force -ErrorAction SilentlyContinue
 
-        $startArgs = @{ FilePath="$emuDir\oricutron.exe"; ArgumentList='-t','OSDK.TAP'; WorkingDirectory=$emuDir; PassThru=$true }
-        if ($Headless) { $startArgs.WindowStyle = 'Minimized' }
-        $proc = Start-Process @startArgs
+        $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments '-t OSDK.TAP' -WorkDir $emuDir -Hidden:$Headless
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($TimeoutSec)
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
