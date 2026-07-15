@@ -16,8 +16,6 @@
 	fdiv
 	fneg
 	fcomp
-	cif
-	cfi
 -tail.s
 	endcode
 -irq.s
@@ -123,6 +121,9 @@
 	_bang
 -atoi.s
 	_atoi
+-float.s
+	cif
+	cfi
 -printf.s
 	_printf
     _sprintf

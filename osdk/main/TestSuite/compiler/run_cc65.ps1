@@ -114,7 +114,7 @@ foreach ($test in $tests) {
         # some tests include local helper headers from the val directory
         Copy-Item "$valdir\*.h" $scaffold -ErrorAction SilentlyContinue
         @"
-SET OSDKADDR=`$800
+SET OSDKADDR=`$400
 SET OSDKNAME=TKTEST
 SET OSDKFILE=main tk_io
 SET OSDKCOMP=-O$lvl
@@ -134,10 +134,10 @@ SET OSDKCPPFLAGS=-I .
             continue
         }
         $tapBytes = (Get-Item $tap).Length
-        # programs load at $800 and must stay below ~$B400 (screen/ROM above):
-        # a TAP beyond ~44KB cannot fit in the Oric's memory and would hang
+        # tape programs load at $400 and must stay below ~$B400 (charsets/screen above):
+        # a TAP beyond ~45KB cannot fit in the Oric's memory and would hang
         # during the tape load without any output
-        if ($tapBytes -gt 44000) {
+        if ($tapBytes -gt 45000) {
             Write-Host ("{0,-28} -O{1}  toobig    tap={2}b exceeds Oric RAM" -f $name, $lvl, $tapBytes) -ForegroundColor DarkYellow
             "$name,$lvl,toobig,,,$tapBytes" | Out-File -Encoding ascii -Append $csv
             $tally['toobig'] = $tally['toobig'] + 1

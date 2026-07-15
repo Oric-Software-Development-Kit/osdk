@@ -102,7 +102,7 @@ foreach ($test in $tests) {
         Copy-Item "$suite\testkit\testkit.h" $scaffold
         Copy-Item "$suite\testkit\tk_io.s" $scaffold
         @"
-SET OSDKADDR=`$800
+SET OSDKADDR=`$400
 SET OSDKNAME=TKTEST
 SET OSDKFILE=main tk_io
 SET OSDKCOMP=-O$lvl
