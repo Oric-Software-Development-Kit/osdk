@@ -15,7 +15,8 @@
 :: - OSDKINIST - Sedoric initialization string ran on floppy boot
 :: - OSDKTAP2DSKPARAMS - Extra parameters to the Tap2DSK
 :: - OSDKMACRO - To pass additional parameters to the macro splitter (use -O for optimization)
-:: - OSDKMACROEXPAND - Set to 1 to use MacroSplitter's built-in macro expansion (skips cpp.exe macro step)
+:: - OSDKMACROEXPAND - Macro expansion mode: 1 (default) uses MacroSplitter's built-in expansion, 0 uses the external preprocessor
+:: - OSDKCPP - Path of the C preprocessor executable (defaults to the bundled cpp.exe)
 :: - OSDKVERBOSITY - How verbose is the build output?
 ::
 :: Used by other parts of the system
@@ -91,11 +92,20 @@ SET OSDKMACRO=
 :EndMacro
 
 ::
-:: Set the macro expander mode (set to 1 to use built-in macro expansion)
+:: Set the macro expander mode: 1 (default) uses MacroSplitter's built-in
+:: macro expansion, 0 uses the external preprocessor like older releases
 ::
 IF NOT "%OSDKMACROEXPAND%"=="" GOTO EndMacroExpand
-SET OSDKMACROEXPAND=
+SET OSDKMACROEXPAND=1
 :EndMacroExpand
+
+::
+:: Select the C preprocessor executable (override with OSDKCPP to test
+:: alternative preprocessor builds)
+::
+IF NOT "%OSDKCPP%"=="" GOTO EndCppSel
+SET OSDKCPP=%OSDK%\BIN\cpp.exe
+:EndCppSel
 
 ::
 :: Set the verbosity level, if not set, we default to 2
@@ -231,7 +241,7 @@ IF "%OSDKBRIEF%"=="" ECHO Compiling %1.C
 
 IF "%OSDKBRIEF%"=="" ECHO   - preprocess
 :: the -DATMOS is for Contiki
-%OSDKB%\cpp.exe -lang-c++ -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" -nostdinc %1.c %OSDKT%\%1.c
+%OSDKCPP% -lang-c++ -I %OSDK%\include %OSDKCPPFLAGS% -D__16BIT__ -D__NOFLOAT__ -DATMOS -DOSDKNAME_%OSDKNAME% -DOSDKVER=\"%OSDKVERSION%\" -nostdinc %1.c %OSDKT%\%1.c
 
 IF "%OSDKBRIEF%"=="" ECHO   - compile
 %OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKT%\%1.c >%OSDKT%\%1.c2
@@ -242,7 +252,7 @@ IF "%OSDKBRIEF%"=="" ECHO   - expand macros and cleanup output
 %OSDKB%\macrosplitter.exe %OSDKMACRO% -M%OSDK%\macro\macros.h %OSDKT%\%1.c2 %OSDKT%\%1
 ) ELSE (
 IF "%OSDKBRIEF%"=="" ECHO   - convert C to assembly code
-%OSDKB%\cpp.exe -lang-c++ -imacros %OSDK%\macro\macros.h  -DXA -traditional -P %OSDKT%\%1.c2 %OSDKT%\%1.s
+%OSDKCPP% -lang-c++ -imacros %OSDK%\macro\macros.h  -DXA -traditional -P %OSDKT%\%1.c2 %OSDKT%\%1.s
 IF "%OSDKBRIEF%"=="" ECHO   - cleanup output
 %OSDKB%\macrosplitter.exe %OSDKMACRO% %OSDKT%\%1.s %OSDKT%\%1
 )
