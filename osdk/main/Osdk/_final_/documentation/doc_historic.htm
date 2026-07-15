@@ -34,7 +34,17 @@
 			<li>Added the eight missing ASGNS struct-copy variants (CD, DD, AD, YD, CY, DY, YY, YZ) that the -O3 optimizer can emit for struct assignments through pointers (e.g. "*ps = *pt"); these previously stopped the build with an undefined macro</li>
 		</ul>
 		</li>
-		<li>New automated compiler execution test suite in TestSuite/compiler: builds C test programs at -O1/-O2/-O3, runs them in Oricutron, and collects pass/fail results, timing and code size from the emulated printer output</li>
+		<li>New automated compiler execution test suite in TestSuite/compiler: builds C test programs at -O1/-O2/-O3, runs them in Oricutron, and collects pass/fail results, timing and code size from the emulated printer output; includes an importer that runs cc65's regression suite (300+ tests) unmodified</li>
+		<li>Fixed the constant folder computing in 32-bit host arithmetic: folded constants now wrap to the 16 bit target width, so expressions like 0xFF50 + 0x100 give the same result whether folded at compile time or computed at run time</li>
+		<li>Right shift of a signed value now performs an arithmetic shift (sign preserved); the C runtime int-to-float conversion was fixed (it converted only 8 bits); see the compiler and library entries for details</li>
+		<li>C library fixes and additions found by the imported test suite:
+		<ul>
+			<li>sprintf now writes the terminating null character (reusing a buffer no longer shows the previous contents after shorter output)</li>
+			<li>New atoi() (string to int, C89 semantics) - the library only had the opposite direction</li>
+			<li>New fprintf() with a minimal FILE type and stdin/stdout/stderr defines, so portable code printing to stderr compiles (the stream argument is accepted and ignored: the Oric has a single console)</li>
+			<li>stdlib.h defines EXIT_SUCCESS/EXIT_FAILURE; string.h prototypes are const-correct</li>
+		</ul>
+		</li>
 	</ul>
 
 <p id=dateentry>Version 1.23 - April 20th 2026</p>
