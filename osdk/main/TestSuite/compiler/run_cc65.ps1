@@ -163,6 +163,10 @@ SET OSDKCPPFLAGS=-I .
             if ($failures -is [int] -and $failures -gt 0) { $status = 'fail' }
             if ($status -ne 'ok') { $out | Out-File -Encoding ascii "$logdir\$name-O$lvl-out.log" }
         }
+        elseif (Test-Path $printer) {
+            # timeout/emudied: keep whatever the test printed before it stopped
+            Get-Content $printer -Raw | Out-File -Encoding ascii "$logdir\$name-O$lvl-out.log"
+        }
         $color = switch ($status) { 'ok' {'Green'} 'fail' {'Yellow'} default {'Red'} }
         Write-Host ("{0,-28} -O{1}  {2,-9} failures={3,-4} ticks={4,-5} tap={5}b" -f $name,$lvl,$status,$failures,$ticks,$tapBytes) -ForegroundColor $color
         "$name,$lvl,$status,$failures,$ticks,$tapBytes" | Out-File -Encoding ascii -Append $csv

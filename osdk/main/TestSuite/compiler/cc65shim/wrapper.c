@@ -13,28 +13,39 @@
  */
 #include "testkit.h"
 
+/* Capture exit(): the OSDK exit unwinds straight back to BASIC, which
+ * would swallow the result protocol - tests aborting through assert
+ * macros (cc65's unittest.h calls exit(EXIT_FAILURE)) would look like
+ * timeouts. The macro renames every exit reference in the test source
+ * (including the declaration it gets from stdlib.h) to our reporter. */
+static void tk_exit(int code);
+
 #define main test_main
+#define exit tk_exit
 #include "testcase.c"
+#undef exit
 #undef main
 
-int main(void)
+static void tk_exit(int code)
 {
-	unsigned int r, t;
-
-	/* $0238: jmp $xxxx - repoint to PrintChar ($F5C1) */
-	*(unsigned char*)0x0239 = 0xC1;
-	*(unsigned char*)0x023A = 0xF5;
-
-	tk_timer_reset();
-	r = (unsigned int)test_main();
-	t = tk_timer_read();
-
+	unsigned int t = tk_timer_read();
 	tk_puts("\n@RESULT failures=");
-	tk_puthex(r);
+	tk_puthex((unsigned int)code);
 	tk_puts(" ticks=");
 	tk_puthex(t);
 	tk_putc('\n');
 	tk_puts("@END\n");
 	for (;;)
 		;
+}
+
+int main(void)
+{
+	/* $0238: jmp $xxxx - repoint to PrintChar ($F5C1) */
+	*(unsigned char*)0x0239 = 0xC1;
+	*(unsigned char*)0x023A = 0xF5;
+
+	tk_timer_reset();
+	tk_exit((int)test_main());
+	return 0;
 }
