@@ -19,6 +19,10 @@ To compare two runs (e.g. before/after a compiler change):
 
     .\compare_results.ps1 results\old.csv results\new.csv -Out report.md
 
+Both runners accept `-Headless` (emulator's `--headless`: no window, no
+focus steal) and `-Turbo` (`--turbo` warp speed, ~4x wall time) - they
+need the Oricutron build that has these flags in the sandbox.
+
 ## How it works
 
 - Tests live in `tests\t_*.c` and use `testkit\testkit.h`:

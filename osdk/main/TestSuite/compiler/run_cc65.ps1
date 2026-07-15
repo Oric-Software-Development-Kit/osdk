@@ -21,7 +21,7 @@ param(
     [string]$Filter = '*',
     [string]$Label = 'cc65val',
     [int]$TimeoutSec = 45,
-    [switch]$Headless,     # run Oricutron on a hidden desktop: no window, no focus steal
+    [switch]$Headless,     # pass --headless to the emulator: no window, no focus steal
     [switch]$Turbo         # start the emulator at warp speed (--turbo, needs a build with the flag)
 )
 
@@ -150,7 +150,7 @@ SET OSDKCPPFLAGS=-I .
         Copy-Item $tap "$emuDir\OSDK.TAP" -Force
         $printer = "$emuDir\printer_out.txt"
         Remove-Item $printer -Force -ErrorAction SilentlyContinue
-        $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments $(if ($Turbo) { '--turbo -t OSDK.TAP' } else { '-t OSDK.TAP' }) -WorkDir $emuDir -Hidden:$Headless
+        $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments ($(if ($Headless) {'--headless '} else {''}) + $(if ($Turbo) {'--turbo '} else {''}) + '-t OSDK.TAP') -WorkDir $emuDir
         $effTimeout = if ($slowTests.ContainsKey($name)) { $slowTests[$name] } else { $TimeoutSec }
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($effTimeout)
         while ((Get-Date) -lt $deadline) {
