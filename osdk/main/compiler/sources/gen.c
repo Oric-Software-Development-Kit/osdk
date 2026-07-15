@@ -645,40 +645,82 @@ static char *output_arg(Node n) {
     return n->x.adrmode=='I' ? stringf("(%s),0",n->x.name) : n->x.name;
 }
 
+/* Constant-constant operand pairs reach the emitters when the front end
+ * cannot fold them: a comma expression can hide a constant behind a RIGHT
+ * node ("(f(), 42) + 1"), and bitfield lowering can synthesize masked
+ * constant pairs. The macro library deliberately has no constant-constant
+ * variants (nor constant-first variants of the commutative families), so
+ * these helpers normalize the operands: commutative operands are swapped,
+ * anything else materializes the first constant into the result location
+ * (binary/unary) or the op1 scratch (compares; op1 is dead between the
+ * multiply/divide helper calls that use it). */
+static int is_commutative(char *inst) {
+    return strcmp(inst,"ADDW")==0 || strcmp(inst,"ANDW")==0
+        || strcmp(inst,"ORW" )==0 || strcmp(inst,"XORW")==0
+        || strcmp(inst,"MULI")==0 || strcmp(inst,"MULU")==0;
+}
+
 static void binary(char *inst) {
-    if (optimizelevel==0)
+    char am, bm, rm;
+    if (optimizelevel==0) {
         print("\t%s(%s,%s,%s)\n"
             ,inst
             ,output_arg(a)
             ,output_arg(b)
             ,output_arg(r));
-    else
+        return;
+    }
+    am = simple_adrmode(a->x.adrmode);
+    bm = simple_adrmode(b->x.adrmode);
+    rm = simple_adrmode(r->x.adrmode);
+    if (am=='C' && bm!='C' && is_commutative(inst)) {
+        Node t=a; a=b; b=t;
+        am = bm; bm = 'C';
+    }
+    if (am=='C' && bm=='C') {
+        print("\tMOVW_C%c(%s,%s)\n", rm, output_arg(a), output_arg(r));
         print("\t%s_%c%c%c(%s,%s,%s)\n"
-            ,inst
-            ,simple_adrmode(a->x.adrmode)
-            ,simple_adrmode(b->x.adrmode)
-            ,simple_adrmode(r->x.adrmode)
-            ,output_arg(a)
-            ,output_arg(b)
-            ,output_arg(r));
+            ,inst ,rm ,bm ,rm
+            ,output_arg(r) ,output_arg(b) ,output_arg(r));
+        return;
+    }
+    print("\t%s_%c%c%c(%s,%s,%s)\n"
+        ,inst ,am ,bm ,rm
+        ,output_arg(a)
+        ,output_arg(b)
+        ,output_arg(r));
 }
 
 static void unary(char *inst) {
-    if (optimizelevel==0)
+    char am, rm;
+    if (optimizelevel==0) {
         print("\t%s(%s,%s)\n"
             ,inst
             ,output_arg(a)
             ,output_arg(r));
-    else
-        print("\t%s_%c%c(%s,%s)\n"
-            ,inst
-            ,simple_adrmode(a->x.adrmode)
-            ,simple_adrmode(r->x.adrmode)
-            ,output_arg(a)
-            ,output_arg(r));
+        return;
+    }
+    am = simple_adrmode(a->x.adrmode);
+    rm = simple_adrmode(r->x.adrmode);
+    if (am=='C' && (strcmp(inst,"LSH1W")==0 || strcmp(inst,"COMW")==0
+                 || strcmp(inst,"NEGI")==0)) {
+        /* these families have no constant-operand variant */
+        print("\tMOVW_C%c(%s,%s)\n", rm, output_arg(a), output_arg(r));
+        print("\t%s_%c%c(%s,%s)\n", inst, rm, rm, output_arg(r), output_arg(r));
+        return;
+    }
+    print("\t%s_%c%c(%s,%s)\n"
+        ,inst ,am ,rm
+        ,output_arg(a)
+        ,output_arg(r));
 }
 
 static void compare0(char *inst) {
+    if (simple_adrmode(a->x.adrmode)=='C') {
+        print("\tMOVW_CD(%s,op1)\n", output_arg(a));
+        print("\t%s_D(op1,%s)\n", inst, r->syms[0]->x.name);
+        return;
+    }
     print("\t%s_%c(%s,%s)\n"
             ,inst
             ,simple_adrmode(a->x.adrmode)
@@ -693,6 +735,13 @@ static void compare(char *inst) {
             ,output_arg(a)
             ,output_arg(b)
             ,r->syms[0]->x.name);
+    else if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)=='C') {
+        print("\tMOVW_CD(%s,op1)\n", output_arg(a));
+        print("\t%s_DC(op1,%s,%s)\n"
+            ,inst
+            ,output_arg(b)
+            ,r->syms[0]->x.name);
+    }
     else
         print("\t%s_%c%c(%s,%s,%s)\n"
             ,inst

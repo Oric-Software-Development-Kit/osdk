@@ -803,9 +803,19 @@ static Symbol icon(unsigned n, int overflow) {
 		*cp = 0;
 		warning("overflow in constant `%s'\n", token);
 		*cp = c;
-		n = INT_MAX;
+		n = 0xFFFFu;
 	}
-	if (u || n > (unsigned)INT_MAX) {
+	/* the target int is 16 bits: constants must be wrapped and classified
+	   with the TARGET limits, not the host's, or a literal like 40000
+	   would silently become an out-of-range signed int */
+	if (n > 0xFFFFu) {
+		char c = *cp;
+		*cp = 0;
+		warning("constant `%s' exceeds 16 bits\n", token);
+		*cp = c;
+		n &= 0xFFFFu;
+	}
+	if (u || n > 0x7FFFu) {
 		tval.type = unsignedtype;
 		tval.u.c.v.u = n;
 	} else {

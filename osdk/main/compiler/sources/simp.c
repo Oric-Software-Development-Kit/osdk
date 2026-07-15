@@ -107,6 +107,22 @@ static int mul(x, y, min, max, needconst) double x, y, min, max; int needconst; 
 /* sub - return 1 if min <= x-y <= max, 0 otherwise */
 }
 
+/* The target int/unsigned are 16 bits, but constant folding runs in HOST
+ * arithmetic (32 or more bits): every folded result must be wrapped to the
+ * target width, and every range guard must use the TARGET limits, or folded
+ * constants disagree with the same expression computed at run time (cc65
+ * regression bug2461: 0xFF50 + 0x100 folded to 0x10050 instead of 0x0050).
+ * Signed overflow is undefined behavior: signed folds wrap exactly like the
+ * run time macros do, keeping folded and computed results identical (only
+ * refusing to fold is NOT an option - it would leave constant-constant
+ * operand pairs behind, for which the macro library has no variants). */
+#define TGT_INT_MIN  (-32767-1)
+#define TGT_INT_MAX  32767
+#define TGT_SHRT_MIN (-128)         /* the OSDK target short is 8 bits */
+#define TGT_SHRT_MAX 127
+#define tgtwrapu(x)  ((unsigned)((x) & 0xFFFFu))
+#define tgtwrapi(x)  ((int)(short)(unsigned short)((x) & 0xFFFFu))
+
 #define xcvtcnst(FTYPE,TTYPE,EXP,VAR,MIN,MAX) \
 	if (l->op == CNST+FTYPE) { \
 		if (needconst && (VAR < MIN || VAR > MAX)) \
@@ -134,6 +150,21 @@ static int mul(x, y, min, max, needconst) double x, y, min, max; int needconst; 
 	if (l->op == CNST+TYPE && r->op == CNST+TYPE) { \
 		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
 		p->u.v.VAR = l->u.v.VAR OP r->u.v.VAR; return p; }
+/* like foldcnst but wraps the result to the 16 bit target width (for the
+   unsigned operations whose wrap-around is well defined behavior) */
+#define wfoldcnst(TYPE,VAR,OP,RTYPE) \
+	if (l->op == CNST+TYPE && r->op == CNST+TYPE) { \
+		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
+		p->u.v.VAR = tgtwrapu(l->u.v.VAR OP r->u.v.VAR); return p; }
+/* signed fold: overflow is undefined behavior, so fold-and-wrap exactly like
+   the run time macros would (refusing to fold would leave constant-constant
+   operand pairs the macro library has no variants for). FUNC only provides
+   the "overflow in constant expression" warning under needconst. */
+#define wxfoldcnst(TYPE,VAR,OP,RTYPE,FUNC) \
+	if (l->op == CNST+TYPE && r->op == CNST+TYPE) { \
+		FUNC((double)l->u.v.VAR,(double)r->u.v.VAR,(double)TGT_INT_MIN,(double)TGT_INT_MAX, needconst); \
+		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
+		p->u.v.VAR = tgtwrapi(l->u.v.VAR OP r->u.v.VAR); return p; }
 #define cfoldcnst(TYPE,VAR,OP,RTYPE) \
 	if (l->op == CNST+TYPE && r->op == CNST+TYPE) { \
 		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
@@ -142,7 +173,7 @@ static int mul(x, y, min, max, needconst) double x, y, min, max; int needconst; 
 	if (l->op == CNST+TYPE && r->op == CNST+I \
 	&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size) { \
 		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
-		p->u.v.VAR = l->u.v.VAR OP r->u.v.i; return p; }
+		p->u.v.VAR = tgtwrapu(l->u.v.VAR OP r->u.v.i); return p; }
 #define foldaddp(L,R,RTYPE,VAR) \
 	if (L->op == CNST+P && R->op == CNST+RTYPE) { \
 		p = tree(CNST+P, ty, 0, 0); \
@@ -171,7 +202,7 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		commute(r,l);
 		break;
 	case ADD+I:
-		xfoldcnst(I,i,+,inttype,add,INT_MIN,INT_MAX);
+		wxfoldcnst(I,i,+,inttype,add);
 		commute(r,l);
 		break;
 	case ADD+P:
@@ -217,7 +248,7 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		}
 		break;
 	case ADD+U:
-		foldcnst(U,u,+,unsignedtype);
+		wfoldcnst(U,u,+,unsignedtype);
 		commute(r,l);
 		break;
 	case AND+I:
@@ -232,18 +263,18 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 	case BAND+U:
 		foldcnst(U,u,&,unsignedtype);
 		commute(r,l);
-		identity(r,l,U,u,(~0));
+		identity(r,l,U,u,0xFFFFu);
 		if (r->op == CNST+U && r->u.v.u == 0)	/* l&0 => (l,0) */
 			return tree(RIGHT, unsignedtype, root(l),
 				constnode(0, unsignedtype));
 		break;
 	case BCOM+I:
-		ufoldcnst(I,constnode(~l->u.v.i, inttype));
+		ufoldcnst(I,constnode(tgtwrapi(~l->u.v.i), inttype));
 		idempotent(BCOM+U);
 		op = BCOM+U;
 		break;
 	case BCOM+U:
-		ufoldcnst(U,constnode(~l->u.v.u, unsignedtype));
+		ufoldcnst(U,constnode(tgtwrapu(~l->u.v.u), unsignedtype));
 		idempotent(BCOM+U);
 		break;
 	case BOR+U:
@@ -259,22 +290,21 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 	case CVC+I:  cvtcnst(C,      inttype,p->u.v.i  = (l->u.v.sc&0200 ? (~0<<8) : 0)|(l->u.v.sc&0377)); break;
 	case CVC+U:  cvtcnst(C, unsignedtype,p->u.v.u  = l->u.v.uc); break;
 	case CVD+F: xcvtcnst(D,    floattype,p->u.v.f  = l->u.v.d,l->u.v.d,-FLT_MAX,FLT_MAX); break;
-	case CVD+I: xcvtcnst(D,      inttype,p->u.v.i  = l->u.v.d,l->u.v.d,INT_MIN,INT_MAX); break;
+	case CVD+I: xcvtcnst(D,      inttype,p->u.v.i  = l->u.v.d,l->u.v.d,TGT_INT_MIN,TGT_INT_MAX); break;
 	case CVF+D:  cvtcnst(F,   doubletype,p->u.v.d  = l->u.v.f);  break;
 	case CVI+C: xcvtcnst(I,     chartype,p->u.v.sc = l->u.v.i,l->u.v.i,SCHAR_MIN,SCHAR_MAX); break;
 	case CVI+D:  cvtcnst(I,   doubletype,p->u.v.d  = l->u.v.i);  break;
-	case CVI+S: xcvtcnst(I,    shorttype,p->u.v.ss = l->u.v.i,l->u.v.i,SHRT_MIN,SHRT_MAX); break;
-	case CVI+U:  cvtcnst(I, unsignedtype,p->u.v.u  = l->u.v.i);  break;
-	case CVP+U:  cvtcnst(P, unsignedtype,p->u.v.u  = (unsigned)l->u.v.p); break;
+	case CVI+S: xcvtcnst(I,    shorttype,p->u.v.ss = l->u.v.i,l->u.v.i,TGT_SHRT_MIN,TGT_SHRT_MAX); break;
+	case CVI+U:  cvtcnst(I, unsignedtype,p->u.v.u  = tgtwrapu(l->u.v.i));  break;
+	case CVP+U:  cvtcnst(P, unsignedtype,p->u.v.u  = tgtwrapu((unsigned)l->u.v.p)); break;
 	case CVS+I:  cvtcnst(S,      inttype,p->u.v.i  = l->u.v.ss); break;
 	case CVS+U:  cvtcnst(S, unsignedtype,p->u.v.u  = l->u.v.us); break;
 	case CVU+C:  cvtcnst(U, unsignedchar,p->u.v.uc = l->u.v.u);  break;
 	case CVU+D:  cvtcnst(U,   doubletype,p->u.v.d  = utod(l->u.v.u));  break;
 	case CVU+I:
-		if (needconst && l->u.v.u > INT_MAX)
+		if (needconst && l->u.v.u > TGT_INT_MAX)
 			warning("overflow in constant expression\n");
-		if (needconst || l->u.v.u <= INT_MAX)
-			cvtcnst(U,   inttype,p->u.v.i  = l->u.v.u);
+		cvtcnst(U,   inttype,p->u.v.i  = tgtwrapi(l->u.v.u));
 		break;
 	case CVU+P:  cvtcnst(U,    voidptype,p->u.v.p  = (char *)l->u.v.u);  break;
 	case CVU+S:  cvtcnst(U,unsignedshort,p->u.v.us = l->u.v.u);  break;
@@ -291,7 +321,7 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		&& !div((double)l->u.v.i, (double)r->u.v.i, (double)INT_MIN, (double)INT_MAX, 0))
 			break;
 #endif
-		xfoldcnst(I,i,/,inttype, divide,INT_MIN,INT_MAX);
+		xfoldcnst(I,i,/,inttype, divide,TGT_INT_MIN,TGT_INT_MAX);
 		break;
 	case DIV+U:
 		identity(r,l,U,u,1);
@@ -350,9 +380,11 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 	case LSH+I:
 		identity(r,l,I,i,0);
 		if (l->op == CNST+I && r->op == CNST+I
-		&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size
-		&& mul((double)l->u.v.i, (double)(1<<r->u.v.i), (double)INT_MIN, (double)INT_MAX, needconst))
-			return constnode(l->u.v.i<<r->u.v.i, inttype);
+		&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size) {
+			/* warn under needconst, then fold-and-wrap like the runtime */
+			mul((double)l->u.v.i, (double)(1<<r->u.v.i), (double)TGT_INT_MIN, (double)TGT_INT_MAX, needconst);
+			return constnode(tgtwrapi(l->u.v.i<<r->u.v.i), inttype);
+		}
 		break;
 	case LSH+U:
 		identity(r,l,I,i,0);
@@ -377,7 +409,7 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		&& !divide((double)l->u.v.i, (double)r->u.v.i, (double)INT_MIN, (double)INT_MAX, 0))
 			break;
 #endif
-		xfoldcnst(I,i,%,inttype, divide,INT_MIN,INT_MAX);
+		xfoldcnst(I,i,%,inttype, divide,TGT_INT_MIN,TGT_INT_MAX);
 		break;
 	case MOD+U:
 		if (r->op == CNST+U && ispow2(r->u.v.u))	/* l%2^n => l&(2^n-1) */
@@ -408,14 +440,14 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		if (l->op == CNST+I && l->u.v.i > 0 && (n = ispow2(l->u.v.i)))
 			/* 2^n * r => r<<n */
 			return simplify(LSH+I, inttype, r, constnode(n, inttype));
-		xfoldcnst(I,i,*,inttype,mul,INT_MIN,INT_MAX);
+		wxfoldcnst(I,i,*,inttype,mul);
 		break;
 	case MUL+U:
 		commute(l,r);
 		if (l->op == CNST+U && (n = ispow2(l->u.v.u)))
 			/* 2^n * r => r<<n */
 			return simplify(LSH+U, unsignedtype, r, constnode(n, inttype));
-		foldcnst(U,u,*,unsignedtype);
+		wfoldcnst(U,u,*,unsignedtype);
 		break;
 	case NE+D:
 		foldcnst(D,d,!=,inttype);
@@ -446,9 +478,9 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		break;
 	case NEG+I:
 		if (l->op == CNST+I) {
-			if (needconst && l->u.v.i == INT_MIN)
+			if (needconst && l->u.v.i == TGT_INT_MIN)
 				warning("overflow in constant expression\n");
-			if (needconst || l->u.v.i != INT_MIN)
+			if (needconst || l->u.v.i != TGT_INT_MIN)
 				return constnode(-l->u.v.i, inttype);
 		}
 		idempotent(NEG+I);
@@ -478,17 +510,17 @@ Tree simplify(op, ty, l, r) int op; Type ty; Tree l, r; {
 		xfoldcnst(F,f,-,floattype,sub,-FLT_MAX,FLT_MAX);
 		break;
 	case SUB+I:
-		xfoldcnst(I,i,-,inttype,sub,INT_MIN,INT_MAX);
+		wxfoldcnst(I,i,-,inttype,sub);
 		break;
 	case SUB+U:
-		foldcnst(U,u,-,unsignedtype);
+		wfoldcnst(U,u,-,unsignedtype);
 		break;
 	case SUB+P:
 		if (l->op == CNST+P && r->op == CNST+P)
 			return constnode(l->u.v.p - r->u.v.p, inttype);
 		if (r->op == CNST+I || r->op == CNST+U)
 			return simplify(ADD+P, ty, l,
-				constnode(r->op == CNST+I ? -r->u.v.i : -(int)r->u.v.u, inttype));
+				constnode(r->op == CNST+I ? -r->u.v.i : -tgtwrapi(r->u.v.u), inttype));
 		if (isaddrop(l->op) && r->op == ADD+I && r->kids[1]->op == CNST+I)
 			/* l - (x + c) => l-c - x */
 			return simplify(SUB+P, ty,
