@@ -379,7 +379,7 @@
  lda #LOW(cte1) :\
  sta ptr2,y :\
  iny :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  sta ptr2,y :\
 
 #define MOVW_AD(ptr1,y1,tmp2)\
@@ -3258,7 +3258,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  LSHW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3354,7 +3354,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  LSHW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -3462,7 +3462,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  RSHW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3558,7 +3558,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  RSHW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -3670,7 +3670,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  ASRW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3766,7 +3766,7 @@ done :\
  tax :\
  lda #LOW(cte1) :\
  sta tmp :\
- lda #HIGH(cte1)+1 :\
+ lda #HIGH(cte1) :\
  ASRW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -4108,7 +4108,7 @@ done :\
  sta tmp+1 :\
  ldy #y1 :\
  lda ptr1,y :\
- lda #0 :\
+ ldy #0 :\
  sta (tmp),y :\
  ldy #y1+1 :\
  lda ptr1,y :\
@@ -4167,10 +4167,11 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+9 :\
- sta *+7 :\
+ stx src+1 :\
+ sta src+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
  sta reg2,x :\
  inx :\
@@ -4182,10 +4183,11 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+9 :\
- sta *+7 :\
+ stx src+1 :\
+ sta src+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
  sta adr2,x :\
  inx :\
@@ -4223,12 +4225,13 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+12 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+7 :\
+ sta src+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
  sta reg2,x :\
  inx :\
@@ -4240,12 +4243,13 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+12 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+7 :\
+ sta src+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
  sta adr2,x :\
  inx :\
@@ -4270,11 +4274,12 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+11 :\
- sta *+9 :\
+ stx src+1 :\
+ sta src+2 :\
  ldx #0 :\
  ldy #y2 :\
 loop :\
+src :\
  lda $1234,x :\
  sta ptr2,y :\
  inx :\
@@ -4307,14 +4312,15 @@ loop :\
  .( :\
  ldy #y2 :\
  lda ptr2,y :\
- sta *+16 :\
+ sta dst+1 :\
  iny :\
  lda ptr2,y :\
- sta *+11 :\
+ sta dst+2 :\
  ldy #y1 :\
  ldx #0 :\
 loop :\
  lda ptr1,y :\
+dst :\
  sta $5678,x :\
  inx :\
  iny :\
@@ -4327,13 +4333,14 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+14 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+9 :\
+ sta src+2 :\
  ldx #0 :\
  ldy #y2 :\
 loop :\
+src :\
  lda $1234,x :\
  sta ptr2,y :\
  inx :\
@@ -4346,11 +4353,12 @@ loop :\
  .( :\
  ldx tmp1 :\
  lda tmp1+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
  lda adr1,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4361,15 +4369,17 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+19 :\
- sta *+17 :\
+ stx src+1 :\
+ sta src+2 :\
  ldx tmp1 :\
  lda tmp1+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4381,11 +4391,12 @@ loop :\
  ldy #y1 :\
  ldx tmp1 :\
  lda tmp1+1 :\
- stx *+11 :\
- sta *+9 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
  lda ptr1,y :\
+dst :\
  sta $5678,x :\
  iny :\
  inx :\
@@ -4397,11 +4408,12 @@ loop :\
  .( :\
  ldx adr2 :\
  lda adr2+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
  lda adr1,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4412,15 +4424,17 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+21 :\
- sta *+19 :\
+ stx src+1 :\
+ sta src+2 :\
  ldx adr2 :\
  lda adr2+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4431,12 +4445,13 @@ loop :\
  .( :\
  ldx adr2 :\
  lda adr2+1 :\
- stx *+13 :\
- sta *+11 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
  ldy #y1 :\
 loop :\
  lda ptr1,y :\
+dst :\
  sta $5678,x :\
  iny :\
  inx :\
@@ -4448,17 +4463,19 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+24 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+19 :\
+ sta src+2 :\
  ldx adr2 :\
  lda adr2+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4469,13 +4486,14 @@ loop :\
  .( :\
  ldy #y2 :\
  lda ptr2,y :\
- sta *+15 :\
+ sta dst+1 :\
  iny :\
  lda ptr2,y :\
- sta *+10 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
  lda adr1,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4486,17 +4504,19 @@ loop :\
  .( :\
  ldx adr1 :\
  lda adr1+1 :\
- stx *+22 :\
- sta *+20 :\
+ stx src+1 :\
+ sta src+2 :\
  ldy #y2 :\
  lda ptr2,y :\
- sta *+15 :\
+ sta dst+1 :\
  iny :\
  lda ptr2,y :\
- sta *+10 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4507,19 +4527,21 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+25 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+20 :\
+ sta src+2 :\
  ldy #y2 :\
  lda ptr2,y :\
- sta *+15 :\
+ sta dst+1 :\
  iny :\
  lda ptr2,y :\
- sta *+10 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -4530,17 +4552,19 @@ loop :\
  .( :\
  ldy #y1 :\
  lda ptr1,y :\
- sta *+22 :\
+ sta src+1 :\
  iny :\
  lda ptr1,y :\
- sta *+17 :\
+ sta src+2 :\
  ldx tmp2 :\
  lda tmp2+1 :\
- stx *+12 :\
- sta *+10 :\
+ stx dst+1 :\
+ sta dst+2 :\
  ldx #0 :\
 loop :\
+src :\
  lda $1234,x :\
+dst :\
  sta $5678,x :\
  inx :\
  cpx #length :\
@@ -5888,12 +5912,15 @@ jump :\
  FSTORE_C(tmp) :\
 
 #define CALLF_DD(tmp1,size,tmp)\
+ .( :\
  lda tmp1 :\
- sta *+11 :\
+ sta jsrto+1 :\
  lda tmp1+1 :\
- sta *+7 :\
+ sta jsrto+2 :\
  ldy #size :\
+jsrto :\
  jsr 0000 :\
+ .) :\
  FSTORE_C(tmp) :\
 
 #define CALLF_YD(ptr,y2,size,tmp)\
@@ -5913,12 +5940,15 @@ jump :\
  FSTORE_A(ptr2,y2) :\
 
 #define CALLF_DY(tmp1,size,ptr2,y2)\
+ .( :\
  lda tmp1 :\
- sta *+11 :\
+ sta jsrto+1 :\
  lda tmp1+1 :\
- sta *+7 :\
+ sta jsrto+2 :\
  ldy #size :\
+jsrto :\
  jsr 0000 :\
+ .) :\
  FSTORE_A(ptr2,y2) :\
 
 #define CALLF_YY(ptr,y0,size,ptr2,y2)\
