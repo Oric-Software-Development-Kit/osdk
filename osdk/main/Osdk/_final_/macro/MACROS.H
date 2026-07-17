@@ -736,6 +736,67 @@ skip :\
 
 #define DECW_Z DECW_D
 
+;
+; 8-bit (byte) arithmetic/logic - Phase 1 of native char operations.
+; These are the low-byte halves of the matching *W families: when the
+; compiler proves a char op's result is only used as a char, it emits the
+; B family and skips the 16-bit widen/narrow. Operands are always D (zp
+; temp) or C (const char); the result is a D temp. See gen.c narrowing.
+;
+#define ADDB_DDD(tmp1,tmp2,tmp3)\
+ clc :\
+ lda tmp1 :\
+ adc tmp2 :\
+ sta tmp3 :\
+
+#define ADDB_DCD(tmp2,cte1,tmp3)\
+ clc :\
+ lda #<(cte1) :\
+ adc tmp2 :\
+ sta tmp3 :\
+
+#define SUBB_DDD(tmp1,tmp2,tmp3)\
+ sec :\
+ lda tmp1 :\
+ sbc tmp2 :\
+ sta tmp3 :\
+
+#define SUBB_DCD(tmp1,cte2,tmp3)\
+ sec :\
+ lda tmp1 :\
+ sbc #<(cte2) :\
+ sta tmp3 :\
+
+#define ANDB_DDD(tmp1,tmp2,tmp3)\
+ lda tmp1 :\
+ and tmp2 :\
+ sta tmp3 :\
+
+#define ANDB_DCD(tmp2,cte1,tmp3)\
+ lda #<(cte1) :\
+ and tmp2 :\
+ sta tmp3 :\
+
+#define XORB_DDD(tmp1,tmp2,tmp3)\
+ lda tmp1 :\
+ eor tmp2 :\
+ sta tmp3 :\
+
+#define XORB_DCD(tmp2,cte1,tmp3)\
+ lda #<(cte1) :\
+ eor tmp2 :\
+ sta tmp3 :\
+
+#define ORB_DDD(tmp1,tmp2,tmp3)\
+ lda tmp1 :\
+ ora tmp2 :\
+ sta tmp3 :\
+
+#define ORB_DCD(tmp2,cte1,tmp3)\
+ lda #<(cte1) :\
+ ora tmp2 :\
+ sta tmp3 :\
+
 #define ADDW_DDD(tmp1,tmp2,tmp3)\
  clc :\
  lda tmp1 :\

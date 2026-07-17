@@ -31,6 +31,9 @@ typedef struct {
 	char	optimized;
 	char	visited;
 	char	borrowed;	/* folded INDIR owns (reserved) the temp holding its address */
+	char	narrow;		/* 8-bit narrowing: on an arith node -> emit the byte (B)
+				   family; on a CVCU/CVSU widen -> skip it (the result is
+				   only used as a char, so the high byte is irrelevant) */
 } Xnode;
 
 typedef struct {

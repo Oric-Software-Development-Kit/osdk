@@ -612,10 +612,55 @@ static void tmpalloc(Node p) {
     release_borrowed(left); release_borrowed(right);
 }
 
+/* --- 8-bit (byte) narrowing, Phase 1: + - & | ^ on char ------------------
+ * The front end promotes char to int, so "c = a + b" (all char) is
+ *   ASGNC(c, CVUC(CVIU( ADDI( CVUI(CVCU(a)), CVUI(CVCU(b)) ) )))
+ * i.e. widen both operands to 16 bits (CVCU -> CZBW), add as 16 bits, narrow
+ * the result back to a char. For + - & | ^ the char result depends only on
+ * the operands' low bytes, so when the result is only ever used as a char we
+ * can drop the two widenings and do the op at byte width (ADDB etc.).
+ * CVUI/CVIU are 16-bit reinterprets (no-ops), skipped when walking the tree. */
+static Node under_conv(Node n) {
+    while (n && (n->op==CVUI || n->op==CVIU || n->op==CVPU || n->op==CVUP))
+        n = n->kids[0];
+    return n;
+}
+static int is_byte_widen(Node n) { return n && n->op==CVCU; }   /* CZBW: uchar->uint */
+static int is_narrowable_arith(int op) {
+    return op==ADDI || op==ADDU || op==SUBI || op==SUBU
+        || op==BANDU || op==BORU || op==BXORU;
+}
+static void mark_byte_narrowing(Node head) {
+    Node m, n, ka, kb;
+    for (m = head; m; m = m->x.next) m->x.narrow = 0;
+    if (optimizelevel < 2) return;
+    for (m = head; m; m = m->x.next) {
+        if (m->op != CVUC && m->op != CVIC) continue;   /* narrow (u)int -> char */
+        n = under_conv(m->kids[0]);
+        /* single-use = count==1 here: this pre-pass runs before tmpalloc
+         * decrements the reference counts */
+        if (!n || !is_narrowable_arith(n->op) || n->count != 1) continue;
+        ka = under_conv(n->kids[0]);
+        kb = under_conv(n->kids[1]);
+        /* operand A must be a byte widen used once (so skipping it is safe) */
+        if (!(is_byte_widen(ka) && ka->count == 1)) continue;
+        /* operand B: a byte widen used once, or an integer constant (its low
+         * byte is what the byte op reads) */
+        if (is_byte_widen(kb) && kb->count == 1) {
+            kb->x.narrow = 1;
+        } else if (!(generic(kb->op)==CNST && (optype(kb->op)==I || optype(kb->op)==U))) {
+            continue;
+        }
+        n->x.narrow  = 1;   /* emit ADDB/SUBB/ANDB/ORB/XORB */
+        ka->x.narrow = 1;   /* operand widen: flagged for Phase 1b CZBW elision */
+    }
+}
+
 Node gen(Node p) {
     Node head, *last;
     for (last = &head; p; p = p->link)
         last = linearize(p, last, 0);
+    if (!graph_output) mark_byte_narrowing(head);
     for (p = head; p; p = p->x.next) {
         if (graph_output) print_graph_node(p);
         else tmpalloc(p);
@@ -962,12 +1007,14 @@ static void emitdag(Node p) {
     a = p->kids[0]; b = p->kids[1]; r=p;
 
     switch (p->op) {
-        case BANDU:                       binary("ANDW");   break;
-        case BORU:                        binary("ORW" );   break;
-        case BXORU:                       binary("XORW");   break;
+        case BANDU:        if (p->x.narrow) binary("ANDB"); else binary("ANDW");   break;
+        case BORU:         if (p->x.narrow) binary("ORB" ); else binary("ORW" );   break;
+        case BXORU:        if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
         case ADDD:  case ADDF:            binary("ADDF");   break;
         case ADDI:  case ADDP:  case ADDU:
-            if (optimizelevel>=2
+            if (p->x.narrow)
+                binary("ADDB");
+            else if (optimizelevel>=2
                     && strcmp(a->x.name,p->x.name)==0
                     && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -977,7 +1024,9 @@ static void emitdag(Node p) {
             break;
         case SUBD:  case SUBF:            binary("SUBF");  break;
         case SUBI:  case SUBP:  case SUBU:
-            if (optimizelevel>=2
+            if (p->x.narrow)
+                binary("SUBB");
+            else if (optimizelevel>=2
                     && strcmp(a->x.name,p->x.name)==0
                     && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1028,7 +1077,16 @@ static void emitdag(Node p) {
         case NEGD:  case NEGF:            unary("NEGF" );   break;
         case NEGI:                        unary("NEGI" );   break;
         case CVCI: case CVSI:             unary("CSBW");    break;
-        case CVCU: case CVSU:             unary("CZBW");    break;
+        case CVCU: case CVSU:
+            /* Phase 1: always emit the widen. The byte op (ADDB/XORB/...) is
+             * still emitted on the narrowed arith node, which is the bulk of
+             * the win (byte-width op instead of ADDW). Eliding the now-dead
+             * CZBW zero-extend is a separate, trickier optimization (the load
+             * can be folded INTO this node, so a naive skip drops the load);
+             * it is deferred to Phase 1b. Keeping CZBW here is always correct
+             * and matches the proven -O3 shape. */
+            unary("CZBW");
+            break;
         case CVUC: case CVUS: case CVIC: case CVIS:
             /* A conversion is a no-op only if operand and result are the SAME
              * location: same name AND same addressing mode. Comparing names
