@@ -16,6 +16,7 @@ param(
     [string]$Filter = '*',
     [string]$Label = 'bench',
     [string]$Comp = '-O2',
+    [string]$Macro = '',          # MacroSplitter flags, e.g. -O to enable the peephole
     [int]$TimeoutSec = 120,
     [switch]$Headless,
     [switch]$Turbo
@@ -70,7 +71,7 @@ New-Item -ItemType Directory -Force $logdir | Out-Null
 "sample,status,retval,ticks,cycles,tap_bytes" | Out-File -Encoding ascii $csv
 
 $dirs = Get-ChildItem $samples -Directory -Filter $Filter | Sort-Object Name
-Write-Host "$($dirs.Count) sample(s), OSDK=$OsdkRoot, $Comp"
+Write-Host "$($dirs.Count) sample(s), OSDK=$OsdkRoot, $Comp $(if ($Macro) {"macro=$Macro"})"
 $tally = @{}
 
 # long-running samples: per-sample timeout override (seconds)
@@ -112,6 +113,7 @@ SET OSDKADDR=`$400
 SET OSDKNAME=BENCH
 SET OSDKFILE=main cport tk_io
 SET OSDKCOMP=$Comp
+SET OSDKMACRO=$Macro
 SET OSDKCPPFLAGS=-I .
 "@ | Out-File -Encoding ascii "$scaffold\osdk_config.bat"
 
@@ -136,22 +138,33 @@ SET OSDKCPPFLAGS=-I .
     }
 
     # -------------------------------------------------- run
-    # one retry on emudied: the emulator occasionally exits during startup
+    # The sandbox emulator intermittently fails to autoload the tape and sits
+    # idle (looks like a jam) or exits early. Distinguish a real hang from a
+    # working-but-slow run by CPU activity: a genuine run keeps the core pegged,
+    # a failed autoload is idle. Detect idle in ~3s and retry (up to 3 attempts)
+    # instead of burning the full timeout.
     $emuDir = "$sandbox\Oricutron"
     Copy-Item $tap "$emuDir\OSDK.TAP" -Force
     $printer = "$emuDir\printer_out.txt"
     $effTimeout = if ($slow.ContainsKey($name)) { $slow[$name] } else { $TimeoutSec }
-    foreach ($attempt in 1..2) {
+    foreach ($attempt in 1..3) {
         Remove-Item $printer -Force -ErrorAction SilentlyContinue
         $proc = Start-EmulatorProcess -Exe "$emuDir\oricutron.exe" -Arguments ($(if ($Headless) {'--headless '} else {''}) + $(if ($Turbo) {'--turbo '} else {''}) + '--cport -t OSDK.TAP') -WorkDir $emuDir
+        Start-Sleep -Seconds 2   # startup grace before sampling CPU
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($effTimeout)
+        $prevCpu = try { $proc.TotalProcessorTime } catch { [TimeSpan]::Zero }; $idle = 0
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
             if ((Test-Path $printer) -and (Select-String -Path $printer -Pattern '@END' -Quiet -ErrorAction SilentlyContinue)) { $status = 'ok'; break }
             if ($proc.HasExited) { $status = 'emudied'; break }
+            try { $proc.Refresh(); $nowCpu = $proc.TotalProcessorTime } catch { $nowCpu = $prevCpu }
+            if (($nowCpu - $prevCpu).TotalMilliseconds -lt 20) { $idle++ } else { $idle = 0 }
+            $prevCpu = $nowCpu
+            if ($idle -ge 6) { $status = 'idle'; break }   # ~3s no CPU = failed autoload
         }
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; $proc.WaitForExit() | Out-Null }
-        if ($status -ne 'emudied') { break }
+        if ($status -eq 'ok') { break }
+        Start-Sleep -Milliseconds 500   # settle before retry so the prior instance fully releases
     }
 
     # -------------------------------------------------- verdict
