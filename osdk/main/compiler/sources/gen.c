@@ -1200,20 +1200,25 @@ static void emitdag(Node p) {
         case NEGI:         if (p->x.narrow) unary("NEGB"); else unary("NEGI");   break;
         case CVCI: case CVSI:             unary("CSBW");    break;
         case CVCU: case CVSU:
-            /* Phase 1b: elide the zero-extend when this widen was proven
-             * single-use (x.narrow set by mark_byte_narrowing) AND the byte is
-             * already sitting in the result location - i.e. operand==result in
-             * D mode, the shape where a separate INDIRB already loaded it. The
-             * byte op that consumes it reads only the low byte, so the dropped
-             * high-byte clear is dead. Any OTHER shape (e.g. at -O3 the INDIR
-             * is folded INTO this node, so CZBW also performs the load) keeps
-             * the widen: skipping it there would drop the load. Correctness of
-             * the elision rests on the single-use proof, not on this pattern. */
-            if (!(p->x.narrow
-                  && simple_adrmode(a->x.adrmode)=='D'
-                  && strcmp(a->x.name,p->x.name)==0
-                  && widen_dead_after(p)))
+            /* Phase 1b: drop a dead zero-extend. widen_dead_after() proves the
+             * widened value's high byte is never read (only byte-narrowed ops
+             * consume it before the temp is overwritten). Two shapes:
+             *  -O2: a separate INDIRB already loaded the byte and this is an
+             *       in-place widen (operand==result, D) -> emit nothing.
+             *  -O3: the byte load is fused into this node (operand!=result, and
+             *       the INDIR was folded in) -> emit just the byte load with
+             *       CWB (the word->byte family: same addressing as CZBW but
+             *       without the high-byte zero). Eliding here keeps -O3 from
+             *       paying for dead widens that -O2 already avoids, so -O3 is
+             *       no slower than -O2 on char-heavy code.
+             * Not-narrowed or live-high-byte widens still emit the full CZBW. */
+            if (p->x.narrow && widen_dead_after(p)) {
+                if (!(simple_adrmode(a->x.adrmode)=='D'
+                      && strcmp(a->x.name,p->x.name)==0))
+                    unary("CWB");     /* fused load: byte only, no zero-extend */
+            } else {
                 unary("CZBW");
+            }
             break;
         case CVUC: case CVUS: case CVIC: case CVIS:
             /* A conversion is a no-op only if operand and result are the SAME
