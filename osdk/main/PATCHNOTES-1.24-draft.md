@@ -149,7 +149,10 @@ doc_historic.htm; unmarked items still need entries.
 - **New sedoric.s:** fresh implementation. sedoric() now shelters the C block, bounds the command to the 79-char buffer and restores TXTPTR. New sed_savefile(name,buf,len) / sed_loadfile(name,buf,&len) save/load SEDORIC data files via the documented entry points, named after "SEDORIC (3.0) à nu" (XNF $D454, XLOADA $E0E5, the common SAVE tail $DE0B, RAMROM $04F2, ERRGOTO, VSALO/DESALO/FISALO/EXSALO/LGSALO); both return the DOS error number (cleared before the call), 0 on success.
 - **Credits:** entry points and names from "SEDORIC (3.0) à nu" (A. Chéramy, C. Sittler); load/save technique validated against ISS's GPL lib-sedoric (reference only, not copied — github.com/iss000/oricOpenLibrary, forum thread t=2232).
 - **Size:** whole module ~366 bytes (vs ~490 for the GPL reference), pulled only when referenced.
-- **Validation:** build-level (links, ndx dependency chain pulls zeropage.s automatically); runtime validation via the upcoming sedoric sample (tap2dsk + old2mfm disk).
+- **Validation:** runtime-validated end to end in Oricutron booting a generated SEDORIC disk: !DIR executes, sed_savefile's SAVED.DAT physically lands in the disk image, sed_loadfile brings the HIRES picture to $A000 and it displays, and the C program keeps running after every call.
+- **New sample/c/sedoric:** demo + the full floppy pipeline in osdk_build.bat (make → PictConv -o1 picture TAP → tap2dsk → old2mfm). Documents OSDKTAPNAME (the internal tape name becomes the SEDORIC file name: SEDDEMO → SEDDEMO.COM) and the disktype=microdisc emulator requirement.
+
+### Backlog noted: tap2dsk -m flag to emit MFM directly (backward compatible; old tap2dsk+old2mfm projects unaffected). Long-wished by Mike.
 
 ### CRT slimming: -396 bytes for a minimal program
 - The 256-byte software stack is no longer emitted in the tap (moved to .bss above the image; osdk_end semantics preserved); enter/leave moved from always-linked header.s to lib/frame.s, linked only when referenced. cif/cfi moved from header.s to lib/float.s, on demand (-33 bytes for every non-float program). (`6ade0460`, `32f86eff`)
