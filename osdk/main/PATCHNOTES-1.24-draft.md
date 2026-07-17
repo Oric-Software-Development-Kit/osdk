@@ -9,6 +9,12 @@ doc_historic.htm; unmarked items still need entries.
 
 ## 1. Compiler (compiler.exe, → V1.41)
 
+### -O3: call result stored through a call-clobbered pointer / at the wrong width
+- **Found:** the long-standing "aes256 fails at -O3" report. A multi-day hunt first (wrongly) suspected the macros then the peephole optimizer; both were exonerated. Runtime tracing pinned it to `buf[i] = rj_sbox(buf[i])` in aes_subBytes, where the C runtime zero page (sp/fp) got a wrong high byte, cascading into wild stores.
+- **Problem:** the -O3 ASGN-into-call fold (make a call store its result straight into the assignment's lvalue) fired in two unsound cases. For `dst[i] = f(...)` it stored the result through the destination-address temporary — but the call clobbers the scratch temporaries, so the address was stale by the time the folded store ran (the compiler even emitted SAVE/RESTORE around the call, but the folded store executed before the RESTORE). And it inherited the CALL's width, so an int-returning call folded into a char assignment stored a word, clobbering the neighbouring byte (`somechar = somefunc()` to a global was also affected — it overwrote the next global).
+- **Fix (gen.c):** the ASGN-into-call fold is now suppressed when the right child is a CALL and either the call's result width differs from the assignment's, or the destination address lives in a temporary (clobbered across the call). Both cases fall back to the correct sequence: call result to a temp, RESTORE, then a properly-widthed ASGN. Matching-width, stable-target folds (e.g. `int_global = int_func()`) are unchanged, so no perf loss there.
+- **Result:** aes256 -O3 runs correctly for the first time (crash at 4.1M cycles -> full run at ~72M, and -O3+peephole is now smaller AND faster than -O3 alone, as intended). New t_aes known-answer test in the suite (encrypt/decrypt round-trip). This is the third bug in the borrowed-temporary family (see the two -O3 entries below).
+
 ### Float expressions always failed — "expression too complex" `[documented]`
 - **Found:** any floating point expression failed to compile (regression shipped in OSDK 1.23).
 - **Problem:** the 1.40 temporary-register change marked all 32 float temporaries permanently busy.

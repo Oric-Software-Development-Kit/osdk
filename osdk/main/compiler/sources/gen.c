@@ -583,6 +583,19 @@ static void tmpalloc(Node p) {
                 && is_temporary(right->x.result)
                 && is_dereferenceable(left->x.adrmode)
                 && right->count==0
+                // Folding the store into the right child makes the child emit
+                // the assignment as part of its own result. For a CALL that is
+                // unsafe on two counts, both hit by e.g. "buf[i] = f(buf[i])":
+                //  - the store inherits the child's WIDTH, so folding an int
+                //    CALL into a char ASGN would store a word (clobbering the
+                //    next byte). Require the widths to match.
+                //  - the store executes as the call returns, but the call
+                //    clobbers the scratch temporaries; if the destination
+                //    address lives in a temporary it is stale by then (it is
+                //    only RESTOREd after the call). Require a stable address.
+                && !(generic(right->op)==CALL
+                     && (optype(right->op)!=optype(p->op)
+                         || is_temporary(left->x.result)))
                 )
             {
                 p->x.optimized     = 1;

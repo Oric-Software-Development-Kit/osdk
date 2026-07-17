@@ -102,6 +102,9 @@ foreach ($test in $tests) {
         Copy-Item $test.FullName "$scaffold\main.c"
         Copy-Item "$suite\testkit\testkit.h" $scaffold
         Copy-Item "$suite\testkit\tk_io.s" $scaffold
+        # a test may ship a companion header (same basename) it #includes
+        $testh = [IO.Path]::ChangeExtension($test.FullName, ".h")
+        if (Test-Path $testh) { Copy-Item $testh $scaffold }
         @"
 SET OSDKADDR=`$400
 SET OSDKNAME=TKTEST
