@@ -905,6 +905,14 @@ skip :\
  ldy #y2 :\
  sta ptr2,y :\
 
+; in-place byte shift by 1 (operand==result): a single memory read-modify-write
+; instead of load/shift/store. Emitted by gen.c byte_shift1() for char x<<=1 / x>>=1.
+#define LSH1B_D(tmp1)\
+ asl tmp1 :\
+
+#define RSH1B_D(tmp1)\
+ lsr tmp1 :\
+
 ; shift a 16-bit value by exactly 8 = a byte move (no loop). Emitted for
 ; x<<8 / x>>8 (e.g. splitting an address, or fetching the integer part of an
 ; 8.8 fixed-point value) instead of the 8-iteration LSHW/RSHW/ASRW routine.

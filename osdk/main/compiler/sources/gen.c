@@ -880,6 +880,16 @@ static void unary(char *inst) {
         ,output_arg(r));
 }
 
+/* Byte shift-by-1 (LSH1B/RSH1B). When the shift is in place (operand==result,
+ * D mode) it collapses to a single memory read-modify-write - LSH1B_D -> asl
+ * mem, RSH1B_D -> lsr mem - instead of the load/shift/store LSH1B_DD form. */
+static void byte_shift1(char *inst) {
+    if (simple_adrmode(a->x.adrmode)=='D' && strcmp(a->x.name, r->x.name)==0)
+        print("\t%s_D(%s)\n", inst, output_arg(r));
+    else
+        unary(inst);
+}
+
 static void compare0(char *inst) {
     if (simple_adrmode(a->x.adrmode)=='C') {
         print("\tMOVW_CD(%s,op1)\n", output_arg(a));
@@ -1150,20 +1160,20 @@ static void emitdag(Node p) {
         case MODI:                        binary("MODI");   break;
         case MODU:                        binary("MODU");   break;
         case RSHU:
-            if (p->x.narrow) unary("RSH1B");                        /* uchar x >> 1 */
+            if (p->x.narrow) byte_shift1("RSH1B");                  /* uchar x >> 1 (lsr) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
                      && simple_adrmode(a->x.adrmode)!='C') unary("RSHW8");  /* >>8 = byte move */
             else binary("RSHW");
             break;
         case RSHI:
-            if (p->x.narrow) unary("RSH1B");                        /* uchar x >> 1 is logical */
+            if (p->x.narrow) byte_shift1("RSH1B");                  /* uchar x >> 1 is logical (lsr) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
                      && simple_adrmode(a->x.adrmode)!='C') unary("ASRW8");  /* signed >>8 = byte move + sign fill */
             else binary("ASRW");                                   /* signed >> keeps the sign */
             break;
         case LSHI:  case LSHU:
             if (p->x.narrow)
-                unary("LSH1B");         /* char x << 1 (byte-narrowed) */
+                byte_shift1("LSH1B");   /* char x << 1 (asl) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"1")==0)
                 unary("LSH1W");
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
