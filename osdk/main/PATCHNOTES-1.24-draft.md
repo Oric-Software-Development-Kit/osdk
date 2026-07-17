@@ -151,6 +151,7 @@ doc_historic.htm; unmarked items still need entries.
 - **Size:** whole module ~366 bytes (vs ~490 for the GPL reference), pulled only when referenced.
 - **Validation:** runtime-validated end to end in Oricutron booting a generated SEDORIC disk: !DIR executes, sed_savefile's SAVED.DAT physically lands in the disk image, sed_loadfile brings the HIRES picture to $A000 and it displays, and the C program keeps running after every call.
 - **New sample/c/sedoric:** demo + the full floppy pipeline in osdk_build.bat (make → PictConv -o1 picture TAP → tap2dsk → old2mfm). Documents OSDKTAPNAME (the internal tape name becomes the SEDORIC file name: SEDDEMO → SEDDEMO.COM) and the disktype=microdisc emulator requirement.
+- **Follow-up fix (inclusive end addresses):** SEDORIC end addresses are inclusive (SAVE"F",A#A000,E#BF3F saves 8000 bytes; catalog length = FISALO−DESALO). The first version used C-style exclusive bounds: sed_savefile saved one byte too many and sed_loadfile reported the length one byte short (7999 for the 8000-byte picture — spotted by Mike in the demo status line). FISALO now gets begin+len−1 and *len returns LGSALO+1; boot-verified (status line reports 8000, SAVED.DAT is a true 64 bytes).
 
 ### Backlog noted: tap2dsk -m flag to emit MFM directly (backward compatible; old tap2dsk+old2mfm projects unaffected). Long-wished by Mike.
 
