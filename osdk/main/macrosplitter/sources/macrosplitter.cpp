@@ -712,6 +712,131 @@ static const CrossRegisterTransfer g_crossTransfers[] =
 };
 
 
+// --- block-scoped immediate-value tracking (redundant index-load elimination) ---
+// Parse a numeric immediate operand ("#0", "#0+1", "#$3f", "#2-1"): sums/diffs
+// of decimal/$hex/%bin literals. Returns false for anything with </>/(/*  (hi-lo
+// or relocatable expressions) so we never reason about non-constant operands.
+static bool ParseIntLiteral(const std::string& s, long& v)
+{
+	if (s.empty()) return false;
+	size_t i = 0; int base = 10;
+	if (s[0] == '$') { base = 16; i = 1; }
+	else if (s[0] == '%') { base = 2; i = 1; }
+	if (i >= s.size()) return false;
+	long r = 0;
+	for (; i < s.size(); i++) {
+		char c = s[i]; int d;
+		if (c >= '0' && c <= '9') d = c - '0';
+		else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
+		else if (c >= 'A' && c <= 'F') d = c - 'A' + 10;
+		else return false;
+		if (d >= base) return false;
+		r = r * base + d;
+	}
+	v = r; return true;
+}
+static bool EvalImmediate(const std::string& operand, long& val)
+{
+	if (operand.size() < 2 || operand[0] != '#') return false;
+	std::string e = operand.substr(1);
+	if (e.find_first_of("<>(*") != std::string::npos) return false;
+	long total = 0; int sign = 1; std::string cur; bool any = false;
+	for (size_t i = 0; i <= e.size(); i++) {
+		char c = (i < e.size()) ? e[i] : '+';
+		if (c == ' ' || c == '\t') continue;
+		if (c == '+' || c == '-') {
+			if (!cur.empty()) { long t; if (!ParseIntLiteral(cur, t)) return false; total += sign * t; any = true; cur.clear(); }
+			sign = (c == '-') ? -1 : 1;
+		} else cur += c;
+	}
+	if (!any) return false;
+	val = total & 0xff; return true;
+}
+static bool IsControlFlowMnem(const std::string& m)
+{
+	return m=="jmp"||m=="jsr"||m=="rts"||m=="rti"
+		|| m=="beq"||m=="bne"||m=="bcc"||m=="bcs"
+		|| m=="bmi"||m=="bpl"||m=="bvc"||m=="bvs";
+}
+// Are the N/Z flags set at token i dead? Safe (conservative) test: true only if
+// a straight-line run of N/Z-transparent, non-control instructions reaches an
+// instruction that overwrites N/Z before any branch/label/directive. Used to
+// guard SAME-VALUE elimination (which drops a flag-set); the iny/dey rewrite
+// needs no guard as it reproduces identical flags.
+static bool NZFlagsDeadAt(const std::vector<Token>& toks, size_t i)
+{
+	for (size_t j = i + 1; j < toks.size(); j++) {
+		if (toks[j].eliminated) continue;
+		if (toks[j].type != TokenType::Instruction) continue;       // flags flow through labels
+		const std::string& m = toks[j].mnemonic;
+		if (m=="sta"||m=="stx"||m=="sty"||m=="clc"||m=="sec"||m=="cld"
+		 || m=="sed"||m=="cli"||m=="sei"||m=="clv"||m=="nop"||m=="pha"||m=="php")
+			continue;                                               // transparent to N/Z
+		if (m=="beq"||m=="bne"||m=="bmi"||m=="bpl"                   // read N/Z
+		 || m=="bcc"||m=="bcs"||m=="bvc"||m=="bvs")                  // C/V branch: taken path unscanned -> keep
+			return false;
+		if (m=="jmp"||m=="jsr"||m=="rts"||m=="rti")
+			return true;                                            // control leaves; N/Z not carried by convention
+		return true;                                                // a producer overwrites N/Z first
+	}
+	return true;
+}
+// Track known immediate per register within a block; drop redundant reloads and
+// turn +/-1 reloads into iny/dey/inx/dex. Returns number of tokens changed.
+static int MarkRedundantImmLoads(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	bool hv[3] = { false, false, false };   // 0=a 1=x 2=y known?
+	long kv[3] = { 0, 0, 0 };
+	for (size_t i = 0; i < toks.size(); i++) {
+		Token& t = toks[i];
+		if (t.eliminated) continue;
+		if (t.type != TokenType::Instruction) { if (IsBarrier(t.type)) hv[0]=hv[1]=hv[2]=false; continue; }
+		const std::string& m = t.mnemonic;
+		if (IsControlFlowMnem(m)) { hv[0]=hv[1]=hv[2]=false; continue; }
+		// known-value updates for the inc/dec register ops
+		if (m=="iny") { if (hv[2]) kv[2]=(kv[2]+1)&0xff; continue; }
+		if (m=="dey") { if (hv[2]) kv[2]=(kv[2]-1)&0xff; continue; }
+		if (m=="inx") { if (hv[1]) kv[1]=(kv[1]+1)&0xff; continue; }
+		if (m=="dex") { if (hv[1]) kv[1]=(kv[1]-1)&0xff; continue; }
+		int reg = (m=="lda")?0 : (m=="ldx")?1 : (m=="ldy")?2 : -1;
+		if (reg >= 0 && !t.operand.empty() && t.operand[0]=='#') {
+			long v; bool ok = EvalImmediate(t.operand, v);
+			if (ok && hv[reg] && !t.frozen) {
+				if (kv[reg]==v && NZFlagsDeadAt(toks, i)) {
+					bytesSaved += EstimateInstructionSize(m, t.operand);
+					t.eliminated = true; changed++;
+					if (g_verbosity >= 3) printf("MacroSplitter: [line %d] Redundant %s eliminated (reg already #%ld)\n", t.lineIndex+1, t.text.c_str(), v);
+					continue;                       // reg still holds v
+				}
+				if (reg != 0) {                     // A has no ina/dea; X/Y do
+					const char* inc = (reg==1)?"inx":"iny";
+					const char* dec = (reg==1)?"dex":"dey";
+					const char* sub = (v==((kv[reg]+1)&0xff)) ? inc
+					                 : (v==((kv[reg]-1)&0xff)) ? dec : 0;
+					if (sub) {
+						bytesSaved += EstimateInstructionSize(m, t.operand) - 1;
+						if (g_verbosity >= 3) printf("MacroSplitter: [line %d] %s -> %s (reg was #%ld)\n", t.lineIndex+1, t.text.c_str(), sub, kv[reg]);
+						t.mnemonic = sub; t.operand = ""; t.text = sub;
+						kv[reg] = v; changed++;         // still known
+						continue;
+					}
+				}
+			}
+			if (ok) { hv[reg]=true; kv[reg]=v; } else hv[reg]=false;
+			continue;
+		}
+		// other instructions: invalidate the register(s) they write
+		bool accShift = (m=="asl"||m=="lsr"||m=="rol"||m=="ror")
+			&& (t.operand.empty() || t.operand=="a" || t.operand=="A");
+		if (m=="lda"||m=="txa"||m=="tya"||m=="pla"||m=="adc"||m=="sbc"
+		 || m=="and"||m=="ora"||m=="eor"||accShift) hv[0]=false;
+		if (m=="ldx"||m=="tax"||m=="tsx") hv[1]=false;
+		if (m=="ldy"||m=="tay") hv[2]=false;
+	}
+	return changed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1016,6 +1141,9 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 				}
 			}
 		}
+
+		// block-scoped redundant immediate-load elimination + iny/dey rewrites
+		eliminated += MarkRedundantImmLoads(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
