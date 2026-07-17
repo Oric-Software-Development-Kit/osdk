@@ -15,6 +15,12 @@ doc_historic.htm; unmarked items still need entries.
 - **Fix (gen.c):** the ASGN-into-call fold is now suppressed when the right child is a CALL and either the call's result width differs from the assignment's, or the destination address lives in a temporary (clobbered across the call). Both cases fall back to the correct sequence: call result to a temp, RESTORE, then a properly-widthed ASGN. Matching-width, stable-target folds (e.g. `int_global = int_func()`) are unchanged, so no perf loss there.
 - **Result:** aes256 -O3 runs correctly for the first time (crash at 4.1M cycles -> full run at ~72M, and -O3+peephole is now smaller AND faster than -O3 alone, as intended). New t_aes known-answer test in the suite (encrypt/decrypt round-trip). This is the third bug in the borrowed-temporary family (see the two -O3 entries below).
 
+### Benchmark result (ISS oricCompilerBenchmark, 2026-07-17, vs OSDK 1.23 -O2)
+Full 22-sample table regenerated after the -O3 fix (results/benchtable-{size,cycles}-20260717.csv).
+- **Code size:** new-O3 averages -19% vs 1.23-O2 (up to -30%); the peephole shaves a little more. aes256 -O3+peephole is the smallest build (13913 B) - the config that used to CRASH.
+- **Speed:** new-O3 totals -15% cycles vs 1.23-O2 across the compute samples. Standouts: frogmove -66.7%, selection-sort -35%, bubble-sort -30%, aes256 -12.5% (-14.3% with peephole). The peephole adds a further ~1-2% on the heavy samples (aes -2.0%).
+Cycles are exact: read from Oricutron's internal cycle counter (correct and stable for many years) via a GDB step-over of the timed call; IRQ masked (sei) for determinism. (The --cport @CYCLES convenience is a new, benchmark-specific addition not yet in the official OSDK, so it isn't relied on here.)
+
 ### Float expressions always failed — "expression too complex" `[documented]`
 - **Found:** any floating point expression failed to compile (regression shipped in OSDK 1.23).
 - **Problem:** the 1.40 temporary-register change marked all 32 float temporaries permanently busy.
