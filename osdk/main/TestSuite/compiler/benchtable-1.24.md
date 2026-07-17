@@ -1,18 +1,18 @@
 # OSDK 1.24 benchmark table (ISS oricCompilerBenchmark)
 
 Regenerated 2026-07-17 after the -O3 call-store fix. Sizes = .tap bytes (build only). Cycles = Oricutron internal cycle counter (correct for years) via GDB step-over, IRQ masked (sei).
-Baseline: OSDK 1.23 -O2 (it cannot build 00-type-sizes / 05-0xcafe: 0b literals & _Static_assert). Raw data: results/benchtable-{size,cycles}-20260717.csv.
+Baseline: OSDK 1.23 -O2. `n/a` = 1.23 cannot build it (00-type-sizes / 05-0xcafe use 0b literals & _Static_assert). Raw data: results/benchtable-{size,cycles}-20260717.csv.
 
 ## Code size (tap bytes)
 
 | sample | 1.23-O2 | new-O2 | new-O2+pp | new-O3 | new-O3+pp | O3 vs 1.23 |
 |---|--:|--:|--:|--:|--:|--:|
-| 00-type-sizes | - | 2572 | 2548 | 2219 | 2217 | - |
+| 00-type-sizes | n/a | 2572 | 2548 | 2219 | 2217 | n/a |
 | 01-dummy | 1993 | 1729 | 1717 | 1475 | 1475 | -26.0% |
 | 02-hello-world | 2028 | 1764 | 1752 | 1510 | 1510 | -25.5% |
 | 03-bytecpy | 2003 | 1739 | 1727 | 1481 | 1481 | -26.1% |
 | 04-memcopy | 2141 | 1877 | 1863 | 1569 | 1567 | -26.7% |
-| 05-0xcafe | - | 2333 | 2305 | 1987 | 1987 | - |
+| 05-0xcafe | n/a | 2333 | 2305 | 1987 | 1987 | n/a |
 | 06-sieve | 11496 | 11232 | 11216 | 10699 | 10697 | -6.9% |
 | 07-aes256 | 15961 | 15715 | 15111 | 14021 | 13913 | -12.2% |
 | 08-mandelbrot | 2602 | 2350 | 2334 | 1968 | 1964 | -24.4% |
@@ -35,12 +35,12 @@ Baseline: OSDK 1.23 -O2 (it cannot build 00-type-sizes / 05-0xcafe: 0b literals 
 
 | sample | 1.23-O2 | new-O2 | new-O2+pp | new-O3 | new-O3+pp | O3 vs 1.23 |
 |---|--:|--:|--:|--:|--:|--:|
-| 00-type-sizes | - | 11304 | 11216 | 11032 | 11016 | - |
-| 01-dummy | 16 | 16 | 16 | 16 | 16 | - |
-| 02-hello-world | 386 | 368 | 368 | 368 | 368 | - |
-| 03-bytecpy | 30 | 30 | 30 | 24 | 24 | - |
+| 00-type-sizes | n/a | 11304 | 11216 | 11032 | 11016 | n/a |
+| 01-dummy | 16 | 16 | 16 | 16 | 16 | +0.0% |
+| 02-hello-world | 386 | 368 | 368 | 368 | 368 | -4.7% |
+| 03-bytecpy | 30 | 30 | 30 | 24 | 24 | -20.0% |
 | 04-memcopy | 1507530 | 1507530 | 1507528 | 843986 | 843984 | -44.0% |
-| 05-0xcafe | - | 2144 | 2120 | 2008 | 2008 | - |
+| 05-0xcafe | n/a | 2144 | 2120 | 2008 | 2008 | n/a |
 | 06-sieve | 15749565 | 15753683 | 15746378 | 14254275 | 14251088 | -9.5% |
 | 07-aes256 | 84508723 | 84565958 | 77807482 | 73904189 | 72447484 | -12.5% |
 | 08-mandelbrot | 166325468 | 161030686 | 160873411 | 154859230 | 154609567 | -6.9% |
@@ -57,5 +57,5 @@ Baseline: OSDK 1.23 -O2 (it cannot build 00-type-sizes / 05-0xcafe: 0b literals 
 | 19-shell-sort | 3442589 | 3441266 | 3438781 | 2779400 | 2775949 | -19.3% |
 | 20-heap-sort | 5079380 | 5077414 | 5091803 | 4392742 | 4389256 | -13.5% |
 | 21-eight-queens | 72699162 | 72613402 | 69420441 | 62677440 | 62202360 | -13.8% |
-| **total** (17) | 469830981 | 446779812 | 436273026 | 399402272 | 396854968 | -15.0% |
+| **total** (20) | 469831413 | 446780226 | 436273440 | 399402680 | 396855376 | -15.0% |
 
