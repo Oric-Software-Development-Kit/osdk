@@ -642,18 +642,51 @@ static void mark_byte_narrowing(Node head) {
         if (!n || !is_narrowable_arith(n->op) || n->count != 1) continue;
         ka = under_conv(n->kids[0]);
         kb = under_conv(n->kids[1]);
-        /* operand A must be a byte widen used once (so skipping it is safe) */
-        if (!(is_byte_widen(ka) && ka->count == 1)) continue;
-        /* operand B: a byte widen used once, or an integer constant (its low
-         * byte is what the byte op reads) */
-        if (is_byte_widen(kb) && kb->count == 1) {
-            kb->x.narrow = 1;
-        } else if (!(generic(kb->op)==CNST && (optype(kb->op)==I || optype(kb->op)==U))) {
+        if (!is_byte_widen(ka)) continue;
+        /* operand B: a byte widen, or an integer constant (its low byte is
+         * what the byte op reads). */
+        if (!is_byte_widen(kb)
+            && !(generic(kb->op)==CNST && (optype(kb->op)==I || optype(kb->op)==U)))
             continue;
-        }
+        /* The byte op reads only the low bytes, so ADDB/... is ALWAYS correct
+         * regardless of sharing. Flag the operand widens as ELISION CANDIDATES;
+         * whether the dead zero-extend is actually dropped is decided at emit
+         * time by widen_dead_after() (Phase 1b), which checks the physical temp
+         * is not read by any wider consumer. */
         n->x.narrow  = 1;   /* emit ADDB/SUBB/ANDB/ORB/XORB */
-        ka->x.narrow = 1;   /* operand widen: flagged for Phase 1b CZBW elision */
+        ka->x.narrow = 1;   /* candidate: elide its CZBW if the temp stays byte-only */
+        if (is_byte_widen(kb))
+            kb->x.narrow = 1;
     }
+}
+
+/* Phase 1b: is the value produced by widen node `p` (into temp p->x.name) used
+ * only by byte-narrowed ops before that temp is next overwritten? If so the
+ * zero-extend is dead and can be dropped. A reader that is NOT byte-narrowed
+ * (e.g. a 16-bit != 0 test that shares the load in `while(i--)`) needs the high
+ * byte, so the widen must stay. Works on physical temp names after tmpalloc, so
+ * it is correct even when several DAG values alias the same temporary. */
+static int widen_dead_after(Node p) {
+    char *t = p->x.name;
+    Node q;
+    if (!t) return 0;
+    for (q = p->x.next; q; q = q->x.next) {
+        Node k0 = q->kids[0], k1 = q->kids[1];
+        int reads = (k0 && k0->x.name && strcmp(k0->x.name, t) == 0)
+                 || (k1 && k1->x.name && strcmp(k1->x.name, t) == 0);
+        /* CVUI/CVIU/CVPU/CVUP are 16-bit reinterprets that emit no code; an
+         * in-place one just carries the value forward in the same temp, so it
+         * neither consumes the zero-extend nor redefines the temp - see through
+         * it (the same nodes under_conv() skips when marking). */
+        if ((q->op==CVUI || q->op==CVIU || q->op==CVPU || q->op==CVUP)
+            && reads && q->x.name && strcmp(q->x.name, t) == 0)
+            continue;
+        if (reads && !q->x.narrow)
+            return 0;                       /* a wider consumer needs the extend */
+        if (q->x.name && strcmp(q->x.name, t) == 0)
+            return 1;                       /* temp redefined: all prior reads byte-safe */
+    }
+    return 1;                               /* temp never read again */
 }
 
 Node gen(Node p) {
@@ -1078,14 +1111,20 @@ static void emitdag(Node p) {
         case NEGI:                        unary("NEGI" );   break;
         case CVCI: case CVSI:             unary("CSBW");    break;
         case CVCU: case CVSU:
-            /* Phase 1: always emit the widen. The byte op (ADDB/XORB/...) is
-             * still emitted on the narrowed arith node, which is the bulk of
-             * the win (byte-width op instead of ADDW). Eliding the now-dead
-             * CZBW zero-extend is a separate, trickier optimization (the load
-             * can be folded INTO this node, so a naive skip drops the load);
-             * it is deferred to Phase 1b. Keeping CZBW here is always correct
-             * and matches the proven -O3 shape. */
-            unary("CZBW");
+            /* Phase 1b: elide the zero-extend when this widen was proven
+             * single-use (x.narrow set by mark_byte_narrowing) AND the byte is
+             * already sitting in the result location - i.e. operand==result in
+             * D mode, the shape where a separate INDIRB already loaded it. The
+             * byte op that consumes it reads only the low byte, so the dropped
+             * high-byte clear is dead. Any OTHER shape (e.g. at -O3 the INDIR
+             * is folded INTO this node, so CZBW also performs the load) keeps
+             * the widen: skipping it there would drop the load. Correctness of
+             * the elision rests on the single-use proof, not on this pattern. */
+            if (!(p->x.narrow
+                  && simple_adrmode(a->x.adrmode)=='D'
+                  && strcmp(a->x.name,p->x.name)==0
+                  && widen_dead_after(p)))
+                unary("CZBW");
             break;
         case CVUC: case CVUS: case CVIC: case CVIS:
             /* A conversion is a no-op only if operand and result are the SAME
