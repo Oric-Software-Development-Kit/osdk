@@ -63,5 +63,33 @@ void main(void)
 	a = 0x09; c = (a << 1) + 1;              /* 0x12 + 1 -> 0x13 */
 	tk_check_eq(c, 0x13, "shl-add");
 
+	/* Phase 3: char comparisons ( == != < > <= >= ), var-var and var-const.
+	   The >=128 cases prove the byte compare is UNSIGNED (a signed byte
+	   compare would treat 0x80..0xFF as negative and invert the result). */
+	{
+		unsigned char x, y;
+		int t;
+		x = 10; y = 20;
+		t = 0; if (x == y) t = 1; tk_check_eq(t, 0, "eq-f");
+		t = 0; if (x != y) t = 1; tk_check_eq(t, 1, "ne-t");
+		t = 0; if (x <  y) t = 1; tk_check_eq(t, 1, "lt-t");
+		t = 0; if (x >  y) t = 1; tk_check_eq(t, 0, "gt-f");
+		t = 0; if (x <= y) t = 1; tk_check_eq(t, 1, "le-t");
+		t = 0; if (x >= y) t = 1; tk_check_eq(t, 0, "ge-f");
+		x = 200; y = 200;
+		t = 0; if (x == y) t = 1; tk_check_eq(t, 1, "eq-t");
+		t = 0; if (x <= y) t = 1; tk_check_eq(t, 1, "le-eq");
+		t = 0; if (x <  y) t = 1; tk_check_eq(t, 0, "lt-eq");
+		x = 200;
+		t = 0; if (x > 100) t = 1; tk_check_eq(t, 1, "gt-k-hi");  /* 200>100 */
+		t = 0; if (x < 100) t = 1; tk_check_eq(t, 0, "lt-k-hi");
+		x = 0xFF; y = 0x01;
+		t = 0; if (x > y) t = 1; tk_check_eq(t, 1, "gt-ff");      /* 255>1 */
+		t = 0; if (x >= 0x80) t = 1; tk_check_eq(t, 1, "ge-k-80");
+		x = 65;
+		t = 0; if (x == 65) t = 1; tk_check_eq(t, 1, "eqk");
+		t = 0; if (x != 65) t = 1; tk_check_eq(t, 0, "nek");
+	}
+
 	tk_end();
 }

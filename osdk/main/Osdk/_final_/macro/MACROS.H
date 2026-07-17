@@ -5406,6 +5406,106 @@ skip :\
 #define LEU_CY(cte1,ptr2,y2,label)\
  GEU_YC(ptr2,y2,cte1,label) :\
 
+; --- byte (unsigned) comparisons - Phase 3 of native char operations ------
+; When both compared values are unsigned char (0..255), the promoted 16-bit
+; compare reduces to a single-byte compare. Equality is sign-agnostic; the
+; ordered forms are unsigned (a uchar is always non-negative, so the promoted
+; signed compare of two 0..255 values agrees with the unsigned byte compare).
+; gen.c only narrows char-first operand order and byte-range (0..255)
+; constants, so only _DD and _DC are needed.
+#define BRANCH_GTU(label)\
+ .( :\
+ bcc skip :\
+ beq skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define BRANCH_LEU(label)\
+ .( :\
+ bcc take :\
+ bne skip :\
+take :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define EQB_DD(tmp1,tmp2,label)\
+ .( :\
+ lda tmp1 :\
+ cmp tmp2 :\
+ bne skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define EQB_DC(tmp1,cte2,label)\
+ .( :\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ bne skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define NEB_DD(tmp1,tmp2,label)\
+ .( :\
+ lda tmp1 :\
+ cmp tmp2 :\
+ beq skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define NEB_DC(tmp1,cte2,label)\
+ .( :\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ beq skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define LTUB_DD(tmp1,tmp2,label)\
+ lda tmp1 :\
+ cmp tmp2 :\
+ BRANCH_LTU(label) :\
+
+#define LTUB_DC(tmp1,cte2,label)\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ BRANCH_LTU(label) :\
+
+#define GEUB_DD(tmp1,tmp2,label)\
+ lda tmp1 :\
+ cmp tmp2 :\
+ BRANCH_GEU(label) :\
+
+#define GEUB_DC(tmp1,cte2,label)\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ BRANCH_GEU(label) :\
+
+#define GTUB_DD(tmp1,tmp2,label)\
+ lda tmp1 :\
+ cmp tmp2 :\
+ BRANCH_GTU(label) :\
+
+#define GTUB_DC(tmp1,cte2,label)\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ BRANCH_GTU(label) :\
+
+#define LEUB_DD(tmp1,tmp2,label)\
+ lda tmp1 :\
+ cmp tmp2 :\
+ BRANCH_LEU(label) :\
+
+#define LEUB_DC(tmp1,cte2,label)\
+ lda tmp1 :\
+ cmp #<(cte2) :\
+ BRANCH_LEU(label) :\
+
 #define SAVE(tmp,ptr,y2) ARGW_D(tmp,ptr,y2)
 #define RESTORE(ptr,y2,tmp) MOVW_YD(ptr,y2,tmp)
 

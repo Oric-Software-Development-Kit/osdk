@@ -638,11 +638,49 @@ static int is_narrowable_unary(int op) {
 static int is_int_const(Node n) {
     return n && generic(n->op)==CNST && (optype(n->op)==I || optype(n->op)==U);
 }
+/* an integer constant whose value fits an unsigned char (0..255) - the only
+ * constants a byte compare can use unchanged */
+static int is_byte_const(Node n) {
+    return is_int_const(n) && n->syms[0]
+        && n->syms[0]->u.c.v.i >= 0 && n->syms[0]->u.c.v.i <= 255;
+}
+static int is_eq_cmp(int op)  { return op==EQI || op==NEI; }
+static int is_ord_cmp(int op) {
+    return op==LTI||op==LTU||op==GTI||op==GTU
+        || op==LEI||op==LEU||op==GEI||op==GEU;
+}
 static void mark_byte_narrowing(Node head) {
     Node m, n, ka, kb;
     for (m = head; m; m = m->x.next) m->x.narrow = 0;
     if (optimizelevel < 2) return;
     for (m = head; m; m = m->x.next) {
+        /* Phase 3: char comparisons. uchar operands are 0..255, so the
+         * promoted 16-bit compare equals an unsigned single-byte compare of
+         * the low bytes. Only CVCU (unsigned) widens qualify, so signed char
+         * stays on the word path. The compare node is flagged narrow so the
+         * operand widens can be elided (it counts as a byte reader). */
+        if (is_eq_cmp(m->op)) {
+            ka = under_conv(m->kids[0]);
+            kb = under_conv(m->kids[1]);
+            /* == / != are symmetric, so accept char on either side */
+            if (is_byte_widen(ka) && is_byte_widen(kb)) {
+                m->x.narrow = ka->x.narrow = kb->x.narrow = 1;
+            } else if (is_byte_widen(ka) && is_byte_const(kb)) {
+                m->x.narrow = ka->x.narrow = 1;
+            } else if (is_byte_widen(kb) && is_byte_const(ka)) {
+                m->x.narrow = kb->x.narrow = 1;
+            }
+            continue;
+        }
+        if (is_ord_cmp(m->op)) {
+            ka = under_conv(m->kids[0]);
+            kb = under_conv(m->kids[1]);
+            /* ordered forms are emitted char-first only (no CD macros) */
+            if (!is_byte_widen(ka)) continue;
+            if (is_byte_widen(kb))       m->x.narrow = ka->x.narrow = kb->x.narrow = 1;
+            else if (is_byte_const(kb))  m->x.narrow = ka->x.narrow = 1;
+            continue;
+        }
         if (m->op != CVUC && m->op != CVIC) continue;   /* narrow (u)int -> char */
         n = under_conv(m->kids[0]);
         /* single-use = count==1 here: this pre-pass runs before tmpalloc
@@ -1331,29 +1369,33 @@ static void emitdag(Node p) {
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
-            if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
+            if (p->x.narrow)
+                compare("EQB");
+            else if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("EQ0W");
             else compare("EQW" );
             break;
         case GED:   case GEF:             compare("GEF" ); break;
-        case GEI:                         compare("GEI" ); break;
-        case GEU:                         compare("GEU" ); break;
+        case GEI:          if (p->x.narrow) compare("GEUB"); else compare("GEI"); break;
+        case GEU:          if (p->x.narrow) compare("GEUB"); else compare("GEU"); break;
         case GTD:   case GTF:             compare("GTF" ); break;
-        case GTI:                         compare("GTI" ); break;
-        case GTU:                         compare("GTU" ); break;
+        case GTI:          if (p->x.narrow) compare("GTUB"); else compare("GTI"); break;
+        case GTU:          if (p->x.narrow) compare("GTUB"); else compare("GTU"); break;
         case LED:   case LEF:             compare("LEF" ); break;
-        case LEI:                         compare("LEI" ); break;
-        case LEU:                         compare("LEU" ); break;
+        case LEI:          if (p->x.narrow) compare("LEUB"); else compare("LEI"); break;
+        case LEU:          if (p->x.narrow) compare("LEUB"); else compare("LEU"); break;
         case LTD:   case LTF:             compare("LTF" ); break;
-        case LTI:                         compare("LTI" ); break;
-        case LTU:                         compare("LTU" ); break;
+        case LTI:          if (p->x.narrow) compare("LTUB"); else compare("LTI"); break;
+        case LTU:          if (p->x.narrow) compare("LTUB"); else compare("LTU"); break;
         case NED:   case NEF:             compare("NEF" ); break;
         case NEI:
             /* symmetric: constant first operand goes right (see EQI) */
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
-            if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
+            if (p->x.narrow)
+                compare("NEB");
+            else if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("NE0W");
             else compare("NEW" );
             break;
