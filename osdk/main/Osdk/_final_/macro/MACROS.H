@@ -52,8 +52,6 @@
 */
 
 #ifdef XA
-#define LOW <
-#define HIGH >
 #define STRING .asc
 #define DB(n) .byt n 
 #define DW(n) .word n 
@@ -182,8 +180,8 @@
 
 
 #define LEAVEW_C(cte1)\
- ldx #LOW(cte1) :\
- lda #HIGH(cte1) :\
+ ldx #<(cte1) :\
+ lda #>(cte1) :\
  jmp leave :\
 
 #define LEAVEW_A(ptr1,y1)\
@@ -212,8 +210,8 @@
  rts :\
 
 #define RETW_C(cte1)\
- ldx #LOW(cte1) :\
- lda #HIGH(cte1) :\
+ ldx #<(cte1) :\
+ lda #>(cte1) :\
  rts :\
 
 #define RETW_A(ptr1,y1)\
@@ -239,16 +237,16 @@
  rts :\
 
 #define CNST_CD(cte1,tmp)\
- ldx #LOW(cte1) :\
+ ldx #<(cte1) :\
  stx tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta tmp+1 :\
 
 
 #define ADDR_CD(adr1,tmp)\
- ldx #LOW(adr1) :\
+ ldx #<(adr1) :\
  stx tmp :\
- lda #HIGH(adr1) :\
+ lda #>(adr1) :\
  sta tmp+1 :\
 
 #define ADDR_AD(ptr1,y1,tmp2)\
@@ -307,12 +305,12 @@
 
 
 #define CWB_CD(cte1,tmp2)\
- lda #LOW cte1 :\
+ lda #< cte1 :\
  sta tmp2 :\
 
 #define CWB_CY(cte1,ptr2,y2)\
  ldy #y2 :\
- lda #LOW cte1 :\
+ lda #< cte1 :\
  sta ptr2,y :\
 
 #define CWB_DD(tmp1,tmp2)\
@@ -369,17 +367,17 @@
  sta ptr2,y :\
 
 #define MOVW_CD(cte1,tmp2)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta tmp2+1 :\
 
 #define MOVW_CY(cte1,ptr2,y2)\
  ldy #y2 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta ptr2,y :\
 
 #define MOVW_AD(ptr1,y1,tmp2)\
@@ -662,9 +660,9 @@ skip :\
  sta ptr2,y :\
 
 #define INDIRS_CD(var1,tmp2)\
- lda #LOW(var1) :\
+ lda #<(var1) :\
  sta tmp2 :\
- lda #HIGH(var1) :\
+ lda #>(var1) :\
  sta tmp2+1 :\
 
 #define INDIRS_DD(var1,tmp2)\
@@ -836,10 +834,10 @@ skip :\
 
 #define ADDW_DCD(tmp2,cte1,tmp3)\
  clc :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  adc tmp2 :\
  sta tmp3 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  adc tmp2+1 :\
  sta tmp3+1 :\
 
@@ -860,12 +858,12 @@ skip :\
 
 #define ADDW_YCD(ptr2,y2,cte1,tmp3)\
  clc :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  adc ptr2,y :\
  sta tmp3 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  adc ptr2,y :\
  sta tmp3+1 :\
 
@@ -888,12 +886,12 @@ skip :\
 
 #define ADDW_DCY(tmp2,cte1,ptr3,y3)\
  clc :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  adc tmp2 :\
  ldy #y3 :\
  sta ptr3,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  adc tmp2+1 :\
  sta ptr3,y :\
 
@@ -916,12 +914,12 @@ skip :\
 
 #define ADDW_YCY(ptr2,y2,cte1,ptr3,y3)\
  clc :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  adc ptr2,y :\
  ldy #y3 :\
  sta ptr3,y :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldy #y2+1 :\
  adc ptr2,y :\
  ldy #y3+1 :\
@@ -949,18 +947,18 @@ skip :\
 #define SUBW_DCD(tmp1,cte2,tmp3)\
  sec :\
  lda tmp1 :\
- sbc #LOW(cte2) :\
+ sbc #<(cte2) :\
  sta tmp3 :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  sta tmp3+1 :\
 
 #define SUBW_CDD(cte1,tmp2,tmp3)\
  sec :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sbc tmp2 :\
  sta tmp3 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  sta tmp3+1 :\
 
@@ -984,21 +982,21 @@ skip :\
  sec :\
  ldy #y1 :\
  lda ptr1,y :\
- sbc #LOW(cte2) :\
+ sbc #<(cte2) :\
  sta tmp3 :\
  iny :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  sta tmp3+1 :\
 
 #define SUBW_CYD(cte1,ptr2,y2,tmp3)\
  sec :\
  ldy #y2 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sbc ptr2,y :\
  sta tmp3 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc ptr2,y :\
  sta tmp3+1 :\
 
@@ -1024,21 +1022,21 @@ skip :\
  sec :\
  ldy #y3 :\
  lda tmp1 :\
- sbc #LOW(cte2) :\
+ sbc #<(cte2) :\
  sta ptr3,y :\
  iny :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  sta ptr3,y :\
 
 #define SUBW_CDY(cte1,tmp2,ptr3,y3)\
  sec :\
  ldy #y3 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sbc tmp2 :\
  sta ptr3,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  sta ptr3,y :\
 
@@ -1064,23 +1062,23 @@ skip :\
  sec :\
  ldy #y1 :\
  lda ptr1,y :\
- sbc #LOW(cte2) :\
+ sbc #<(cte2) :\
  ldy #y3 :\
  sta ptr3,y :\
  ldy #y1+1 :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  ldy #y3+1 :\
  sta ptr3,y :\
 
 #define SUBW_CYY(cte1,ptr2,y2,ptr3,y3)\
  sec :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  sbc ptr2,y :\
  ldy #y3 :\
  sta ptr3,y :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldy #y2+1 :\
  sbc ptr2,y :\
  ldy #y3+1 :\
@@ -1331,40 +1329,40 @@ skip :\
  sta ptr3,y :\
 
 #define ANDW_DCD(tmp2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  and tmp2 :\
  sta tmp3 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  and tmp2+1 :\
  sta tmp3+1 :\
 
 #define ANDW_YCD(ptr2,y2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  and ptr2,y :\
  sta tmp3 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  and ptr2,y :\
  sta tmp3+1 :\
 
 #define ANDW_DCY(tmp2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  and tmp2 :\
  ldy #y3 :\
  sta ptr3,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  and tmp2+1 :\
  sta ptr3,y :\
 
 #define ANDW_YCY(ptr2,y2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  and ptr2,y :\
  ldy #y3 :\
  sta ptr3,y :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldy #y2+1 :\
  and ptr2,y :\
  ldy #y3+1 :\
@@ -1459,40 +1457,40 @@ skip :\
  sta ptr3,y :\
 
 #define XORW_DCD(tmp2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  eor tmp2 :\
  sta tmp3 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  eor tmp2+1 :\
  sta tmp3+1 :\
 
 #define XORW_YCD(ptr2,y2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  eor ptr2,y :\
  sta tmp3 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  eor ptr2,y :\
  sta tmp3+1 :\
 
 #define XORW_DCY(tmp2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  eor tmp2 :\
  ldy #y3 :\
  sta ptr3,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  eor tmp2+1 :\
  sta ptr3,y :\
 
 #define XORW_YCY(ptr2,y2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  eor ptr2,y :\
  ldy #y3 :\
  sta ptr3,y :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldy #y2+1 :\
  eor ptr2,y :\
  ldy #y3+1 :\
@@ -1587,40 +1585,40 @@ skip :\
  sta ptr3,y :\
 
 #define ORW_DCD(tmp2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ora tmp2 :\
  sta tmp3 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ora tmp2+1 :\
  sta tmp3+1 :\
 
 #define ORW_YCD(ptr2,y2,cte1,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  ora ptr2,y :\
  sta tmp3 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ora ptr2,y :\
  sta tmp3+1 :\
 
 #define ORW_DCY(tmp2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ora tmp2 :\
  ldy #y3 :\
  sta ptr3,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ora tmp2+1 :\
  sta ptr3,y :\
 
 #define ORW_YCY(ptr2,y2,cte1,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  ora ptr2,y :\
  ldy #y3 :\
  sta ptr3,y :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldy #y2+1 :\
  ora ptr2,y :\
  ldy #y3+1 :\
@@ -1759,9 +1757,9 @@ skip :\
  sta ptr3,y :\
 
 #define DIVI_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -1772,9 +1770,9 @@ skip :\
  sta tmp3+1 :\
 
 #define DIVI_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -1787,9 +1785,9 @@ skip :\
  sta tmp3+1 :\
 
 #define DIVI_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -1803,9 +1801,9 @@ skip :\
  sta ptr3,y :\
 
 #define DIVI_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -1825,9 +1823,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16i :\
  stx tmp3 :\
@@ -1840,9 +1838,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16i :\
  stx tmp3 :\
@@ -1853,9 +1851,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16i :\
  ldy #y3+1 :\
@@ -1871,9 +1869,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16i :\
  ldy #y3+1 :\
@@ -2015,9 +2013,9 @@ skip :\
  sta ptr3,y :\
 
 #define DIVU_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2028,9 +2026,9 @@ skip :\
  sta tmp3+1 :\
 
 #define DIVU_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2043,9 +2041,9 @@ skip :\
  sta tmp3+1 :\
 
 #define DIVU_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2059,9 +2057,9 @@ skip :\
  sta ptr3,y :\
 
 #define DIVU_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2081,9 +2079,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16u :\
  stx tmp3 :\
@@ -2096,9 +2094,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16u :\
  stx tmp3 :\
@@ -2109,9 +2107,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16u :\
  ldy #y3+1 :\
@@ -2127,9 +2125,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr div16u :\
  ldy #y3+1 :\
@@ -2271,9 +2269,9 @@ skip :\
  sta ptr3,y :\
 
 #define MODU_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2284,9 +2282,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MODU_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2299,9 +2297,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MODU_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2315,9 +2313,9 @@ skip :\
  sta ptr3,y :\
 
 #define MODU_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2337,9 +2335,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16u :\
  stx tmp3 :\
@@ -2352,9 +2350,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16u :\
  stx tmp3 :\
@@ -2365,9 +2363,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16u :\
  ldy #y3+1 :\
@@ -2383,9 +2381,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16u :\
  ldy #y3+1 :\
@@ -2527,9 +2525,9 @@ skip :\
  sta ptr3,y :\
 
 #define MODI_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2540,9 +2538,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MODI_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2555,9 +2553,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MODI_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2571,9 +2569,9 @@ skip :\
  sta ptr3,y :\
 
 #define MODI_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2593,9 +2591,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16i :\
  stx tmp3 :\
@@ -2608,9 +2606,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16i :\
  stx tmp3 :\
@@ -2621,9 +2619,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16i :\
  ldy #y3+1 :\
@@ -2639,9 +2637,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mod16i :\
  ldy #y3+1 :\
@@ -2783,9 +2781,9 @@ skip :\
  sta ptr3,y :\
 
 #define MULU_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2796,9 +2794,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MULU_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2811,9 +2809,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MULU_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -2827,9 +2825,9 @@ skip :\
  sta ptr3,y :\
 
 #define MULU_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -2849,9 +2847,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16u :\
  stx tmp3 :\
@@ -2864,9 +2862,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16u :\
  stx tmp3 :\
@@ -2877,9 +2875,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16u :\
  ldy #y3+1 :\
@@ -2895,9 +2893,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16u :\
  ldy #y3+1 :\
@@ -3039,9 +3037,9 @@ skip :\
  sta ptr3,y :\
 
 #define MULI_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -3052,9 +3050,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MULI_CYD(cte1,ptr2,y2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -3067,9 +3065,9 @@ skip :\
  sta tmp3+1 :\
 
 #define MULI_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  lda tmp2 :\
  sta op2 :\
@@ -3083,9 +3081,9 @@ skip :\
  sta ptr3,y :\
 
 #define MULI_CYY(cte1,ptr2,y2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta op1 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta op1+1 :\
  ldy #y2 :\
  lda ptr2,y :\
@@ -3105,9 +3103,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16i :\
  stx tmp3 :\
@@ -3120,9 +3118,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16i :\
  stx tmp3 :\
@@ -3133,9 +3131,9 @@ skip :\
  sta op1 :\
  lda tmp1+1 :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16i :\
  ldy #y3+1 :\
@@ -3151,9 +3149,9 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op1+1 :\
- lda #LOW(cte2) :\
+ lda #<(cte2) :\
  sta op2 :\
- lda #HIGH(cte2) :\
+ lda #>(cte2) :\
  sta op2+1 :\
  jsr mul16i :\
  ldy #y3+1 :\
@@ -3244,9 +3242,9 @@ done :\
  sta tmp3+1 :\
 
 #define LSHW_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  LSHW :\
  stx tmp3 :\
@@ -3256,9 +3254,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  LSHW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3337,9 +3335,9 @@ done :\
  sta ptr3,y :\
 
 #define LSHW_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  LSHW :\
  ldy #y3+1 :\
@@ -3352,9 +3350,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  LSHW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -3448,9 +3446,9 @@ done :\
  sta tmp3+1 :\
 
 #define RSHW_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  RSHW :\
  stx tmp3 :\
@@ -3460,9 +3458,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  RSHW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3541,9 +3539,9 @@ done :\
  sta ptr3,y :\
 
 #define RSHW_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  RSHW :\
  ldy #y3+1 :\
@@ -3556,9 +3554,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  RSHW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -3656,9 +3654,9 @@ done :\
  sta tmp3+1 :\
 
 #define ASRW_CDD(cte1,tmp2,tmp3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  ASRW :\
  stx tmp3 :\
@@ -3668,9 +3666,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ASRW :\
  stx tmp3 :\
  sta tmp3+1 :\
@@ -3749,9 +3747,9 @@ done :\
  sta ptr3,y :\
 
 #define ASRW_CDY(cte1,tmp2,ptr3,y3)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ldx tmp2 :\
  ASRW :\
  ldy #y3+1 :\
@@ -3764,9 +3762,9 @@ done :\
  ldy #y2 :\
  lda ptr2,y :\
  tax :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  ASRW :\
  ldy #y3+1 :\
  sta ptr3,y :\
@@ -3819,12 +3817,12 @@ done :\
  sta ptr3,y :\
 
 #define ASGNB_CC(cte1,var2)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta var2 :\
 
 #define ASGNB_CZ(cte1,ptr2)\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (ptr2),y :\
 
 #define ASGNB_CD(cte1,var2)\
@@ -3833,12 +3831,12 @@ done :\
  lda var2+1 :\
  sta tmp+1 :\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (tmp),y :\
 
 #define ASGNB_CA(cte1,ptr2,y2)\
  ldy #y2 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta ptr2,y :\
 
 #define ASGNB_CY(cte1,ptr2,y2)\
@@ -3849,7 +3847,7 @@ done :\
  lda ptr2,y :\
  sta tmp+1 :\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (tmp),y :\
 
 #define ASGNB_DC(tmp1,var2)\
@@ -3926,17 +3924,17 @@ done :\
  sta (tmp),y :\
 
 #define ASGNW_CC(cte1,var2)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta var2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta var2+1 :\
 
 #define ASGNW_CZ(cte1,ptr2)\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (ptr2),y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta (ptr2),y :\
 
 #define ASGNW_CD(cte1,var2)\
@@ -3945,18 +3943,18 @@ done :\
  lda var2+1 :\
  sta tmp+1 :\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (tmp),y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta (tmp),y :\
 
 #define ASGNW_CA(cte1,ptr2,y2)\
  ldy #y2 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta ptr2,y :\
 
 #define ASGNW_CY(cte1,ptr2,y2)\
@@ -3967,10 +3965,10 @@ done :\
  lda ptr2,y :\
  sta tmp+1 :\
  ldy #0 :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  sta (tmp),y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sta (tmp),y :\
 
 #define ASGNW_DC(tmp1,var2)\
@@ -4603,10 +4601,10 @@ skip :\
  
 #define EQW_DC(tmp2,cte1,label)\
  .( :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  eor tmp2 :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  eor tmp2+1 :\
  ora tmp :\
  bne skip :\
@@ -4632,12 +4630,12 @@ skip :\
 
 #define EQW_YC(ptr2,y2,cte1,label)\
  .( :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  bne skip :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  cmp ptr2,y :\
  bne skip :\
  jmp label :\
@@ -4743,10 +4741,10 @@ skip :\
 
 #define NEW_DC(tmp2,cte1,label)\
  .( :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  eor tmp2 :\
  sta tmp :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  eor tmp2+1 :\
  ora tmp :\
  beq skip :\
@@ -4772,14 +4770,14 @@ skip :\
 
 #define NEW_YC(ptr2,y2,cte1,label)\
  .( :\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  beq skip1 :\
  jmp label :\
 skip1 :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  cmp ptr2,y :\
  beq skip2 :\
  jmp label :\
@@ -4884,9 +4882,9 @@ skip :\
 
 #define GEI_DC(tmp1,cte2,label)\
  lda tmp1 :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_GEI(label) :\
 
 #define GEI_DD(tmp1,tmp2,label)\
@@ -4908,10 +4906,10 @@ skip :\
 #define GEI_YC(ptr1,y1,cte2,label)\
  ldy #y1 :\
  lda ptr1,y :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  iny :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_GEI(label) :\
 
 #define GEI_YD(ptr1,y1,tmp2,label)\
@@ -4935,26 +4933,26 @@ skip :\
  BRANCH_GEI(label) :\
 
 #define GEI_CD(cte1,tmp2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  cmp tmp2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  BRANCH_GEI(label) :\
 
 #define GEI_CY(cte1,ptr2,y2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc ptr2,y :\
  BRANCH_GEI(label) :\
 
 #define GEU_DC(tmp1,cte2,label)\
  lda tmp1 :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_GEU(label) :\
 
 #define GEU_DD(tmp1,tmp2,label)\
@@ -4976,10 +4974,10 @@ skip :\
 #define GEU_YC(ptr1,y1,cte2,label)\
  ldy #y1 :\
  lda ptr1,y :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  iny :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_GEU(label) :\
 
 #define GEU_YD(ptr1,y1,tmp2,label)\
@@ -5003,18 +5001,18 @@ skip :\
  BRANCH_GEU(label) :\
 
 #define GEU_CD(cte1,tmp2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  cmp tmp2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  BRANCH_GEU(label) :\
 
 #define GEU_CY(cte1,ptr2,y2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc ptr2,y :\
  BRANCH_GEU(label) :\
 
@@ -5037,9 +5035,9 @@ skip :\
 
 #define LTI_DC(tmp1,cte2,label)\
  lda tmp1 :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_LTI(label) :\
 
 #define LTI_DD(tmp1,tmp2,label)\
@@ -5061,10 +5059,10 @@ skip :\
 #define LTI_YC(ptr1,y1,cte2,label)\
  ldy #y1 :\
  lda ptr1,y :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  iny :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_LTI(label) :\
 
 #define LTI_YD(ptr1,y1,tmp2,label)\
@@ -5088,26 +5086,26 @@ skip :\
  BRANCH_LTI(label) :\
 
 #define LTI_CD(cte1,tmp2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  cmp tmp2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  BRANCH_LTI(label) :\
 
 #define LTI_CY(cte1,ptr2,y2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc ptr2,y :\
  BRANCH_LTI(label) :\
 
 #define LTU_DC(tmp1,cte2,label)\
  lda tmp1 :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  lda tmp1+1 :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_LTU(label) :\
 
 #define LTU_DD(tmp1,tmp2,label)\
@@ -5129,10 +5127,10 @@ skip :\
 #define LTU_YC(ptr1,y1,cte2,label)\
  ldy #y1 :\
  lda ptr1,y :\
- cmp #LOW(cte2) :\
+ cmp #<(cte2) :\
  iny :\
  lda ptr1,y :\
- sbc #HIGH(cte2) :\
+ sbc #>(cte2) :\
  BRANCH_LTU(label) :\
 
 #define LTU_YD(ptr1,y1,tmp2,label)\
@@ -5156,18 +5154,18 @@ skip :\
  BRANCH_LTU(label) :\
 
 #define LTU_CD(cte1,tmp2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  cmp tmp2 :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc tmp2+1 :\
  BRANCH_LTU(label) :\
 
 #define LTU_CY(cte1,ptr2,y2,label)\
- lda #LOW(cte1) :\
+ lda #<(cte1) :\
  ldy #y2 :\
  cmp ptr2,y :\
  iny :\
- lda #HIGH(cte1) :\
+ lda #>(cte1) :\
  sbc ptr2,y :\
  BRANCH_LTU(label) :\
 
@@ -5271,11 +5269,11 @@ skip :\
 #define RESTORE(ptr,y2,tmp) MOVW_YD(ptr,y2,tmp)
 
 #define ARGW_C(cte,ptr,y2)\
- lda #LOW(cte) :\
+ lda #<(cte) :\
  ldy #y2 :\
  sta ptr,y :\
  iny :\
- lda #HIGH(cte) :\
+ lda #>(cte) :\
  sta ptr,y :\
 
 #define ARGW_D(tmp,ptr,y2)\
@@ -5395,8 +5393,8 @@ jump :\
  .) :\
 
 #define FLOAD1_C(tmp)\
- lda #LOW(tmp) :\
- ldy #HIGH(tmp) :\
+ lda #<(tmp) :\
+ ldy #>(tmp) :\
  jsr load_acc1 :\
 
 #define FLOAD1_D(tmp)\
@@ -5426,8 +5424,8 @@ jump :\
  jsr load_acc1 :\
 
 #define FLOAD2_C(tmp)\
- lda #LOW(tmp) :\
- ldy #HIGH(tmp) :\
+ lda #<(tmp) :\
+ ldy #>(tmp) :\
  jsr load_acc2 :\
 
 #define FLOAD2_D(tmp)\
@@ -5457,8 +5455,8 @@ jump :\
  jsr load_acc2 :\
 
 #define FSTORE_C(tmp)\
- ldx #LOW(tmp) :\
- ldy #HIGH(tmp) :\
+ ldx #<(tmp) :\
+ ldy #>(tmp) :\
  jsr store_acc :\
 
 #define FSTORE_D(tmp)\
@@ -5786,8 +5784,8 @@ jump :\
  CFI_Y(ptr2,y2) :\
 
 #define CIF_C(cte)\
- ldy #LOW(cte) :\
- lda #HIGH(cte) :\
+ ldy #<(cte) :\
+ lda #>(cte) :\
  jsr cif :\
 
 #define CIF_D(tmp1)\
@@ -5963,8 +5961,8 @@ jsrto :\
  FSTORE_A(ptr2,y2) :\
 
 #define FCOMP_D(tmp1)\
- lda #LOW(tmp1) :\
- ldy #HIGH(tmp1) :\
+ lda #<(tmp1) :\
+ ldy #>(tmp1) :\
  jsr fcomp :\
 
 #define FCOMP_Y(ptr1,y1)\

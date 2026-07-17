@@ -78,6 +78,11 @@ Cycles are exact: read from Oricutron's internal cycle counter (correct and stab
 - **Problem:** 52 `sta/stx *+N` operand patches (22 ASGNS block-copy macros, CALLF_DD/DY) gave no clue what instruction/byte they patch, and their safety against the optimizer depended on the frozen-region layout rather than a structural guarantee. (Zero `*+N` branches existed; named-label branches and .( .) scopes were already safe — labels are optimizer barriers.)
 - **Fix:** patched load labeled `src`, patched store `dst`, inline jsr `jsrto`; `*+N` → `src+1/src+2`, `dst+1/dst+2`, `jsrto+1/jsrto+2`. Proven byte-identical (probe over all 22 ASGNS variants + both CALLF, old vs new → same binary). (`0c941568`)
 
+### FRASM-era LOW()/HIGH() aliases replaced with native XA `<`/`>`
+- **Found:** readability/modernization pass (like the *+N conversion). MACROS.H defined `#define LOW <` and `#define HIGH >` - byte-extract aliases from the pre-XA days when the OSDK used the FRASM assembler, which lacked the `<`/`>` operators.
+- **Change:** removed the two aliases and rewrote all 249 uses (127 `LOW(`, 122 `HIGH(`, plus 2 bare `#LOW cte`) to native `<`/`>`. Since these were plain macrosplitter text aliases, the change is expansion-neutral.
+- **Verified:** the macro-expanded assembly is byte-identical old-vs-new (hash compare) across all 22 benchmark samples at -O3 and all 11 test-suite programs at -O1/-O2/-O3 - no binary changes anywhere.
+
 ### ASRW family + naming glossary `[documented]`
 - New ASRW arithmetic-shift family; glossary in MACROS.H/gen.c documenting operation families and addressing-mode suffix letters. (`b0cb1c7a`)
 
