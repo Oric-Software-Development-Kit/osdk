@@ -88,6 +88,7 @@ enum class TokenType
 	FoldOpen,
 	FoldClose,
 	Empty,
+	Comment,
 	Other
 };
 
@@ -209,12 +210,16 @@ static std::vector<Token> TokenizeLine(const std::string& line, int lineIndex)
 	size_t start = 0;
 
 	// Comment lines are kept whole (they can contain ':' inside macro argument
-	// annotations) and act as barriers, like labels.
+	// annotations). They are TRANSPARENT to the optimizer - a pure annotation is
+	// a no-op, so the peephole may match across it (unlike a real barrier such as
+	// a label or directive). They are still emitted verbatim in the output; the
+	// cost is only that the "; === MACRO ===" markers no longer line up exactly
+	// with their instructions once code is optimized across them.
 	std::string trimmedLine = TrimString(line);
 	if (!trimmedLine.empty() && trimmedLine[0] == ';')
 	{
 		Token tok = ParseToken(trimmedLine, lineIndex);
-		tok.type = TokenType::Label;
+		tok.type = TokenType::Comment;
 		tokens.push_back(tok);
 		return tokens;
 	}
@@ -898,9 +903,10 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 			if (allTokens[i].eliminated)
 				continue;
 
-			// Find the next non-eliminated token
+			// Find the next real token (skip eliminated + transparent comments)
 			size_t j = i + 1;
-			while (j < allTokens.size() && allTokens[j].eliminated)
+			while (j < allTokens.size()
+				&& (allTokens[j].eliminated || allTokens[j].type == TokenType::Comment))
 				j++;
 
 			if (j >= allTokens.size())
@@ -947,7 +953,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 					&& !IsIOPageAddress(b.operand))
 				{
 					size_t prev = i;
-					while (prev > 0 && allTokens[prev - 1].eliminated)
+					while (prev > 0 && (allTokens[prev - 1].eliminated
+						|| allTokens[prev - 1].type == TokenType::Comment))
 						prev--;
 					bool flagsSafe = (prev > 0)
 						&& SetsFlagsFromRegister(allTokens[prev - 1], rp.load[2]);
@@ -1105,12 +1112,12 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 			if (a.mnemonic[0] == 's' && b.mnemonic[0] == 'l' && a.operand != b.operand)
 			{
 				// a is a store, b is a load of something different (otherwise Pattern 2 handles it)
-				// Look backward for the instruction before a
+				// Look backward for the instruction before a (skip eliminated + comments)
 				size_t prev = i;
 				while (prev > 0)
 				{
 					prev--;
-					if (!allTokens[prev].eliminated)
+					if (!allTokens[prev].eliminated && allTokens[prev].type != TokenType::Comment)
 						break;
 				}
 				if (prev < i && !allTokens[prev].eliminated
