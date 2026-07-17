@@ -25,7 +25,10 @@ void main(void)
 	int err, i;
 
 	cls();
-	printf("SEDORIC demo\n\nDirectory:\n");
+	printf("SEDORIC demo\n\nPress a key to show the directory");
+	getchar();
+
+	printf("\n\nDirectory:\n");
 	sedoric("!DIR");
 
 	printf("\nSaving SAVED.DAT (64 bytes)...\n");
@@ -43,8 +46,9 @@ void main(void)
 		text();
 		printf("sed_loadfile: err=%d\n", err);
 	} else {
-		/* printf goes to the 3 text lines below the hires area */
-		printf("PICTURE.BIN loaded, %u bytes, no error", len);
+		/* printf goes to the 3 text lines below the hires area;
+		   they hold 38 characters (2 columns are attributes) */
+		printf("PICTURE.BIN loaded, %u bytes OK", len);
 	}
 	for (;;) ;
 }
