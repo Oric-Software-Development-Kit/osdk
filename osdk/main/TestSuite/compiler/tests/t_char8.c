@@ -63,6 +63,17 @@ void main(void)
 	a = 0x09; c = (a << 1) + 1;              /* 0x12 + 1 -> 0x13 */
 	tk_check_eq(c, 0x13, "shl-add");
 
+	/* Phase 4: unsigned char >> 1 must be a LOGICAL shift (bit 7 <- 0);
+	   an arithmetic byte shift would turn 0x80 into 0xC0. */
+	a = 0x80; c = a >> 1;                    /* 0x40, not 0xC0 */
+	tk_check_eq(c, 0x40, "shr-hi");
+	a = 0xFF; c = a >> 1;                    /* 0x7F */
+	tk_check_eq(c, 0x7F, "shr-ff");
+	a = 0x01; c = a >> 1;                    /* 0x00 */
+	tk_check_eq(c, 0x00, "shr-1");
+	a = 0x55; c = a >> 1;                    /* 0x2A */
+	tk_check_eq(c, 0x2A, "shr-55");
+
 	/* Phase 3: char comparisons ( == != < > <= >= ), var-var and var-const.
 	   The >=128 cases prove the byte compare is UNSIGNED (a signed byte
 	   compare would treat 0x80..0xFF as negative and invert the result). */

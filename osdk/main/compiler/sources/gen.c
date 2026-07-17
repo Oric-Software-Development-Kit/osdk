@@ -695,17 +695,20 @@ static void mark_byte_narrowing(Node head) {
             ka->x.narrow = 1;             /* elision candidate */
             continue;
         }
-        if ((n->op==LSHI || n->op==LSHU)) {
-            /* x << 1 : the low byte of (x<<1) needs only x's low byte. Only
-             * the shift-by-1 form maps to a single asl (LSH1B); other counts
-             * stay on the word path (the byte would need a count-driven loop),
-             * so leave them un-narrowed and their widens intact. */
+        if (n->op==LSHI || n->op==LSHU || n->op==RSHI || n->op==RSHU) {
+            /* x << 1 / x >> 1 : the char result needs only x's low byte. Only
+             * the shift-by-1 form maps to a single asl/lsr (LSH1B / RSH1B);
+             * other counts stay on the word path (the byte would need a
+             * count-driven loop), so leave them un-narrowed with their widens
+             * intact. >> is a LOGICAL byte shift and is only reached with a
+             * CVCU (unsigned, 0..255) operand, so lsr is correct even though
+             * the promoted op is the signed RSHI. */
             ka = under_conv(n->kids[0]);
             kb = n->kids[1];
             if (!is_byte_widen(ka)) continue;
             if (!(is_int_const(kb) && kb->syms[0] && kb->syms[0]->u.c.v.i == 1))
                 continue;
-            n->x.narrow  = 1;             /* emit LSH1B */
+            n->x.narrow  = 1;             /* emit LSH1B / RSH1B */
             ka->x.narrow = 1;             /* elision candidate */
             continue;
         }
@@ -1146,8 +1149,8 @@ static void emitdag(Node p) {
         case DIVU:                        binary("DIVU");   break;
         case MODI:                        binary("MODI");   break;
         case MODU:                        binary("MODU");   break;
-        case RSHU:                        binary("RSHW");   break;
-        case RSHI:                        binary("ASRW");   break;  /* signed >> keeps the sign */
+        case RSHU:         if (p->x.narrow) unary("RSH1B"); else binary("RSHW");   break;
+        case RSHI:         if (p->x.narrow) unary("RSH1B"); else binary("ASRW");   break;  /* signed >> keeps the sign; uchar>>1 is logical (RSH1B) */
         case LSHI:  case LSHU:
             if (p->x.narrow)
                 unary("LSH1B");         /* char x << 1 (byte-narrowed) */

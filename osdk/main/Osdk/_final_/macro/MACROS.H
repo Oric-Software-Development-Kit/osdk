@@ -877,6 +877,34 @@ skip :\
  ldy #y2 :\
  sta ptr2,y :\
 
+; x >> 1 on an unsigned char: a LOGICAL byte shift (lsr, bit 7 <- 0). Only
+; CVCU (unsigned) operands are narrowed to this, so the value is 0..255 and
+; the low byte's high bit is data, not sign - lsr (not an arithmetic shift)
+; is the correct byte form even though the promoted C op is signed.
+#define RSH1B_DD(tmp1,tmp2)\
+ lda tmp1 :\
+ lsr :\
+ sta tmp2 :\
+
+#define RSH1B_DY(tmp1,ptr2,y2)\
+ ldy #y2 :\
+ lda tmp1 :\
+ lsr :\
+ sta ptr2,y :\
+
+#define RSH1B_YD(ptr1,y1,tmp2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ lsr :\
+ sta tmp2 :\
+
+#define RSH1B_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ lsr :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
 #define ADDW_DDD(tmp1,tmp2,tmp3)\
  clc :\
  lda tmp1 :\
