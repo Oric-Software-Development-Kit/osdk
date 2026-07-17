@@ -24,6 +24,7 @@ void main(void)
 {
 	int err, i;
 
+	cls();
 	printf("SEDORIC demo\n\nDirectory:\n");
 	sedoric("!DIR");
 
@@ -41,6 +42,9 @@ void main(void)
 	if (err) {
 		text();
 		printf("sed_loadfile: err=%d\n", err);
+	} else {
+		/* printf goes to the 3 text lines below the hires area */
+		printf("PICTURE.BIN loaded, %u bytes, no error", len);
 	}
 	for (;;) ;
 }
