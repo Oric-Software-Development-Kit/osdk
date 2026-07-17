@@ -1,61 +1,107 @@
-# OSDK 1.24 benchmark table (ISS oricCompilerBenchmark)
+# OSDK 1.24 benchmark table (ISS oricCompilerBenchmark) — correctness-gated
 
-Regenerated 2026-07-17 after the -O3 call-store fix. Sizes = .tap bytes (build only). Cycles = Oricutron internal cycle counter (correct for years) via GDB step-over, IRQ masked (sei).
-Baseline: OSDK 1.23 -O2. `n/a` = 1.23 cannot build it (00-type-sizes / 05-0xcafe use 0b literals & _Static_assert). Raw data: results/benchtable-{size,cycles}-20260717.csv.
+Regenerated 2026-07-17 with the full compiler+peephole improvements (8-bit char
+ops, `*2^n`/shift-by-8 codegen, dead-load elimination). Sizes = .tap bytes
+(build only). Cycles = Oricutron internal cycle counter via GDB step-over of the
+timed call, IRQ masked (`sei`), fresh emulator per sample, measured on the
+arg-fixed `oricutron-cbench2` build.
+
+**Every metric is correctness-gated.** Before any size/cycle number is trusted,
+each sample's *computed output* (routed through the printer) is required to be
+byte-identical across all five configs (1.23-O2 as anchor where it builds). All
+22 samples verified — see the correctness matrix. `ERR`/`-` on 1.23 = the two
+samples 1.23 cannot build (0b literals / _Static_assert); their 4 new configs
+still agree with each other.
+
+## Correctness (output identical across all buildable configs; 1.23 anchor)
+
+| sample | verified |
+|---|:--:|
+| 00-type-sizes | yes |
+| 01-dummy | yes |
+| 02-hello-world | yes |
+| 03-bytecpy | yes |
+| 04-memcopy | yes |
+| 05-0xcafe | yes |
+| 06-sieve | yes |
+| 07-aes256 | yes |
+| 08-mandelbrot | yes |
+| 09-frogmove | yes |
+| 10-pi | yes |
+| 11-shuffle | yes |
+| 12-bubble-sort | yes |
+| 13-selection-sort | yes |
+| 14-insertion-sort | yes |
+| 15-merge-sort | yes |
+| 16-quick-sort | yes |
+| 17-counting-sort | yes |
+| 18-radix-sort | yes |
+| 19-shell-sort | yes |
+| 20-heap-sort | yes |
+| 21-eight-queens | yes |
 
 ## Code size (tap bytes)
 
-| sample | 1.23-O2 | new-O2 | new-O2+pp | new-O3 | new-O3+pp | O3 vs 1.23 |
-|---|--:|--:|--:|--:|--:|--:|
-| 00-type-sizes | n/a | 2572 | 2548 | 2219 | 2217 | n/a |
-| 01-dummy | 1993 | 1729 | 1717 | 1475 | 1475 | -26.0% |
-| 02-hello-world | 2028 | 1764 | 1752 | 1510 | 1510 | -25.5% |
-| 03-bytecpy | 2003 | 1739 | 1727 | 1481 | 1481 | -26.1% |
-| 04-memcopy | 2141 | 1877 | 1863 | 1569 | 1567 | -26.7% |
-| 05-0xcafe | n/a | 2333 | 2305 | 1987 | 1987 | n/a |
-| 06-sieve | 11496 | 11232 | 11216 | 10699 | 10697 | -6.9% |
-| 07-aes256 | 15961 | 15715 | 15111 | 14021 | 13913 | -12.2% |
-| 08-mandelbrot | 2602 | 2350 | 2334 | 1968 | 1964 | -24.4% |
-| 09-frogmove | 5201 | 4168 | 4130 | 3646 | 3644 | -29.9% |
-| 10-pi | 4406 | 4142 | 4120 | 3570 | 3562 | -19.0% |
-| 11-shuffle | 4014 | 3750 | 3728 | 3182 | 3174 | -20.7% |
-| 12-bubble-sort | 3812 | 3548 | 3526 | 2965 | 2957 | -22.2% |
-| 13-selection-sort | 3874 | 3610 | 3590 | 3020 | 3014 | -22.0% |
-| 14-insertion-sort | 3778 | 3514 | 3496 | 2938 | 2934 | -22.2% |
-| 15-merge-sort | 6021 | 5757 | 5731 | 4730 | 4718 | -21.4% |
-| 16-quick-sort | 4268 | 4004 | 3986 | 3321 | 3317 | -22.2% |
-| 17-counting-sort | 5488 | 5224 | 5200 | 4355 | 4345 | -20.6% |
-| 18-radix-sort | 6410 | 6146 | 6122 | 5009 | 4999 | -21.9% |
-| 19-shell-sort | 3923 | 3659 | 3641 | 3030 | 3026 | -22.8% |
-| 20-heap-sort | 4495 | 4231 | 4213 | 3472 | 3468 | -22.8% |
-| 21-eight-queens | 4270 | 4006 | 3890 | 3447 | 3437 | -19.3% |
-| **total** (20) | 98184 | 92165 | 91093 | 79408 | 79202 | -19.1% |
+| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | correct |
+|---|--:|--:|--:|--:|--:|--:|:--:|
+| 00-type-sizes | ERR | 2531 | 2507 | 2194 | 2192 | - | yes |
+| 01-dummy | 1993 | 1715 | 1703 | 1461 | 1461 | -26.7% | yes |
+| 02-hello-world | 2028 | 1750 | 1738 | 1496 | 1496 | -26.2% | yes |
+| 03-bytecpy | 2003 | 1725 | 1713 | 1467 | 1467 | -26.8% | yes |
+| 04-memcopy | 2141 | 1863 | 1849 | 1555 | 1553 | -27.4% | yes |
+| 05-0xcafe | ERR | 2305 | 2269 | 1959 | 1959 | - | yes |
+| 06-sieve | 11496 | 11218 | 11202 | 10685 | 10683 | -7.1% | yes |
+| 07-aes256 | 15961 | 14045 | 13431 | 13327 | 13203 | -16.5% | yes |
+| 08-mandelbrot | 2602 | 2336 | 2320 | 1954 | 1950 | -24.9% | yes |
+| 09-frogmove | 5201 | 4108 | 4066 | 3618 | 3616 | -30.4% | yes |
+| 10-pi | 4406 | 4128 | 4106 | 3556 | 3548 | -19.3% | yes |
+| 11-shuffle | 4014 | 3736 | 3714 | 3168 | 3160 | -21.1% | yes |
+| 12-bubble-sort | 3812 | 3534 | 3512 | 2951 | 2943 | -22.6% | yes |
+| 13-selection-sort | 3874 | 3596 | 3576 | 3006 | 3000 | -22.4% | yes |
+| 14-insertion-sort | 3778 | 3500 | 3482 | 2924 | 2920 | -22.6% | yes |
+| 15-merge-sort | 6021 | 5743 | 5717 | 4716 | 4704 | -21.7% | yes |
+| 16-quick-sort | 4268 | 3990 | 3972 | 3307 | 3303 | -22.5% | yes |
+| 17-counting-sort | 5488 | 5210 | 5186 | 4341 | 4331 | -20.9% | yes |
+| 18-radix-sort | 6410 | 6132 | 6108 | 4995 | 4985 | -22.1% | yes |
+| 19-shell-sort | 3923 | 3645 | 3627 | 3016 | 3012 | -23.1% | yes |
+| 20-heap-sort | 4495 | 4217 | 4199 | 3458 | 3454 | -23.1% | yes |
+| 21-eight-queens | 4270 | 3992 | 3876 | 3433 | 3423 | -19.6% | yes |
+| **total** | 98184 | 95019 | 93873 | 82587 | 82363 | | |
 
-## Cycles
+## Cycles (verified-correct only)
 
-| sample | 1.23-O2 | new-O2 | new-O2+pp | new-O3 | new-O3+pp | O3 vs 1.23 |
-|---|--:|--:|--:|--:|--:|--:|
-| 00-type-sizes | n/a | 11304 | 11216 | 11032 | 11016 | n/a |
-| 01-dummy | 16 | 16 | 16 | 16 | 16 | +0.0% |
-| 02-hello-world | 386 | 368 | 368 | 368 | 368 | -4.7% |
-| 03-bytecpy | 30 | 30 | 30 | 24 | 24 | -20.0% |
-| 04-memcopy | 1507530 | 1507530 | 1507528 | 843986 | 843984 | -44.0% |
-| 05-0xcafe | n/a | 2144 | 2120 | 2008 | 2008 | n/a |
-| 06-sieve | 15749565 | 15753683 | 15746378 | 14254275 | 14251088 | -9.5% |
-| 07-aes256 | 84508723 | 84565958 | 77807482 | 73904189 | 72447484 | -12.5% |
-| 08-mandelbrot | 166325468 | 161030686 | 160873411 | 154859230 | 154609567 | -6.9% |
-| 09-frogmove | 31761313 | 14734511 | 14356086 | 10562051 | 10562049 | -66.7% |
-| 10-pi | 38590319 | 37841553 | 37851810 | 36600635 | 36250074 | -5.2% |
-| 11-shuffle | 2761815 | 2788508 | 2758901 | 2565636 | 2565632 | -7.1% |
-| 12-bubble-sort | 14976369 | 14977682 | 14974693 | 10450286 | 10449253 | -30.2% |
-| 13-selection-sort | 9852263 | 9832553 | 9862961 | 6405932 | 6406986 | -35.0% |
-| 14-insertion-sort | 6174806 | 6194516 | 6192031 | 4715601 | 4715343 | -23.6% |
-| 15-merge-sort | 3766736 | 3766689 | 3762852 | 2996259 | 2993222 | -20.5% |
-| 16-quick-sort | 3096817 | 3116501 | 3094710 | 2630613 | 2630031 | -15.1% |
-| 17-counting-sort | 1875385 | 1875384 | 1872893 | 1613928 | 1613153 | -13.9% |
-| 18-radix-sort | 7662741 | 7661976 | 7660265 | 7150069 | 7149537 | -6.7% |
-| 19-shell-sort | 3442589 | 3441266 | 3438781 | 2779400 | 2775949 | -19.3% |
-| 20-heap-sort | 5079380 | 5077414 | 5091803 | 4392742 | 4389256 | -13.5% |
-| 21-eight-queens | 72699162 | 72613402 | 69420441 | 62677440 | 62202360 | -13.8% |
-| **total** (20) | 469831413 | 446780226 | 436273440 | 399402680 | 396855376 | -15.0% |
+| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | correct |
+|---|--:|--:|--:|--:|--:|--:|:--:|
+| 00-type-sizes | - | 11064 | 11056 | 10680 | 10668 | - | yes |
+| 01-dummy | 16 | 16 | 16 | 16 | 16 | +0.0% | yes |
+| 02-hello-world | 386 | 368 | 368 | 368 | 368 | -4.7% | yes |
+| 03-bytecpy | 30 | 30 | 30 | 24 | 24 | -20.0% | yes |
+| 04-memcopy | 1507530 | 1507530 | 1507528 | 843986 | 843984 | -44.0% | yes |
+| 05-0xcafe | - | 2038 | 2002 | 1902 | 1902 | - | yes |
+| 06-sieve | 15749565 | 15753683 | 15746378 | 14254275 | 14251088 | -9.5% | yes |
+| 07-aes256 | 84508723 | 52999791 | 50928474 | 58074885 | 58023163 | -31.3% | yes |
+| 08-mandelbrot | 166325468 | 161030686 | 160873411 | 154859230 | 154609567 | -6.9% | yes |
+| 09-frogmove | 31761313 | 13163201 | 13115256 | 10219331 | 10219329 | -67.8% | yes |
+| 10-pi | 38590319 | 37841553 | 37851810 | 36600635 | 36250074 | -5.2% | yes |
+| 11-shuffle | 2761815 | 2788508 | 2758901 | 2565636 | 2565632 | -7.1% | yes |
+| 12-bubble-sort | 14976369 | 14977682 | 14974693 | 10450286 | 10449253 | -30.2% | yes |
+| 13-selection-sort | 9852263 | 9832553 | 9862961 | 6405932 | 6406986 | -35.0% | yes |
+| 14-insertion-sort | 6174806 | 6194516 | 6192031 | 4715601 | 4715343 | -23.6% | yes |
+| 15-merge-sort | 3766736 | 3766689 | 3762852 | 2996259 | 2993222 | -20.5% | yes |
+| 16-quick-sort | 3096817 | 3116501 | 3094710 | 2630613 | 2630031 | -15.1% | yes |
+| 17-counting-sort | 1875385 | 1875384 | 1872893 | 1613928 | 1613153 | -13.9% | yes |
+| 18-radix-sort | 7662741 | 7661976 | 7660265 | 7150069 | 7149537 | -6.7% | yes |
+| 19-shell-sort | 3442589 | 3441266 | 3438781 | 2779400 | 2775949 | -19.3% | yes |
+| 20-heap-sort | 5079380 | 5077414 | 5091803 | 4392742 | 4389256 | -13.5% | yes |
+| 21-eight-queens | 72699162 | 72613402 | 69420441 | 62677440 | 62202360 | -13.8% | yes |
 
+## Notes
+
+- **aes256 is faster at -O2 (53.0M) than -O3 (58.1M).** The 8-bit char work helps
+  the char-heavy AES code most at -O2, where the dead operand-widen (`CZBW`) is
+  elided; at -O3 the byte load is folded into the widen so the widen is kept,
+  leaving -O3 leaner in size but slightly heavier in cycles here. Both are
+  verified-correct. Eliding the char widen at -O3 too is a known follow-up.
+- Headlines vs 1.23-O2: frogmove -67.8%, memcopy -44%, selection-sort -35%,
+  aes256 -31.3% at -O3 (−37% at -O2), bubble-sort -30%.
+- The peephole (`pp`) adds a further ~1-4% and never changes output.

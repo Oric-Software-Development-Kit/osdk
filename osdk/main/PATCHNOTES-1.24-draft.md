@@ -30,10 +30,12 @@ doc_historic.htm; unmarked items still need entries.
 - **Result:** new `t_arith` checks (`shl8`, `sar8-pos`, `sar8-neg` with sign fill, `lsr8`, `shl8u`, `mul256`, `div256`) pass at -O1/-O2/-O3. The byte move fires widely — it shrank aes256, t_bitfield, t_struct, t_string, t_float, t_malloc and t_ptr at -O2/-O3 with no regressions.
 
 ### Benchmark result (ISS oricCompilerBenchmark, 2026-07-17, vs OSDK 1.23 -O2)
-Full 22-sample table regenerated after the -O3 fix (results/benchtable-{size,cycles}-20260717.csv).
-- **Code size:** new-O3 averages -19% vs 1.23-O2 (up to -30%); the peephole shaves a little more. aes256 -O3+peephole is the smallest build (13913 B) - the config that used to CRASH.
-- **Speed:** new-O3 totals -15% cycles vs 1.23-O2 across the compute samples. Standouts: frogmove -66.7%, selection-sort -35%, bubble-sort -30%, aes256 -12.5% (-14.3% with peephole). The peephole adds a further ~1-2% on the heavy samples (aes -2.0%).
-Cycles are exact: read from Oricutron's internal cycle counter (correct and stable for many years) via a GDB step-over of the timed call; IRQ masked (sei) for determinism. (The --cport @CYCLES convenience is a new, benchmark-specific addition not yet in the official OSDK, so it isn't relied on here.)
+Full 22-sample table regenerated with all the compiler+peephole improvements (8-bit char ops, `*2^n`/shift-by-8 codegen, dead-load elimination). See TestSuite/compiler/benchtable-1.24.md for the full table + correctness matrix.
+- **Correctness-gated:** every size/cycle figure is only reported after the sample's *computed output* is verified byte-identical across all five configs (1.23-O2 anchor). All 22 samples pass — a fast-but-wrong build cannot masquerade as a win.
+- **Code size:** new-O3 −20..27% vs 1.23-O2 on typical code (up to −30% frogmove); aes256 −16.5%. The peephole shaves a little more.
+- **Speed:** standouts vs 1.23-O2 — frogmove −67.8%, memcopy −44%, selection-sort −35%, aes256 −31.3% at -O3 (−37% at -O2, where the char widens are elided), bubble-sort −30%. The peephole adds a further ~1-4% and never changes output.
+- **Note:** aes256 runs faster at -O2 (53.0M) than -O3 (58.1M) after the 8-bit work — the char-heavy code benefits most from the -O2 widen elision; -O3 keeps the folded widen (smaller, marginally slower here). Eliding the char widen at -O3 is a known follow-up.
+Cycles are exact: Oricutron's internal cycle counter via a GDB step-over of the timed call, IRQ masked (sei) for determinism, fresh emulator per sample on the arg-fixed cbench2 build.
 
 ### Float expressions always failed — "expression too complex" `[documented]`
 - **Found:** any floating point expression failed to compile (regression shipped in OSDK 1.23).
