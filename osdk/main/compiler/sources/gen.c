@@ -626,9 +626,17 @@ static Node under_conv(Node n) {
     return n;
 }
 static int is_byte_widen(Node n) { return n && n->op==CVCU; }   /* CZBW: uchar->uint */
-static int is_narrowable_arith(int op) {
+/* Phase 1: binary ops whose char result depends only on the operands' low
+ * bytes. Phase 2 adds the unary ~ / - and << 1 (below). */
+static int is_narrowable_binary(int op) {
     return op==ADDI || op==ADDU || op==SUBI || op==SUBU
         || op==BANDU || op==BORU || op==BXORU;
+}
+static int is_narrowable_unary(int op) {
+    return op==BCOMU || op==NEGI;         /* ~x , -x */
+}
+static int is_int_const(Node n) {
+    return n && generic(n->op)==CNST && (optype(n->op)==I || optype(n->op)==U);
 }
 static void mark_byte_narrowing(Node head) {
     Node m, n, ka, kb;
@@ -639,24 +647,49 @@ static void mark_byte_narrowing(Node head) {
         n = under_conv(m->kids[0]);
         /* single-use = count==1 here: this pre-pass runs before tmpalloc
          * decrements the reference counts */
-        if (!n || !is_narrowable_arith(n->op) || n->count != 1) continue;
-        ka = under_conv(n->kids[0]);
-        kb = under_conv(n->kids[1]);
-        if (!is_byte_widen(ka)) continue;
-        /* operand B: a byte widen, or an integer constant (its low byte is
-         * what the byte op reads). */
-        if (!is_byte_widen(kb)
-            && !(generic(kb->op)==CNST && (optype(kb->op)==I || optype(kb->op)==U)))
+        if (!n || n->count != 1) continue;
+
+        if (is_narrowable_unary(n->op)) {
+            /* ~x / -x : one byte-widened operand, low byte is all that matters. */
+            ka = under_conv(n->kids[0]);
+            if (!is_byte_widen(ka)) continue;
+            n->x.narrow  = 1;             /* emit COMB / NEGB */
+            ka->x.narrow = 1;             /* elision candidate */
             continue;
-        /* The byte op reads only the low bytes, so ADDB/... is ALWAYS correct
-         * regardless of sharing. Flag the operand widens as ELISION CANDIDATES;
-         * whether the dead zero-extend is actually dropped is decided at emit
-         * time by widen_dead_after() (Phase 1b), which checks the physical temp
-         * is not read by any wider consumer. */
-        n->x.narrow  = 1;   /* emit ADDB/SUBB/ANDB/ORB/XORB */
-        ka->x.narrow = 1;   /* candidate: elide its CZBW if the temp stays byte-only */
-        if (is_byte_widen(kb))
-            kb->x.narrow = 1;
+        }
+        if ((n->op==LSHI || n->op==LSHU)) {
+            /* x << 1 : the low byte of (x<<1) needs only x's low byte. Only
+             * the shift-by-1 form maps to a single asl (LSH1B); other counts
+             * stay on the word path (the byte would need a count-driven loop),
+             * so leave them un-narrowed and their widens intact. */
+            ka = under_conv(n->kids[0]);
+            kb = n->kids[1];
+            if (!is_byte_widen(ka)) continue;
+            if (!(is_int_const(kb) && kb->syms[0] && kb->syms[0]->u.c.v.i == 1))
+                continue;
+            n->x.narrow  = 1;             /* emit LSH1B */
+            ka->x.narrow = 1;             /* elision candidate */
+            continue;
+        }
+        if (is_narrowable_binary(n->op)) {
+            ka = under_conv(n->kids[0]);
+            kb = under_conv(n->kids[1]);
+            if (!is_byte_widen(ka)) continue;
+            /* operand B: a byte widen, or an integer constant (its low byte is
+             * what the byte op reads). */
+            if (!is_byte_widen(kb) && !is_int_const(kb))
+                continue;
+            /* The byte op reads only the low bytes, so ADDB/... is ALWAYS
+             * correct regardless of sharing. Flag the operand widens as
+             * ELISION CANDIDATES; whether the dead zero-extend is actually
+             * dropped is decided at emit time by widen_dead_after() (Phase 1b),
+             * which checks the physical temp is not read by any wider consumer. */
+            n->x.narrow  = 1;   /* emit ADDB/SUBB/ANDB/ORB/XORB */
+            ka->x.narrow = 1;   /* candidate: elide its CZBW if the temp stays byte-only */
+            if (is_byte_widen(kb))
+                kb->x.narrow = 1;
+            continue;
+        }
     }
 }
 
@@ -1078,7 +1111,9 @@ static void emitdag(Node p) {
         case RSHU:                        binary("RSHW");   break;
         case RSHI:                        binary("ASRW");   break;  /* signed >> keeps the sign */
         case LSHI:  case LSHU:
-            if (optimizelevel>=2 && strcmp(b->x.name,"1")==0) {
+            if (p->x.narrow)
+                unary("LSH1B");         /* char x << 1 (byte-narrowed) */
+            else if (optimizelevel>=2 && strcmp(b->x.name,"1")==0) {
                 unary("LSH1W");
             } else binary("LSHW");
             break;
@@ -1106,9 +1141,9 @@ static void emitdag(Node p) {
             if (!p->x.optimized)
                 unary("INDIRS");
             break;
-        case BCOMU:                       unary("COMW" );   break;
+        case BCOMU:        if (p->x.narrow) unary("COMB"); else unary("COMW");   break;
         case NEGD:  case NEGF:            unary("NEGF" );   break;
-        case NEGI:                        unary("NEGI" );   break;
+        case NEGI:         if (p->x.narrow) unary("NEGB"); else unary("NEGI");   break;
         case CVCI: case CVSI:             unary("CSBW");    break;
         case CVCU: case CVSU:
             /* Phase 1b: elide the zero-extend when this widen was proven

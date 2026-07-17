@@ -42,5 +42,26 @@ void main(void)
 	a = 0; b = 1; c = a - b;                 /* -1 -> 255 */
 	tk_check_eq(c, 255, "sub-borrow");
 
+	/* Phase 2: unary ~ , unary - , << 1 */
+	a = 0x0F; c = ~a;                        /* ~0x0F -> 0xF0 */
+	tk_check_eq(c, 0xF0, "com");
+	a = 1;    c = -a;                        /* -1 -> 255 */
+	tk_check_eq(c, 255, "neg1");
+	a = 5;    c = -a;                        /* -5 -> 251 */
+	tk_check_eq(c, 251, "neg5");
+	a = 0x40; c = a << 1;                    /* 0x80 */
+	tk_check_eq(c, 0x80, "shl");
+	a = 0x80; c = a << 1;                    /* 0x100 -> 0x00 (wrap) */
+	tk_check_eq(c, 0x00, "shl-wrap");
+	a = 0xFF; c = a << 1;                    /* 0x1FE -> 0xFE */
+	tk_check_eq(c, 0xFE, "shl-ff");
+
+	/* mixed with Phase 1 ops (these exercise the word path for the inner op
+	   but must still produce the right char result) */
+	a = 0x03; c = (~a) & 0x0F;               /* 0xFC & 0x0F -> 0x0C */
+	tk_check_eq(c, 0x0C, "com-and");
+	a = 0x09; c = (a << 1) + 1;              /* 0x12 + 1 -> 0x13 */
+	tk_check_eq(c, 0x13, "shl-add");
+
 	tk_end();
 }

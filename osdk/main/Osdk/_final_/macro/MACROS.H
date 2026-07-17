@@ -797,6 +797,86 @@ skip :\
  ora tmp2 :\
  sta tmp3 :\
 
+; 8-bit (byte) unary + shift - Phase 2 of native char operations.
+; Low-byte halves of COMW / NEGI / LSH1W. Emitted when a char ~x, -x or
+; x<<1 has a char-only result (see gen.c). Same operand/result modes as
+; the word forms so -O3 folded operands are covered.
+#define COMB_DD(tmp1,tmp2)\
+ lda tmp1 :\
+ eor #$FF :\
+ sta tmp2 :\
+
+#define COMB_DY(tmp1,ptr2,y2)\
+ ldy #y2 :\
+ lda tmp1 :\
+ eor #$FF :\
+ sta ptr2,y :\
+
+#define COMB_YD(ptr1,y1,tmp2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ eor #$FF :\
+ sta tmp2 :\
+
+#define COMB_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ eor #$FF :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
+#define NEGB_DD(tmp1,tmp2)\
+ lda #0 :\
+ sec :\
+ sbc tmp1 :\
+ sta tmp2 :\
+
+#define NEGB_DY(tmp1,ptr2,y2)\
+ ldy #y2 :\
+ lda #0 :\
+ sec :\
+ sbc tmp1 :\
+ sta ptr2,y :\
+
+#define NEGB_YD(ptr1,y1,tmp2)\
+ ldy #y1 :\
+ lda #0 :\
+ sec :\
+ sbc ptr1,y :\
+ sta tmp2 :\
+
+#define NEGB_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1 :\
+ lda #0 :\
+ sec :\
+ sbc ptr1,y :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
+#define LSH1B_DD(tmp1,tmp2)\
+ lda tmp1 :\
+ asl :\
+ sta tmp2 :\
+
+#define LSH1B_DY(tmp1,ptr2,y2)\
+ ldy #y2 :\
+ lda tmp1 :\
+ asl :\
+ sta ptr2,y :\
+
+#define LSH1B_YD(ptr1,y1,tmp2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ asl :\
+ sta tmp2 :\
+
+#define LSH1B_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ asl :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
 #define ADDW_DDD(tmp1,tmp2,tmp3)\
  clc :\
  lda tmp1 :\
