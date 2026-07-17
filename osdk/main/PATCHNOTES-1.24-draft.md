@@ -142,6 +142,15 @@ doc_historic.htm; unmarked items still need entries.
 - **Problem:** the C-API wrapper in front of the (correct, carefully flag-commented) LZ77 core adds the unpacked size to the destination pointer with the carry in whatever state the compiled caller left it — the sibling _file_unpack does clc before the identical addition. If C=1 at entry, the end pointer is one too high and one extra byte is emitted past the intended end.
 - **Fix:** add the clc, matching the sibling.
 
+### SEDORIC support rewritten: sedoric() fixed, sed_savefile/sed_loadfile added, new zero-page shelter module
+- **Found:** lib audit + long-standing field reports (forum "SEDORIC in C": sedoric() caused "syntax error on exit" and garbage LIST output).
+- **Problem (old sedoric()):** the command string was copied UNBOUNDED into the $35 line buffer, which overlaps the C runtime zero page from $50 on — any command longer than 26 characters corrupted ap/fp/sp; and TXTPTR ($E9/$EA) was clobbered without restore (the "syntax error on exit").
+- **New lib/zeropage.s:** _zp_swap exchanges the C runtime zero-page block (ap..zp_compiler_save_end, bounds taken from the zp_crt labels so OSDK_ZP_START relocation is handled) with an internal buffer. Self-inverse: one 20-byte routine + 44-byte buffer both saves and restores; IRQ-safe (sei during the swap). Only the compiler block is swapped, so ROM/BASIC/SEDORIC zero-page state (CHRGET, TXTPTR, float accus) stays live — which DOS calls require. Reusable for any ROM/DOS interop.
+- **New sedoric.s:** fresh implementation. sedoric() now shelters the C block, bounds the command to the 79-char buffer and restores TXTPTR. New sed_savefile(name,buf,len) / sed_loadfile(name,buf,&len) save/load SEDORIC data files via the documented entry points, named after "SEDORIC (3.0) à nu" (XNF $D454, XLOADA $E0E5, the common SAVE tail $DE0B, RAMROM $04F2, ERRGOTO, VSALO/DESALO/FISALO/EXSALO/LGSALO); both return the DOS error number (cleared before the call), 0 on success.
+- **Credits:** entry points and names from "SEDORIC (3.0) à nu" (A. Chéramy, C. Sittler); load/save technique validated against ISS's GPL lib-sedoric (reference only, not copied — github.com/iss000/oricOpenLibrary, forum thread t=2232).
+- **Size:** whole module ~366 bytes (vs ~490 for the GPL reference), pulled only when referenced.
+- **Validation:** build-level (links, ndx dependency chain pulls zeropage.s automatically); runtime validation via the upcoming sedoric sample (tap2dsk + old2mfm disk).
+
 ### CRT slimming: -396 bytes for a minimal program
 - The 256-byte software stack is no longer emitted in the tap (moved to .bss above the image; osdk_end semantics preserved); enter/leave moved from always-linked header.s to lib/frame.s, linked only when referenced. cif/cfi moved from header.s to lib/float.s, on demand (-33 bytes for every non-float program). (`6ade0460`, `32f86eff`)
 

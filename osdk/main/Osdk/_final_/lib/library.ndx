@@ -247,8 +247,12 @@
 	_OsdkTableMod6
 -overlay.s
 	_is_overlay_enabled
+-zeropage.s
+    _zp_swap
 -sedoric.s
     _sedoric
+    _sed_savefile
+    _sed_loadfile
 -joystick.s
     _joystick_type_select
     _joystick_read

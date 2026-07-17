@@ -71,13 +71,20 @@ int  cread();				 /* read a byte from 'tape' */
 void cwritehdr();		     /* write a file header to tape */
 void call(int addr);		     /* call a machine code routine */
 
-/* sedoric(): Please use the exclamation mark as well, e.g. sedoric("!DIR") */
-/*	      Bear in mind that this might well be broken. I don't know     */
-/*	      much about SEDORIC yet... No error handling! Anything wrong   */
-/*	      happens, and you get an error, and go back to the 'Ready'     */
-/*	      prompt. Can anyone fix things here? I declare my ignorance.   */
+/* SEDORIC access. The C runtime zero page is sheltered around every call
+   (see lib/zeropage.s), so these are safe to call from a running program.
 
-void sedoric(char *command);		/* invoke a sedoric command */
+   sedoric(): execute a command line as if typed after "!", e.g.
+   sedoric("!DIR"). The command is bounded to the 79 character line buffer.
+
+   sed_savefile(): save len bytes from buf as a SEDORIC data file.
+   sed_loadfile(): load a file at address buf (",A" semantics) and store
+   its length in *len.
+   Both return the SEDORIC error number, 0 on success. */
+
+void sedoric(const char *command);
+int  sed_savefile(const char *name, void *buf, unsigned int len);
+int  sed_loadfile(const char *name, void *buf, unsigned int *len);
 
 /* Disk drive API - Work in progress
 void init_disk()
