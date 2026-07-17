@@ -128,7 +128,16 @@ doc_historic.htm; unmarked items still need entries.
 ### Headers: EXIT_SUCCESS/EXIT_FAILURE, const-correct string.h `[documented]`
 - Missing EXIT_* was the single most common build failure across the imported cc65 suite (55 of 313 tests). (`d85d0f9b`)
 
-### file_unpack_raw: missing clc in the C wrapper (uncommitted yet)
+### String functions: strstr, strcspn, strspn, strrchr, memccpy (+ t_string test)
+- **Found:** lib audit; validated with the new t_string.c (page-crossing buffers, C89 edge cases). Baseline evidence: memccpy made ANY program using it fail to link; the others returned wrong results in specific conditions.
+- **strstr.s:** on a mismatch after a partial match it reset the needle but never rewound the haystack, so overlapped matches were missed (strstr("aaab","aab") returned NULL instead of s+1). Now records the match start (offset+page) and resumes from match start + 1. Also strstr(s,"") returned garbage (uninitialized result registers); now returns s per C89.
+- **strcspn.s / strspn.s:** the s1 page-crossing path jumped back into the INNER loop instead of the outer one, silently skipping the first character of every 256-byte page — wrong results for any string longer than 256 bytes (a skipped stop-character made the span run long). Now continues with the outer loop.
+- **strrchr.s:** (1) the returned pointer was computed with the scan-advanced high byte of the string pointer, so any string longer than 256 bytes returned an address too high by the number of pages crossed; the original high byte is now saved and used. (2) C89: strrchr(s,'\0') now returns a pointer to the terminator instead of NULL (same class as the strchr fix).
+- **memccpy.s:** rewritten standalone. The old code patched a byte inside strncpy (which, after the strncpy rewrite, landed on an OPCODE, not an operand) and jumped to a label (cpycommon) that no longer exists — any program referencing memccpy failed at link/assembly time. Prototype added to string.h (it was missing entirely).
+- **Validation:** t_string.c — 24 checks covering all five functions including >256-byte page-crossing buffers and C89 edge cases, at -O1/-O2/-O3.
+- **Size discipline:** strcspn/strspn are byte-identical (branch retarget only); strrchr +4 bytes for the two fixes; strstr +18 (the rewind state); memccpy is 62 bytes standalone with a two-counter loop (the old 9-byte version only "worked" by not linking at all).
+
+### file_unpack_raw: missing clc in the C wrapper
 - **Found:** lib audit; confirmed by carry-state trace.
 - **Problem:** the C-API wrapper in front of the (correct, carefully flag-commented) LZ77 core adds the unpacked size to the destination pointer with the carry in whatever state the compiled caller left it — the sibling _file_unpack does clc before the identical addition. If C=1 at entry, the end pointer is one too high and one extra byte is emitted past the intended end.
 - **Fix:** add the clc, matching the sibling.

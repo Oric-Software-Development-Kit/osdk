@@ -179,6 +179,14 @@ extern char *strnset(char *s, char c, int n);
 
 extern void *memset(void *buffer, int c, int count);
 
+
+/* Copy at most n bytes from src to dest, stopping after the first byte
+   equal to c (only the low order byte is used) has been copied. Returns
+   a pointer to the byte after c in dest, or NULL if c was not found in
+   the first n bytes. */
+
+extern void *memccpy(void *dest, const void *src, int c, unsigned int n);
+
 #endif /* _STRING_ */
 
 /* end of file string.h */
