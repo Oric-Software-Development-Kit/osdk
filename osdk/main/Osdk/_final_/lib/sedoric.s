@@ -59,13 +59,18 @@ loop
         dey
         bpl loop
 
-        clc                 ; sed_end = buf + len (SEDORIC wants end, C len)
-        lda sed_end
-        adc sed_begin
+        clc                 ; sed_end = buf + len - 1: SEDORIC end addresses
+        lda sed_end         ; are INCLUSIVE (SAVE"F",A#A000,E#BF3F saves 8000
+        adc sed_begin       ; bytes), so FISALO must hold the LAST byte
         sta sed_end
         lda sed_end+1
         adc sed_begin+1
         sta sed_end+1
+        lda sed_end
+        bne savedec
+        dec sed_end+1
+savedec
+        dec sed_end
 
         jsr sed_open        ; shelter zp, bank in, parse filename
 
@@ -117,9 +122,12 @@ loop
 
         jsr SED_XLOADA
 
-        lda SED_LGSALO      ; bring the size out of the overlay bank
+        lda SED_LGSALO      ; bring the size out of the overlay bank;
+        clc                 ; LGSALO = FISALO-DESALO with an INCLUSIVE end,
+        adc #1              ; so the real byte count is LGSALO+1
         sta sed_size
         lda SED_LGSALO+1
+        adc #0
         sta sed_size+1
 
         jsr sed_close       ; bank out, restore zp; X = error, A = 0
