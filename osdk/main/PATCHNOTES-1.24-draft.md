@@ -110,6 +110,11 @@ Cycles are exact: read from Oricutron's internal cycle counter (correct and stab
 ### New 6502 peephole optimizer (-O, used at OSDKMACRO=-O)
 - Removes redundant load/store patterns after macro expansion (self-store, load-after-store, dead store, tail call jsr+rts→jmp, dead rts after jmp, cross-register transfers, same-immediate reload).
 
+### Peephole: dead-load elimination
+- **Found:** a linked-assembly review of the benchmark corpus showed a recurring residue — a load whose value is immediately overwritten without being used, e.g. `lda t : lda #0 : sta t+1`. It comes from the self-store rule itself: an in-place zero-extend `CZBW t,t` expands to `lda t : sta t : lda #0 : sta t+1`; the self-store rule drops `sta t`, leaving the now-dead `lda t`. 30 occurrences in aes256 alone.
+- **Fix:** a new pass eliminates a load (`lda`/`ldx`/`ldy`) whose target register is rewritten by the very next instruction without being read (`lda`/`txa`/`tya`/`pla`, `ldx`/`tax`/`tsx`, `ldy`/`tay`) — the load's value and its N/Z flags are both dead. I/O-page reads (a hardware side effect) are excluded; the optimizer already re-runs to a fixpoint, so it fires after the self-store rule exposes the dead load. Byte-for-byte behaviour is unchanged (verified: the full known-answer suite passes at -O1/-O2/-O3 with the peephole on, aes256 included).
+- Test infra: `run_tests.ps1 -Peephole` now runs the suite through the peephole for regression cover.
+
 ### Peephole hardened against 4 unsafety classes
 - **Found:** systematic safety review before enabling it more widely.
 - **Problems/Fixes:** (1) regions containing `*+N`/`*-N` operands are frozen — no elimination or size change may move a self-mod target; (2) loads from the I/O page $300-$3FF are never eliminated (VIA reads have side effects); (3) load-after-store elimination requires N/Z to already reflect the register, preserving flag semantics for a following branch; (4) comment lines tokenize whole and act as barriers. Byte-identical output on real code (guards cost nothing). (`62e3ccc8`)

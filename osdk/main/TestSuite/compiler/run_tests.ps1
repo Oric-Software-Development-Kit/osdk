@@ -20,7 +20,8 @@ param(
     [string]$Label = 'run',
     [int]$TimeoutSec = 60,
     [switch]$Headless,     # pass --headless to the emulator: no window, no focus steal
-    [switch]$Turbo         # start the emulator at warp speed (--turbo, needs a build with the flag)
+    [switch]$Turbo,        # start the emulator at warp speed (--turbo, needs a build with the flag)
+    [switch]$Peephole      # build with the MacroSplitter peephole optimizer (OSDKMACRO=-O)
 )
 
 . "$PSScriptRoot\hidden_launch.ps1"
@@ -110,6 +111,7 @@ SET OSDKADDR=`$400
 SET OSDKNAME=TKTEST
 SET OSDKFILE=main tk_io
 SET OSDKCOMP=-O$lvl
+$(if ($Peephole) { "SET OSDKMACRO=-O" })
 "@ | Out-File -Encoding ascii "$scaffold\osdk_config.bat"
 
         Push-Location $scaffold

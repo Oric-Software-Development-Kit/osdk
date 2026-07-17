@@ -667,6 +667,19 @@ static bool SetsFlagsFromRegister(const Token& t, char reg)
 }
 
 
+// Does this instruction overwrite register `reg` WITHOUT reading it (and set
+// N/Z from the new value)? Used by dead-load elimination: a load whose result
+// is immediately clobbered by such an instruction is dead. Deliberately
+// excludes read-modify ops (adc/and/inx/...) and stores (which read the reg).
+static bool ClobbersRegWithoutRead(const std::string& m, char reg)
+{
+	if (reg == 'a') return m == "lda" || m == "txa" || m == "tya" || m == "pla";
+	if (reg == 'x') return m == "ldx" || m == "tax" || m == "tsx";
+	if (reg == 'y') return m == "ldy" || m == "tay";
+	return false;
+}
+
+
 // Store/Load pairs for pattern matching
 struct RegisterPair
 {
@@ -842,6 +855,34 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 						printf("MacroSplitter: [line %d] Dead store eliminated: %s (%d bytes)\n", a.lineIndex + 1, a.text.c_str(), bytes);
 					}
 					break;
+				}
+			}
+
+			// Pattern 8: Dead-load elimination. A load whose value (and N/Z
+			// flags) are immediately overwritten by an instruction that
+			// rewrites the same register without reading it (lda/txa/tya/pla,
+			// ldx/tax/tsx, ldy/tay) is dead. This is common after Pattern 1
+			// removes the self-store from an in-place CZBW widen, leaving
+			//   lda t : [sta t gone] : lda #0 : sta t+1
+			// where the "lda t" no longer feeds anything. a and b are already
+			// known adjacent, same-block, non-frozen instructions. Skip
+			// I/O-page reads (a hardware side effect, not truly dead).
+			if (!a.eliminated && !b.eliminated)
+			{
+				char reg = 0;
+				if (a.mnemonic == "lda") reg = 'a';
+				else if (a.mnemonic == "ldx") reg = 'x';
+				else if (a.mnemonic == "ldy") reg = 'y';
+				if (reg && !IsIOPageAddress(a.operand)
+					&& ClobbersRegWithoutRead(b.mnemonic, reg))
+				{
+					int bytes = EstimateInstructionSize(a.mnemonic, a.operand);
+					a.eliminated = true;
+					eliminated++;
+					bytesSaved += bytes;
+					if (g_verbosity >= 3)
+						printf("MacroSplitter: [line %d] Dead load eliminated: %s (%d bytes)\n", a.lineIndex + 1, a.text.c_str(), bytes);
+					continue;
 				}
 			}
 
