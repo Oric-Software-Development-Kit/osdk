@@ -1149,14 +1149,27 @@ static void emitdag(Node p) {
         case DIVU:                        binary("DIVU");   break;
         case MODI:                        binary("MODI");   break;
         case MODU:                        binary("MODU");   break;
-        case RSHU:         if (p->x.narrow) unary("RSH1B"); else binary("RSHW");   break;
-        case RSHI:         if (p->x.narrow) unary("RSH1B"); else binary("ASRW");   break;  /* signed >> keeps the sign; uchar>>1 is logical (RSH1B) */
+        case RSHU:
+            if (p->x.narrow) unary("RSH1B");                        /* uchar x >> 1 */
+            else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
+                     && simple_adrmode(a->x.adrmode)!='C') unary("RSHW8");  /* >>8 = byte move */
+            else binary("RSHW");
+            break;
+        case RSHI:
+            if (p->x.narrow) unary("RSH1B");                        /* uchar x >> 1 is logical */
+            else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
+                     && simple_adrmode(a->x.adrmode)!='C') unary("ASRW8");  /* signed >>8 = byte move + sign fill */
+            else binary("ASRW");                                   /* signed >> keeps the sign */
+            break;
         case LSHI:  case LSHU:
             if (p->x.narrow)
                 unary("LSH1B");         /* char x << 1 (byte-narrowed) */
-            else if (optimizelevel>=2 && strcmp(b->x.name,"1")==0) {
+            else if (optimizelevel>=2 && strcmp(b->x.name,"1")==0)
                 unary("LSH1W");
-            } else binary("LSHW");
+            else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
+                     && simple_adrmode(a->x.adrmode)!='C')
+                unary("LSHW8");         /* x << 8 = byte move */
+            else binary("LSHW");
             break;
         case INDIRC: case INDIRS:
             if (!p->x.optimized)

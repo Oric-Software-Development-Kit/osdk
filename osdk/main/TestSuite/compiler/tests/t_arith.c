@@ -41,6 +41,21 @@ void main(void)
 	gu = 0x8000u; gj = 15;
 	tk_check_eq(gu >> gj, 1u, "lsr-var");
 
+	/* shift by exactly 8 = byte move (LSHW8 / RSHW8 / ASRW8) */
+	gi = 0x1234;
+	tk_check_eq(gi << 8, 0x3400, "shl8");                 /* low byte -> high, low = 0 */
+	tk_check_eq(gi >> 8, 0x0012, "sar8-pos");             /* signed, positive: fill 0 */
+	gi = (int)0x8000;                                      /* -32768 */
+	tk_check_eq(gi >> 8, (unsigned int)-128, "sar8-neg"); /* sign fill -> 0xFF80 */
+	gu = 0xABCDu;
+	tk_check_eq(gu >> 8, 0x00ABu, "lsr8");                /* unsigned: logical */
+	gu = 0x00CDu;
+	tk_check_eq(gu << 8, 0xCD00u, "shl8u");
+	gi = 0x12;
+	tk_check_eq(gi * 256, 0x1200, "mul256");              /* strength-reduced to << 8 */
+	gu = 0xAB00u;
+	tk_check_eq(gu / 256u, 0x00ABu, "div256");            /* strength-reduced to >> 8 */
+
 	gu = 0xF0F0u; gv = 0x3C3Cu;
 	tk_check_eq(gu & gv, 0x3030u, "and");
 	tk_check_eq(gu | gv, 0xFCFCu, "or");

@@ -905,6 +905,116 @@ skip :\
  ldy #y2 :\
  sta ptr2,y :\
 
+; shift a 16-bit value by exactly 8 = a byte move (no loop). Emitted for
+; x<<8 / x>>8 (e.g. splitting an address, or fetching the integer part of an
+; 8.8 fixed-point value) instead of the 8-iteration LSHW/RSHW/ASRW routine.
+; LSHW8: r = x<<8  -> r.hi = x.lo, r.lo = 0
+#define LSHW8_DD(tmp1,tmp2)\
+ lda tmp1 :\
+ sta tmp2+1 :\
+ lda #0 :\
+ sta tmp2 :\
+
+#define LSHW8_DY(tmp1,ptr2,y2)\
+ lda tmp1 :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+ lda #0 :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
+#define LSHW8_YD(ptr1,y1,tmp2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ sta tmp2+1 :\
+ lda #0 :\
+ sta tmp2 :\
+
+#define LSHW8_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1 :\
+ lda ptr1,y :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+ lda #0 :\
+ ldy #y2 :\
+ sta ptr2,y :\
+
+; RSHW8: r = x>>8 unsigned/logical -> r.lo = x.hi, r.hi = 0
+#define RSHW8_DD(tmp1,tmp2)\
+ lda tmp1+1 :\
+ sta tmp2 :\
+ lda #0 :\
+ sta tmp2+1 :\
+
+#define RSHW8_DY(tmp1,ptr2,y2)\
+ lda tmp1+1 :\
+ ldy #y2 :\
+ sta ptr2,y :\
+ lda #0 :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+
+#define RSHW8_YD(ptr1,y1,tmp2)\
+ ldy #y1+1 :\
+ lda ptr1,y :\
+ sta tmp2 :\
+ lda #0 :\
+ sta tmp2+1 :\
+
+#define RSHW8_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1+1 :\
+ lda ptr1,y :\
+ ldy #y2 :\
+ sta ptr2,y :\
+ lda #0 :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+
+; ASRW8: r = x>>8 signed/arithmetic -> r.lo = x.hi, r.hi = sign of x.hi
+; (branchless: after storing x.hi, asl pushes its bit 7 into carry, then
+;  0-borrow gives $00/$FF inverted, eor #$FF corrects it to $FF when negative)
+#define ASRW8_DD(tmp1,tmp2)\
+ lda tmp1+1 :\
+ sta tmp2 :\
+ asl :\
+ lda #0 :\
+ sbc #0 :\
+ eor #$FF :\
+ sta tmp2+1 :\
+
+#define ASRW8_DY(tmp1,ptr2,y2)\
+ lda tmp1+1 :\
+ ldy #y2 :\
+ sta ptr2,y :\
+ asl :\
+ lda #0 :\
+ sbc #0 :\
+ eor #$FF :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+
+#define ASRW8_YD(ptr1,y1,tmp2)\
+ ldy #y1+1 :\
+ lda ptr1,y :\
+ sta tmp2 :\
+ asl :\
+ lda #0 :\
+ sbc #0 :\
+ eor #$FF :\
+ sta tmp2+1 :\
+
+#define ASRW8_YY(ptr1,y1,ptr2,y2)\
+ ldy #y1+1 :\
+ lda ptr1,y :\
+ ldy #y2 :\
+ sta ptr2,y :\
+ asl :\
+ lda #0 :\
+ sbc #0 :\
+ eor #$FF :\
+ ldy #y2+1 :\
+ sta ptr2,y :\
+
 #define ADDW_DDD(tmp1,tmp2,tmp3)\
  clc :\
  lda tmp1 :\
