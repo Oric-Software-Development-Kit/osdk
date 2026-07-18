@@ -250,11 +250,14 @@ doc_historic.htm's debug section.)
 # PERFORMANCE (ISS oricCompilerBenchmark, 22 samples, vs 1.23 -O2)
 
 Correctness-gated: every size/cycle figure reported only after the sample's computed output is
-byte-identical across all five configs. **Code size** new-O3 −20..27% typical (−30% frogmove),
-aes256 −16.5%. **Speed** frogmove −67.8%, memcopy −44%, selection-sort −35%, aes256 −31.3% (-O3;
-−37% at -O2), bubble-sort −30%; the peephole adds a further ~1–4% and never changes output. Full
-table + correctness matrix in `TestSuite/compiler/benchtable-1.24.md`. (NOTE: regenerate — stale
-since the later peephole/codegen commits.)
+byte-identical across all five configs (all 22 verified). **Code size** new-O3pp −20..31% typical
+(−30.9% frogmove), aes256 −19.7%; total 98184 → 77983 B (−20.8%). **Speed** frogmove −70.4%,
+memcopy −44.0%, aes256 −42.2% (-O3), selection-sort −35.0%, bubble-sort −30.2%. The peephole never
+changes output; its win scales with macro density — ~1-3% on tight scalar code but up to −20.8%
+cycles / −12% size on char-heavy code (aes256 -O3 → -O3pp), as the comment-transparency +
+copy-propagation passes clean up across macro seams. (The former aes256 "-O2 faster than -O3"
+anomaly is resolved by the -O3 dead-char-widen elision.) Full table + correctness matrix in
+`TestSuite/compiler/benchtable-1.24.md` (regenerated 2026-07-18).
 
 ---
 
