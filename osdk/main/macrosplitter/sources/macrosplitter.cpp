@@ -929,6 +929,108 @@ static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// Invert a conditional-branch mnemonic (beq<->bne, bcc<->bcs, bmi<->bpl,
+// bvc<->bvs). Returns "" if not a two-way branch.
+static std::string InvertBranch(const std::string& m)
+{
+	if (m=="beq") return "bne";  if (m=="bne") return "beq";
+	if (m=="bcc") return "bcs";  if (m=="bcs") return "bcc";
+	if (m=="bmi") return "bpl";  if (m=="bpl") return "bmi";
+	if (m=="bvc") return "bvs";  if (m=="bvs") return "bvc";
+	return "";
+}
+
+// Branch relaxation. The comparison macros emit a range-safe "branch around a
+// jump" idiom so the jump can reach any distance:
+//     .( <flag-setting> : b<cc> skip : jmp TARGET : skip .)
+// meaning "if !cc goto TARGET". When TARGET is provably within a 6502 relative
+// branch's reach we collapse it to a single inverted branch, dropping the 3-byte
+// jmp:  b<!cc> TARGET.
+//
+// Safety: this only runs on compiler-generated code (the peephole never touches
+// hand assembler); the span is function-local; the distance is a conservative
+// UPPER bound with margin (MAXSPAN < the true +127/-128 reach), so a wrong guess
+// can only make us skip a relaxation, never emit an out-of-range branch. We also
+// bail on any directive or frozen (*+N) token in the span. Every relaxation only
+// shrinks code, so distances stay monotonically smaller across the fixpoint - a
+// branch proven in range never leaves it. XA + the execute gate are the last net.
+static int RelaxBranchIdioms(std::vector<Token>& toks, int& bytesSaved)
+{
+	const int MAXSPAN = 120;
+	int relaxed = 0;
+
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		Token& br = toks[i];
+		if (br.eliminated || br.frozen) continue;
+		if (br.type != TokenType::Instruction) continue;
+		if (!IsConditionalBranch(br.mnemonic)) continue;
+		std::string inv = InvertBranch(br.mnemonic);
+		if (inv.empty()) continue;
+
+		// next real token must be `jmp TARGET`
+		size_t j = i + 1;
+		while (j < toks.size() && (toks[j].eliminated
+			|| toks[j].type == TokenType::Comment
+			|| toks[j].type == TokenType::Empty)) j++;
+		if (j >= toks.size() || toks[j].frozen) continue;
+		if (toks[j].type != TokenType::Instruction || toks[j].mnemonic != "jmp") continue;
+
+		// the token after the jmp must be the branch's own target label - i.e. the
+		// branch skips over exactly this jmp (the "skip" local label of the idiom)
+		size_t k = j + 1;
+		while (k < toks.size() && (toks[k].eliminated
+			|| toks[k].type == TokenType::Comment
+			|| toks[k].type == TokenType::Empty)) k++;
+		if (k >= toks.size()) continue;
+		if (toks[k].type != TokenType::Label || toks[k].text != br.operand) continue;
+
+		std::string target = toks[j].operand;
+		if (target.empty()) continue;
+
+		// conservative byte distance from the branch to TARGET (search both ways,
+		// bail on anything unsizable in the span)
+		bool inRange = false;
+		{
+			int span = 0; // forward: bytes from end-of-branch to target start
+			for (size_t x = i + 1; x < toks.size(); x++)
+			{
+				if (toks[x].eliminated) continue;
+				if (toks[x].type == TokenType::Label && toks[x].text == target) { inRange = (span <= MAXSPAN); break; }
+				if (toks[x].type == TokenType::Directive || toks[x].frozen) break;
+				if (toks[x].type == TokenType::Instruction)
+					span += EstimateInstructionSize(toks[x].mnemonic, toks[x].operand);
+				if (span > MAXSPAN) break;
+			}
+		}
+		if (!inRange)
+		{
+			int span = 2; // backward: the branch's own 2 bytes + bytes back to target
+			for (size_t x = i; x-- > 0; )
+			{
+				if (toks[x].eliminated) continue;
+				if (toks[x].type == TokenType::Label && toks[x].text == target) { inRange = (span <= MAXSPAN); break; }
+				if (toks[x].type == TokenType::Directive || toks[x].frozen) break;
+				if (toks[x].type == TokenType::Instruction)
+					span += EstimateInstructionSize(toks[x].mnemonic, toks[x].operand);
+				if (span > MAXSPAN) break;
+			}
+		}
+		if (!inRange) continue;
+
+		// relax:  b<cc> skip / jmp TARGET  ->  b<!cc> TARGET  (jmp dropped).
+		// The `skip` label (toks[k]) is now unreferenced but harmless (0 bytes);
+		// leave it and the enclosing .( .) in place.
+		bytesSaved += EstimateInstructionSize(toks[j].mnemonic, toks[j].operand);
+		toks[j].eliminated = true;
+		br.mnemonic = inv;
+		br.operand  = target;
+		br.text     = inv + " " + target;
+		relaxed++;
+	}
+	return relaxed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1260,6 +1362,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += CopyPropagate(allTokens, bytesSaved);
 		// block-scoped redundant immediate-load elimination + iny/dey rewrites
 		eliminated += MarkRedundantImmLoads(allTokens, bytesSaved);
+		// branch relaxation: b<cc> skip:jmp TARGET:skip -> b<!cc> TARGET in range
+		eliminated += RelaxBranchIdioms(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
