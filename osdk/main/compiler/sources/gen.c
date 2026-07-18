@@ -1129,8 +1129,12 @@ static void emitdag(Node p) {
         case BXORU:        if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
         case ADDD:  case ADDF:            binary("ADDF");   break;
         case ADDI:  case ADDP:  case ADDU:
-            if (p->x.narrow)
-                binary("ADDB");
+            if (p->x.narrow) {
+                if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
+                    && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
+                    print("\tINCB_%c(%s)\n" ,simple_adrmode(p->x.adrmode) ,output_arg(p));  /* c++ in place */
+                else binary("ADDB");
+            }
             else if (optimizelevel>=2
                     && strcmp(a->x.name,p->x.name)==0
                     && strcmp(b->x.name,"1")==0
@@ -1141,8 +1145,12 @@ static void emitdag(Node p) {
             break;
         case SUBD:  case SUBF:            binary("SUBF");  break;
         case SUBI:  case SUBP:  case SUBU:
-            if (p->x.narrow)
-                binary("SUBB");
+            if (p->x.narrow) {
+                if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
+                    && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
+                    print("\tDECB_%c(%s)\n" ,simple_adrmode(p->x.adrmode) ,output_arg(p));  /* c-- in place */
+                else binary("SUBB");
+            }
             else if (optimizelevel>=2
                     && strcmp(a->x.name,p->x.name)==0
                     && strcmp(b->x.name,"1")==0

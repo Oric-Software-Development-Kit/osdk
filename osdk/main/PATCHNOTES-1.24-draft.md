@@ -29,6 +29,11 @@ doc_historic.htm; unmarked items still need entries.
 - **Fix (gen.c + MACROS.H):** at -O2/-O3 a shift with a constant count of exactly 8 now emits a byte-move macro — `LSHW8` (`r.hi = x.lo, r.lo = 0`), `RSHW8` (logical: `r.lo = x.hi, r.hi = 0`) or `ASRW8` (arithmetic: `r.lo = x.hi, r.hi =` sign of `x.hi`, filled branchlessly). Roughly 10-14 cycles instead of ~100, and no shared loop routine pulled in. Other shift counts are unchanged; the existing `<<1`/`>>1` special cases still take priority. Signed `>>8` keeps its sign (arithmetic), unsigned stays logical.
 - **Result:** new `t_arith` checks (`shl8`, `sar8-pos`, `sar8-neg` with sign fill, `lsr8`, `shl8u`, `mul256`, `div256`) pass at -O1/-O2/-O3. The byte move fires widely — it shrank aes256, t_bitfield, t_struct, t_string, t_float, t_malloc and t_ptr at -O2/-O3 with no regressions.
 
+### In-place `char` increment/decrement is a single memory RMW
+- **Found:** a narrowed `c++` / `c--` (byte `± 1` with operand==result) still went through the general `ADDB`/`SUBB` path — `clc/lda c/adc #1/sta c` (or the `sec/sbc` form) — five instructions for what the 6502 does in one. This mirrors the word case, which already had an `INCW`/`DECW` in-place special case at -O2.
+- **Fix (gen.c + MACROS.H):** when a narrowed `ADDI`/`SUBI` by `1` has its result equal to its operand in a zero-page/direct location, gen.c emits the new `INCB_D`/`DECB_D` macros — a single `inc mem` / `dec mem`. It fires at every optimization level (the narrowing itself is the gate), so any `char` counter benefits. Exact: `inc`/`dec` wrap 8-bit identically to the byte add/subtract they replace.
+- **Result:** full known-answer suite green at -O1/-O2/-O3 (build + execute), aes256 -O3 10645→10633 B; char-counter-heavy code shrinks a byte per `++`/`--` site with fewer cycles.
+
 ### Benchmark result (ISS oricCompilerBenchmark, 2026-07-17, vs OSDK 1.23 -O2)
 Full 22-sample table regenerated with all the compiler+peephole improvements (8-bit char ops, `*2^n`/shift-by-8 codegen, dead-load elimination). See TestSuite/compiler/benchtable-1.24.md for the full table + correctness matrix.
 - **Correctness-gated:** every size/cycle figure is only reported after the sample's *computed output* is verified byte-identical across all five configs (1.23-O2 anchor). All 22 samples pass — a fast-but-wrong build cannot masquerade as a win.

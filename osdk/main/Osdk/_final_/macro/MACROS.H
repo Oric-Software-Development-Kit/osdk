@@ -913,6 +913,15 @@ skip :\
 #define RSH1B_D(tmp1)\
  lsr tmp1 :\
 
+; in-place byte increment/decrement (char c++ / c--): a single memory RMW
+; instead of clc/lda/adc/sta. Emitted by gen.c when a narrowed ADDB/SUBB by 1
+; has operand==result (like the word INCW/DECW special case).
+#define INCB_D(tmp1)\
+ inc tmp1 :\
+
+#define DECB_D(tmp1)\
+ dec tmp1 :\
+
 ; shift a 16-bit value by exactly 8 = a byte move (no loop). Emitted for
 ; x<<8 / x>>8 (e.g. splitting an address, or fetching the integer part of an
 ; 8.8 fixed-point value) instead of the 8-iteration LSHW/RSHW/ASRW routine.
