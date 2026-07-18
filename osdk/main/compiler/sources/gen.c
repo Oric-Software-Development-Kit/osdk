@@ -52,6 +52,10 @@ static unsigned busy_flt;    /* busy_flt&(1<<t) == 1 if tmp t is used */
 static char *NamePrefix;     /* Prefix for all local names */
 static int omit_frame;       /* if no params and no locals */
 static int optimizelevel=3;  /* set by command line option -On */
+static int optimize_for_size=0; /* -Os: size axis. Disables (future) transforms that
+                                 * trade size for speed. No such transform exists yet, so
+                                 * -Os currently produces identical codegen to -O3 (which
+                                 * is the smallest level - its folds are all size wins). */
 static int optstack[16];     /* saved levels for #pragma optimize(push,n) */
 static int optsp;            /* optstack stack pointer */
 static Symbol temp[32];      /* 32 symbols pointing to temporary variables... */
@@ -184,6 +188,9 @@ void progbeg(int argc,char *argv[]) {
                                 /* and do some easy opt. (INC...) */
         } else if (strcmp(argv[i],"-O3")==0) {
             optimizelevel=3;    /* optimizes INDIR, ASGN ... */
+        } else if (strcmp(argv[i],"-Os")==0 || strcmp(argv[i],"-OS")==0) {
+            optimizelevel=3;        /* smallest level today (its folds are size wins) */
+            optimize_for_size=1;    /* size axis - see decl; == -O3 codegen for now */
         } else {
             fprintf(stderr,"Unknown option %s\n",argv[i]);
             exit(1);
