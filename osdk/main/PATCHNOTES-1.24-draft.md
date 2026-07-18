@@ -34,6 +34,11 @@ doc_historic.htm; unmarked items still need entries.
 - **Fix (gen.c + MACROS.H):** when a narrowed `ADDI`/`SUBI` by `1` has its result equal to its operand in a zero-page/direct location, gen.c emits the new `INCB_D`/`DECB_D` macros — a single `inc mem` / `dec mem`. It fires at every optimization level (the narrowing itself is the gate), so any `char` counter benefits. Exact: `inc`/`dec` wrap 8-bit identically to the byte add/subtract they replace.
 - **Result:** full known-answer suite green at -O1/-O2/-O3 (build + execute), aes256 -O3 10645→10633 B; char-counter-heavy code shrinks a byte per `++`/`--` site with fewer cycles.
 
+### Byte compare against zero drops the redundant `cmp #0`
+- **Found:** a narrowed `char == 0` / `char != 0` emitted `EQB`/`NEB` with a literal 0, expanding to `lda c : cmp #0 : bne skip : jmp label : skip`. The `cmp #0` is dead — `lda` already sets the Z (and N) flags the branch reads. These are among the most common comparisons in real code (`while (c)`, `if (!c)`, string-terminator loops).
+- **Fix (gen.c + MACROS.H):** a narrowed `==`/`!=` against constant 0 now routes through `compare0`, emitting the new `EQ0B_D`/`NE0B_D` macros (`lda c : bne/beq skip : jmp label : skip`) — the byte mirror of the existing word `EQ0W_D`/`NE0W_D`. Equality only: the *ordered* byte compares (`LTUB`/`GTUB`/…) keep their `cmp` because they depend on the carry it sets, not just Z. Since the narrowing itself only fires at -O2/-O3, so does this.
+- **Result:** −2 bytes and one compare per `char == 0`/`!= 0` site. Full known-answer suite green at -O1/-O2/-O3 (build + execute); aes256 -O2 11150→11134 B, -O3 10633→10617 B, identical output.
+
 ### Benchmark result (ISS oricCompilerBenchmark, 2026-07-17, vs OSDK 1.23 -O2)
 Full 22-sample table regenerated with all the compiler+peephole improvements (8-bit char ops, `*2^n`/shift-by-8 codegen, dead-load elimination). See TestSuite/compiler/benchtable-1.24.md for the full table + correctness matrix.
 - **Correctness-gated:** every size/cycle figure is only reported after the sample's *computed output* is verified byte-identical across all five configs (1.23-O2 anchor). All 22 samples pass — a fast-but-wrong build cannot masquerade as a win.

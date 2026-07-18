@@ -1408,8 +1408,12 @@ static void emitdag(Node p) {
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
-            if (p->x.narrow)
-                compare("EQB");
+            if (p->x.narrow) {
+                if (strcmp(b->x.name,"0")==0)
+                    compare0("EQ0B");   /* lda sets Z: no cmp #0 */
+                else
+                    compare("EQB");
+            }
             else if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("EQ0W");
             else compare("EQW" );
@@ -1432,8 +1436,12 @@ static void emitdag(Node p) {
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
-            if (p->x.narrow)
-                compare("NEB");
+            if (p->x.narrow) {
+                if (strcmp(b->x.name,"0")==0)
+                    compare0("NE0B");   /* lda sets Z: no cmp #0 */
+                else
+                    compare("NEB");
+            }
             else if (optimizelevel>=2 && strcmp(b->x.name,"0")==0)
                 compare0("NE0W");
             else compare("NEW" );

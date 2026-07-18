@@ -5621,6 +5621,26 @@ skip :\
 skip :\
  .) :\
 
+; byte compare against zero: lda already sets Z (and N), so no cmp #0 is
+; needed. Emitted by gen.c for a narrowed == 0 / != 0 (the byte mirror of
+; EQ0W_D / NE0W_D). Equality only - the ordered byte compares (LTUB/GTUB/...)
+; need the carry that cmp sets, so they keep their cmp.
+#define EQ0B_D(tmp1,label)\
+ .( :\
+ lda tmp1 :\
+ bne skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define NE0B_D(tmp1,label)\
+ .( :\
+ lda tmp1 :\
+ beq skip :\
+ jmp label :\
+skip :\
+ .) :\
+
 #define LTUB_DD(tmp1,tmp2,label)\
  lda tmp1 :\
  cmp tmp2 :\
