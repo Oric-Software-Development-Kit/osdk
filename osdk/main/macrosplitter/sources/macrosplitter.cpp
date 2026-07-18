@@ -1078,6 +1078,99 @@ static int DissolveOrphanedFolds(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// Index of the next real instruction at/after `from`, skipping transparent
+// tokens (eliminated / comment / empty / fold markers). Returns npos if a
+// barrier (label / directive / other) or the end of stream is reached first.
+static size_t NextRealInstr(const std::vector<Token>& toks, size_t from)
+{
+	for (size_t x = from; x < toks.size(); x++)
+	{
+		if (toks[x].eliminated) continue;
+		TokenType tt = toks[x].type;
+		if (tt == TokenType::Comment || tt == TokenType::Empty
+			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+		if (tt == TokenType::Instruction) return x;
+		return (size_t)-1;   // label / directive / other = barrier
+	}
+	return (size_t)-1;
+}
+
+// True if an operand is in an addressing mode `ldx` supports, so a `lda`
+// producing it can be rewritten to `ldx`: immediate, or a plain direct operand.
+// Conservatively excludes ,x / ,y indexing and ( ) indirection.
+static bool IsLdxCompatible(const std::string& op)
+{
+	if (op.empty()) return false;
+	if (op[0] == '#') return true;
+	if (op.find(',') != std::string::npos) return false;
+	if (op.find('(') != std::string::npos) return false;
+	return true;
+}
+
+// Fold a word return routed through a scratch temp. The compiler materializes the
+// return value into a temp, then LEAVEW/RETW loads it into X:A for the return:
+//     lda Vlo : sta T : lda Vhi : sta T+1 : ldx T : lda T+1 : (jmp leave | rts)
+// The return convention is X:A and the temp is dead past the exit, so this is
+// just  ldx Vlo : lda Vhi : (jmp leave | rts)  - the T round-trip removed. The
+// common byte-return case has Vhi = #0  ->  ldx Vlo : lda #0. Guards: an exit
+// terminator (so T is provably dead after it), a scratch temp T (tmp*/reg*), Vlo
+// in an ldx-supported mode, and Vlo independent of T / T+1.
+static int FoldWidenReturn(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "lda" || toks[i].frozen) continue;
+
+		size_t i2 = NextRealInstr(toks, i  + 1); if (i2 == (size_t)-1) continue;
+		size_t i3 = NextRealInstr(toks, i2 + 1); if (i3 == (size_t)-1) continue;
+		size_t i4 = NextRealInstr(toks, i3 + 1); if (i4 == (size_t)-1) continue;
+		size_t i5 = NextRealInstr(toks, i4 + 1); if (i5 == (size_t)-1) continue;
+		size_t i6 = NextRealInstr(toks, i5 + 1); if (i6 == (size_t)-1) continue;
+		size_t i7 = NextRealInstr(toks, i6 + 1); if (i7 == (size_t)-1) continue;
+
+		if (toks[i2].frozen || toks[i3].frozen || toks[i4].frozen
+			|| toks[i5].frozen || toks[i6].frozen) continue;
+
+		if (toks[i2].mnemonic != "sta") continue;
+		if (toks[i3].mnemonic != "lda") continue;
+		if (toks[i4].mnemonic != "sta") continue;
+		if (toks[i5].mnemonic != "ldx") continue;
+		if (toks[i6].mnemonic != "lda") continue;
+
+		std::string T   = toks[i2].operand;
+		std::string Thi = T + "+1";
+		std::string Vlo = toks[i].operand;
+
+		if (toks[i4].operand != Thi) continue;
+		if (toks[i5].operand != T)   continue;
+		if (toks[i6].operand != Thi) continue;
+
+		bool isExit = (toks[i7].mnemonic == "rts")
+			|| (toks[i7].mnemonic == "jmp" && toks[i7].operand == "leave");
+		if (!isExit) continue;
+
+		if (T.compare(0, 3, "tmp") != 0 && T.compare(0, 3, "reg") != 0) continue;
+		if (!IsLdxCompatible(Vlo)) continue;
+		if (Vlo == T || Vlo == Thi) continue;
+
+		// fold: lda Vlo -> ldx Vlo ; drop sta T, sta T+1, ldx T, lda T+1
+		bytesSaved += EstimateInstructionSize(toks[i2].mnemonic, toks[i2].operand);
+		bytesSaved += EstimateInstructionSize(toks[i4].mnemonic, toks[i4].operand);
+		bytesSaved += EstimateInstructionSize(toks[i5].mnemonic, toks[i5].operand);
+		bytesSaved += EstimateInstructionSize(toks[i6].mnemonic, toks[i6].operand);
+		toks[i].mnemonic = "ldx";
+		toks[i].text     = "ldx " + Vlo;
+		toks[i2].eliminated = true;
+		toks[i4].eliminated = true;
+		toks[i5].eliminated = true;
+		toks[i6].eliminated = true;
+		changed++;
+	}
+	return changed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1413,6 +1506,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += RelaxBranchIdioms(allTokens, bytesSaved);
 		// dissolve the now-empty .( skip .) scopes the relaxation orphaned
 		eliminated += DissolveOrphanedFolds(allTokens, bytesSaved);
+		// fold a word return routed through a scratch temp into a direct X:A load
+		eliminated += FoldWidenReturn(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
