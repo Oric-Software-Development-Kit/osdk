@@ -1031,6 +1031,53 @@ static int RelaxBranchIdioms(std::vector<Token>& toks, int& bytesSaved)
 	return relaxed;
 }
 
+// After branch relaxation, a comparison idiom's local `skip` label is left
+// unreferenced and its `.( .)` scope has nothing left to scope (the fold existed
+// only to make `skip` local). Dissolve such folds: remove the `.(`/`.)` markers
+// and the dead `skip` label(s). All three are 0-byte, so this is purely a
+// cleanup - but removing the fold markers can also expose new adjacency for the
+// other passes. Conservative: only flat folds (no nesting) whose *only* labels
+// are `skip`, and only when nothing inside still targets `skip` (so the two-branch
+// >/<= idiom, where a leading `bcc skip` remains, is correctly left intact).
+static int DissolveOrphanedFolds(std::vector<Token>& toks, int& bytesSaved)
+{
+	(void)bytesSaved;
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::FoldOpen) continue;
+
+		std::vector<size_t> skipLabels;
+		bool nested = false, hasOtherLabel = false, skipStillTargeted = false;
+		size_t close = i + 1;
+		for (; close < toks.size(); close++)
+		{
+			if (toks[close].eliminated) continue;
+			TokenType tt = toks[close].type;
+			if (tt == TokenType::FoldOpen)  { nested = true; break; }
+			if (tt == TokenType::FoldClose) break;
+			if (tt == TokenType::Label)
+			{
+				if (toks[close].text == "skip") skipLabels.push_back(close);
+				else hasOtherLabel = true;
+			}
+			else if (tt == TokenType::Instruction
+				&& (IsConditionalBranch(toks[close].mnemonic) || toks[close].mnemonic == "jmp")
+				&& toks[close].operand == "skip")
+				skipStillTargeted = true;
+		}
+		if (nested || close >= toks.size()) continue;
+		if (hasOtherLabel || skipStillTargeted) continue;
+
+		toks[i].eliminated = true;      // .(
+		toks[close].eliminated = true;  // .)
+		for (size_t s = 0; s < skipLabels.size(); s++)
+			toks[skipLabels[s]].eliminated = true;
+		changed++;
+	}
+	return changed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1364,6 +1411,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += MarkRedundantImmLoads(allTokens, bytesSaved);
 		// branch relaxation: b<cc> skip:jmp TARGET:skip -> b<!cc> TARGET in range
 		eliminated += RelaxBranchIdioms(allTokens, bytesSaved);
+		// dissolve the now-empty .( skip .) scopes the relaxation orphaned
+		eliminated += DissolveOrphanedFolds(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
