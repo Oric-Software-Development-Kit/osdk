@@ -3496,6 +3496,14 @@ skip :\
  ldy #y2+1 :\
  sta ptr2,y :\
 
+; in-place 16-bit shift-left-by-1 (operand==result, direct/zero-page). Used by
+; gen.c to unroll a small constant left shift (x<<2, x<<3): one LSH1W to shift
+; a->r, then this once/twice more in place. Smaller AND faster than the
+; variable-count LSHW loop for counts 2-3 (no ldx/beq/dex/bne scaffold).
+#define LSH1W_D(tmp1)\
+ asl tmp1 :\
+ rol tmp1+1 :\
+
 #define LSHW\
  .( :\
  beq done :\

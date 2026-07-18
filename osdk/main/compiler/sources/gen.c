@@ -1187,6 +1187,18 @@ static void emitdag(Node p) {
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
                      && simple_adrmode(a->x.adrmode)!='C')
                 unary("LSHW8");         /* x << 8 = byte move */
+            else if (optimizelevel>=2
+                     && (strcmp(b->x.name,"2")==0 || strcmp(b->x.name,"3")==0)
+                     && simple_adrmode(a->x.adrmode)!='C'
+                     && simple_adrmode(r->x.adrmode)=='D') {
+                /* unroll a small constant left shift: one LSH1W (a->r) then the
+                 * rest in place. Smaller AND faster than the LSHW loop for n<=3
+                 * (no ldx/beq/dex/bne scaffold), so it needs no size/speed knob. */
+                int n = b->x.name[0]-'0', i;
+                unary("LSH1W");                              /* r = a << 1     */
+                for (i=1; i<n; i++)
+                    print("\tLSH1W_D(%s)\n", output_arg(r));  /* r <<= 1 (asl/rol) */
+            }
             else binary("LSHW");
             break;
         case INDIRC: case INDIRS:

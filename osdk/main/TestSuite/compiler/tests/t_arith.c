@@ -26,8 +26,14 @@ void main(void)
 
 	gi = 0x1234;
 	tk_check_eq(gi << 1, 0x2468, "shl1");
+	tk_check_eq(gi << 2, 0x48D0, "shl2");             /* unrolled: 2x asl/rol */
+	tk_check_eq(gi << 3, 0x91A0, "shl3");             /* unrolled: 3x asl/rol */
 	tk_check_eq(gi << 4, 0x2340, "shl4");
 	tk_check_eq(gi >> 4, 0x0123, "shr4");
+	gi = 0x00C0;
+	tk_check_eq(gi << 2, 0x0300, "shl2-carry");       /* carry from low byte into high */
+	gu = 0xC0C0u;
+	tk_check_eq(gu << 3, 0x0600u, "shl3-carry");      /* carry + 16-bit wraparound */
 	gi = -16;
 	tk_check_eq(gi >> 2, (unsigned int)-4, "sar");    /* arithmetic shift on signed */
 	gu = 0xFFF0u;
