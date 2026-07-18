@@ -23,8 +23,12 @@
 		<ul>
 			<li>Fixed a regression that made any floating point expression fail with "expression too complex" (introduced by the temporary-register error reporting of version 1.40, shipped in OSDK 1.23)</li>
 			<li>Added support for 0b binary integer literals (e.g. 0b101 == 5)</li>
+			<li>Native 8 bit code generation for char operands: char arithmetic, comparisons, shifts and increments that were previously promoted to 16 bit are now emitted as byte operations (ADDB, SUBB, ANDB, EQB, LSH1B, INCB...), roughly halving the code and cycles of char-heavy code</li>
+			<li>Constant shifts are generated directly: a shift by 8 (and the *256, /256, %256 that reduce to it) becomes a byte move instead of an 8 step loop, and small left shifts (x&lt;&lt;2, x&lt;&lt;3) are unrolled - both smaller and faster</li>
+			<li>New -Os command line flag selecting optimize-for-size (currently maps to -O3 level code generation; reserved as the size pole of a future per-function size/speed axis)</li>
 		</ul>
 		</li>
+		<li>New 6502 peephole optimizer in the <A href="doc_macrosplitter.htm">macro splitter</A> (enabled with OSDKMACRO=-O), run only on compiler-generated code: dead-load and dead-store elimination, copy propagation, redundant index-register reloads, branch relaxation and tail-call folding. It never changes program behaviour and never touches hand-written assembly</li>
 		<li>Fixed the C runtime int-to-float conversion (lib/header.s): the "cif" routine pointed into the middle of the ROM SGN function, which converts only the signed 8 bit value in the accumulator, so any runtime (float) cast of an int variable was wrong. It now uses the 16 bit ROM conversion with proper sign handling</li>
 		<li>Right shift of a signed value now performs an arithmetic shift (sign preserved, -16 &gt;&gt; 2 == -4) via the new ASRW macro family; unsigned &gt;&gt; keeps the logical shift</li>
 		<li>Added a naming glossary to MACROS.H and gen.c documenting the macro families (DIVU, MODI, RSHW, ASRW, CSBW...) and the operand addressing-mode suffix letters</li>
@@ -54,6 +58,13 @@
 		</ul>
 		</li>
 		<li>The OSDK C runtime (lib/header.s) stamps a module-id byte at program entry when OSDK_MODULE_ID is defined at build time (a no-op otherwise), letting external tools identify which run-time-loaded overlay module is currently active</li>
+		<li>Combined effect of the code generation and peephole work, measured on the ISS oricCompilerBenchmark (22 samples). Every sample's computed output is verified byte-identical to the 1.23 output before any figure is trusted; the numbers below compare the best 1.24 configuration against 1.23 at -O2:
+		<ul>
+			<li>Code size: typically 20 to 31% smaller (total 98184 -&gt; 77983 bytes, -20.8%); for example aes256 -19.7%, frogmove -30.9%</li>
+			<li>Speed: frogmove -70.4%, memcopy -44.0%, aes256 -42.2%, selection-sort -35.0%, bubble-sort -30.2% fewer cycles</li>
+			<li>The peephole optimizer alone accounts for up to -20.8% cycles on char-heavy code (aes256) and a few percent on tight scalar code</li>
+		</ul>
+		</li>
 	</ul>
 
 <p id=dateentry>Version 1.23 - April 20th 2026</p>
