@@ -224,9 +224,34 @@ static std::vector<Token> TokenizeLine(const std::string& line, int lineIndex)
 		return tokens;
 	}
 
+	// -g1 debug directives are opaque annotations that use ':' (and quotes) as
+	// DATA, not as the ':' statement separator: .csource "C:/path/file.c" 12 and
+	// .ctype struct Entity 20 name:char[8]:0:8 kind:EntityKind:8:1 ... Splitting
+	// them shreds the directive into garbage labels (XA: "Syntax error" /
+	// "Label defined"). Keep the whole line as one directive token, never split.
+	if (trimmedLine.compare(0, 8, ".csource") == 0
+		|| trimmedLine.compare(0, 6, ".ctype") == 0)
+	{
+		Token tok = ParseToken(trimmedLine, lineIndex);
+		tok.type = TokenType::Directive;
+		tokens.push_back(tok);
+		return tokens;
+	}
+
 	while (start <= line.size())
 	{
-		size_t pos = line.find(':', start);
+		// Find the next ':' statement separator, but NOT one inside a double-quoted
+		// string: a -g1 debug directive like  .csource "C:/path/file.c" 12  contains
+		// ':' in the Windows path, and splitting there shreds the directive (XA then
+		// sees ".csource \"C" + garbage). Quoted operands (.csource, .asc "...") stay whole.
+		size_t pos = std::string::npos;
+		bool inQuote = false;
+		for (size_t p = start; p < line.size(); p++)
+		{
+			char c = line[p];
+			if (c == '"') inQuote = !inQuote;
+			else if (c == ':' && !inQuote) { pos = p; break; }
+		}
 		std::string segment;
 		if (pos == std::string::npos)
 		{
