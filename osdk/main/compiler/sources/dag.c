@@ -667,6 +667,9 @@ static void trash(Node p) {
 static void typestab(Symbol p, Generic cl){
 	if (!isfunc(p->type) && (p->sclass == EXTERN || p->sclass == STATIC))
 		stabsym(p);
+	else if (!isfunc(p->type) && (p->sclass == AUTO || p->sclass == REGISTER))
+		stabsym(p);	/* body locals: emit their (fp)/(ap) location for the debugger
+			   (emit_stabsym skips register-allocated ones with no stack slot) */
 	else if (p->sclass == TYPEDEF || p->sclass == 0)
 		stabtype(p);
 }

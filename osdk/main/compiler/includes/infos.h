@@ -57,6 +57,26 @@ Change history for the Compiler (6502 backend)
   bit is replicated), matching every mainstream compiler: -16 >> 2 == -4.
   It used to emit the same logical shift as unsigned >>, giving 16380.
   Signed >> now emits the new ASRW macro family, unsigned >> keeps RSHW.
+- Enabled stabline() to emit .csource directives when compiling with -g1 or
+  higher. Each C source line now produces a .csource "filename" linenum
+  annotation in the compiler output, allowing the assembler to map generated
+  code back to original C source locations for debugging.
+- Emit .ctype annotations under -g: the compiler now writes C variable and type
+  information (names, and types including pointers, arrays and structs) into the
+  output so the debugger can present typed variables. Types are collected during
+  code generation and flushed with typedef-name resolution. Non-debug builds are
+  unaffected.
+- New #pragma optimize(push, n) / #pragma optimize(pop) / #pragma optimize(n)
+  to change the optimization level (0-3) for the function definitions that
+  follow, overriding the command line -On option. Typical use: wrap a function
+  with optimize(push, 1) / optimize(pop) so its locals stay addressable on the
+  stack frame for the debugger while the rest of the project builds at -O2, or
+  selectively enable -O3 on functions known to survive it. The pragma is
+  ignored (with graceful degradation) by older compiler versions.
+- A .csource directive is now emitted right after each function label, tagging
+  the entry code (ENTER prologue) with the function's definition line. It used
+  to inherit the last marker of the PREVIOUS function, so debuggers mapped the
+  entry address to that function's closing brace.
 
 */
 

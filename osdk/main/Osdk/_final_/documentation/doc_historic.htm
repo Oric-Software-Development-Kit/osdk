@@ -45,6 +45,15 @@
 			<li>stdlib.h defines EXIT_SUCCESS/EXIT_FAILURE; string.h prototypes are const-correct</li>
 		</ul>
 		</li>
+		<li>Upgraded <A href="doc_oricutron.htm">Oricutron</A> to version X.X.X: added a GDB-compatible debug stub, so an external debugger can connect over TCP to set breakpoints, single-step, and read or write memory and registers; and a bidirectional visualization stream that exposes the screen buffer and accepts keyboard input</li>
+		<li>Upgraded <A href="doc_assembler.htm">XA</A> to version X.X.X: extended symbol export now also emits a source file/line table, per-symbol source locations, and struct/type information alongside the symbol values, so tools can map addresses back to their source line and present data with its type</li>
+		<li>Upgraded <A href="doc_compiler.htm">Compiler</A> to version X.XX:
+		<ul>
+			<li>Emits the additional source-line and type information consumed by the extended symbol export</li>
+			<li>New #pragma optimize(push, n) / #pragma optimize(pop) / #pragma optimize(n) to override the optimization level (0-3) for selected functions: a function under debug can keep its locals addressable on the stack frame (level 1) while the rest of the project stays fully optimized, or a known-safe function can be raised to level 3</li>
+		</ul>
+		</li>
+		<li>The OSDK C runtime (lib/header.s) stamps a module-id byte at program entry when OSDK_MODULE_ID is defined at build time (a no-op otherwise), letting external tools identify which run-time-loaded overlay module is currently active</li>
 	</ul>
 
 <p id=dateentry>Version 1.23 - April 20th 2026</p>

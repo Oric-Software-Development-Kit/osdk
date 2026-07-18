@@ -73,6 +73,7 @@ public:
 	ErrorCode HandleCommand(char *ptr_preprocessor_directive);
 
 	ErrorCode command_define(char *k);
+	ErrorCode command_enum(char *content);
 	ErrorCode command_include(char*);
 	ErrorCode command_ifdef(char*);
 	ErrorCode command_ifndef(char*);

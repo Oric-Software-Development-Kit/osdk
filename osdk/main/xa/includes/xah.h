@@ -1,5 +1,6 @@
 
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -142,12 +143,14 @@ enum ErrorCode
 enum Tokens
 {
 	T_VALUE   =-1,
-	T_LABEL   =-2, 
+	T_LABEL   =-2,
 	T_OP      =-3,
 	T_END     =-4,
 	T_LINE    =-5,
 	T_FILE    =-6,
-	T_POINTER =-7
+	T_POINTER =-7,
+	T_CSOURCE =-8,   // C source annotation from compiler (.csource directive)
+	T_CTYPE   =-9    // C type annotation from compiler (.ctype directive)
 };
 
 enum OperatorPriority
@@ -210,6 +213,8 @@ public:
 	int DefineSymbol(char *ptr_src,int block_level);		// Returns hash
 
 private:
+	void CaptureSourceLocation();	// stamp m_source_file/line from the current preprocessor position
+
 	int				m_block_level;
 	int				value;
 	SYMBOLSTATUS_e	symbol_status;   	// 0 = label value not valid/known, 1 = label value known
@@ -220,6 +225,8 @@ private:
 	LabelType_e		m_label_type;
 	int				m_blknext;		// next label in definition order (-1 = none)
 	int				m_blkprev;		// previous label in definition order (-1 = none)
+	const char		*m_source_file;		// source filename at definition
+	unsigned int	m_source_line;		// source line at definition
 };
 
 
@@ -284,6 +291,7 @@ public:
 
 	int SaveSymbols(FILE *fp);
 	void PrintSymbols(FILE *fp);
+	void PrintSymbolsExtended(FILE *fp);
 	void ExportEquates(FILE *fp, const char* prefix_filter, const char* exclude_file);
 
 	void ExitBlock(SEGMENT_e a,SEGMENT_e b);
@@ -351,6 +359,14 @@ private:
 public:
 
 	SymbolData			m_cSymbolData;
+
+	// Line table: maps instruction addresses to source file:line (populated during pass2)
+	std::map<int, std::pair<std::string, unsigned int>> m_lineTable;
+	void WriteLineTable(FILE *fp);
+
+	// Type annotations: raw .ctype lines collected during pass1 (deduplicated on output)
+	std::vector<std::string> m_ctypeLines;
+	void WriteTypeTable(FILE *fp);
 };
 
 extern FileData *afile;

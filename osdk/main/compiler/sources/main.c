@@ -59,9 +59,12 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 	}
+	/* progbeg must run before the first token is read: a #pragma optimize
+	   on the very first lines would otherwise be overwritten by the -On
+	   command line parsing done in progbeg */
+	progbeg(argc, argv);
 	inputInit(0);
 	t = gettok();
-	progbeg(argc, argv);
 	stabinit(firstfile, argc, argv);
 	program();
 	if (events.end)
@@ -229,6 +232,8 @@ static void typestab(p, cl) Symbol p; Generic cl; {
 		*(Symbol *)cl = p;
 	if (p->sclass == TYPEDEF || p->sclass == 0)
 		stabtype(p);
+	if (p->type && !isfunc(p->type) && (p->sclass == EXTERN || p->sclass == STATIC))
+		stabsym(p);
 }
 
 struct callsite {

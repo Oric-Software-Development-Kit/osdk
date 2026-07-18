@@ -28,6 +28,16 @@ osdk_start
 
 
 
+	; Debugger module id: stamp _osdk_dbg_module as the very first thing a module
+	; runs (C or asm), so the VS Code debugger auto-switches to the matching overlay.
+	; Transparent: only compiled when the build defines OSDK_MODULE_ID (per-overlay
+	; -DOSDK_MODULE_ID=<id>); other OSDK programs never define it, so it's a no-op —
+	; and the OSDK-namespaced name avoids clashing with a project's own 'MODULE'.
+#ifdef OSDK_MODULE_ID
+	lda #OSDK_MODULE_ID
+	sta _osdk_dbg_module
+#endif
+
 	tsx
 	lda #<osdk_stack
 	sta sp

@@ -98,6 +98,18 @@ Fixed a number of issues in the linker:
   build failed at assembly time with "Label 'mul16i' not defined".
   Each statement is now parsed in an isolated buffer copy; preprocessor
   lines are kept whole so #include paths containing ':' still work.
+- Fixed the "-F" #file directive emitting an incorrect path. It stamped the current
+  working directory plus the file's basename, which mislabeled library sources (e.g.
+  the OSDK lib's printf.s / header.s) as living in the project directory and broke
+  source-level debugging (go-to-definition) for library symbols in the VS Code debugger.
+  Now emits the file's real absolute path (via _fullpath on Windows, realpath elsewhere).
+- Symbol references inside #ifdef/#ifndef/#if blocks are no longer reported as
+  "unresolved external" (and no longer force a library to be pulled in). Link65 cannot
+  evaluate these conditions, so such a reference may be compiled out at assembly time;
+  demanding it resolve was wrong. This mirrors the existing handling of label
+  definitions inside conditionals. In particular it lets the CRT (header.s) carry a
+  debugger module-id stamp guarded by "#ifdef OSDK_MODULE_ID" without breaking the
+  build of ordinary single-module programs that never define OSDK_MODULE_ID.
 
 */
 

@@ -82,7 +82,7 @@ void nextline() {
 	}					/* omit */
 }
 
-/* pragma - handle #pragma ref id... */
+/* pragma - handle #pragma ref id... and #pragma optimize(...) */
 static void pragma() {
 	if ((t = gettok()) == ID && strcmp(token, "ref") == 0)
 		for (;;) {
@@ -95,6 +95,38 @@ static void pragma() {
 				use(tsym, src);
 			}
 		}
+	else if (t == ID && strcmp(token, "optimize") == 0) {
+		/* #pragma optimize(push, n) - save current level, switch to n (0-3)
+		   #pragma optimize(pop)     - restore previously pushed level
+		   #pragma optimize(n)       - set level n without saving
+		   Applies to the function definitions that follow the pragma. */
+		int push = 0, pop = 0, level = -1;
+		while (*cp == ' ' || *cp == '\t' || *cp == '(')
+			cp++;
+		if (strncmp((char *)cp, "push", 4) == 0) {
+			push = 1;
+			cp += 4;
+			while (*cp == ' ' || *cp == '\t' || *cp == ',')
+				cp++;
+		} else if (strncmp((char *)cp, "pop", 3) == 0) {
+			pop = 1;
+			cp += 3;
+		}
+		if (*cp >= '0' && *cp <= '9')
+			level = *cp++ - '0';
+		if (pop) {
+			if (optimizepop() < 0)
+				warning("#pragma optimize(pop) without matching push\n");
+		} else if (level < 0 || level > 3)
+			warning("malformed #pragma optimize: expected (push, n), (pop) or (n) with n in 0..3\n");
+		else if (push) {
+			if (optimizepush(level) < 0)
+				warning("#pragma optimize(push) nested too deeply\n");
+		} else
+			optimizeset(level);
+		while (*cp != '\n' && *cp != 0)	/* discard rest of line */
+			cp++;
+	}
 }
 
 /* resynch - set line number/file name in # n [ "file" ] and #pragma ... */

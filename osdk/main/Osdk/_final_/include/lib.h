@@ -215,7 +215,7 @@ extern unsigned int pcrand();
 //
 // Joystick stuff
 //
-enum
+typedef enum
 {
 	JOYSTICK_INTERFACE_NOTHING,         // 0 - Default handler that does nothing
 	JOYSTICK_INTERFACE_IJK,             // 1 - IJK / Egoist / Stingy interfaces
@@ -224,7 +224,7 @@ enum
 	JOYSTICK_INTERFACE_OPEL,            // 4 - OPEL interface
 	JOYSTICK_INTERFACE_DKTRONICS,       // 5 - Dk'Tronics interface
 	_JOYSTICK_INTERFACE_COUNT_
-};
+} JoystickInterface;
 
 enum                                    // Bitmask
 {

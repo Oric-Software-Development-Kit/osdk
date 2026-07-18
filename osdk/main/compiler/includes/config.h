@@ -45,6 +45,9 @@ typedef struct {
 #define stabend(a,b,c,d,e)
 #define stabfend(a,b)
 #define stabinit(a,b,c)
-#define stabline(a)
-#define stabsym(a)
-#define stabtype(a)
+#define stabline(a) do { if ((a)->file) print(".csource \"%s\" %d\n", (a)->file, (a)->y); } while(0)
+/* .ctype annotation functions (implemented in gen.c) */
+extern void emit_stabsym(Symbol);
+extern void emit_stabtype(Symbol);
+#define stabsym(a)  emit_stabsym(a)
+#define stabtype(a) emit_stabtype(a)

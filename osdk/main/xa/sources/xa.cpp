@@ -57,6 +57,7 @@ static time_t tim2;
 static FILE *gOutputFileHandle;
 FILE *gErrorFileHandle;
 static FILE *gSymbolsFileHandle;
+static FILE *gSymbolsExtFileHandle;
 static FILE *gEquatesFileHandle;
 static int ner = 0;
 char gError_UserMessage[MAXLINE];	// Buffer for #error directive message
@@ -124,6 +125,7 @@ static void usage(void)
 		"               A filename of '-' sets stdout as output file\n"
 		" -e filename = sets errorlog filename, default is none\n"
 		" -l filename = sets labellist filename, default is none\n"
+		" -S filename = sets extended symbol file (with source locations)\n"
 		" -E filename = export global symbols as equates (name = $addr)\n"
 		" -P prefix   = with -E, only export symbols starting with prefix\n"
 		" -X filename = with -E, exclude symbols found in this symbol file\n"
@@ -180,6 +182,7 @@ int main(int argc,char *argv[])
 	char* ptr_output_filename	="a.o65";
 	char* ptr_error_filename	=NULL;
 	char* ptr_symbols_filename	=NULL;
+	char* ptr_symbols_ext_filename=NULL;
 	char* ptr_equates_filename	=NULL;
 	char* ptr_equates_prefix	=NULL;
 	char* ptr_equates_exclude	=NULL;
@@ -332,6 +335,17 @@ int main(int argc,char *argv[])
 				}
 				break;
 
+			case 'S':
+				if (argv[i][2]==0)
+				{
+					ptr_symbols_ext_filename=argv[++i];
+				}
+				else
+				{
+					ptr_symbols_ext_filename=argv[i]+2;
+				}
+				break;
+
 			case 'E':
 				if (argv[i][2]==0)	ptr_equates_filename=argv[++i];
 				else				ptr_equates_filename=argv[i]+2;
@@ -409,8 +423,9 @@ int main(int argc,char *argv[])
 		 fprintf(stderr, "Warning: -X option has no effect without -E\n");
 	 }
 
-	 gSymbolsFileHandle	=xfopen(ptr_symbols_filename,"w");
-	 gEquatesFileHandle	=xfopen(ptr_equates_filename,"w");
+	 gSymbolsFileHandle		=xfopen(ptr_symbols_filename,"w");
+	 gSymbolsExtFileHandle	=xfopen(ptr_symbols_ext_filename,"w");
+	 gEquatesFileHandle		=xfopen(ptr_equates_filename,"w");
 	 gErrorFileHandle	=xfopen(ptr_error_filename,"w");
 	 if (!strcmp(ptr_output_filename,"-"))
 	 {
@@ -555,6 +570,13 @@ int main(int argc,char *argv[])
 		 afile->m_cSymbolData.PrintSymbols(gSymbolsFileHandle);
 	 }
 
+	 if (gSymbolsExtFileHandle)
+	 {
+		 afile->m_cSymbolData.PrintSymbolsExtended(gSymbolsExtFileHandle);
+		 afile->WriteLineTable(gSymbolsExtFileHandle);
+		 afile->WriteTypeTable(gSymbolsExtFileHandle);
+	 }
+
 	 if (gEquatesFileHandle)
 	 {
 		 afile->m_cSymbolData.ExportEquates(gEquatesFileHandle, ptr_equates_prefix, ptr_equates_exclude);
@@ -570,6 +592,7 @@ int main(int argc,char *argv[])
 
 	 if (gErrorFileHandle)		fclose(gErrorFileHandle);
 	 if (gSymbolsFileHandle)	fclose(gSymbolsFileHandle);
+	 if (gSymbolsExtFileHandle)	fclose(gSymbolsExtFileHandle);
 	 if (gEquatesFileHandle)	fclose(gEquatesFileHandle);
 	 if (gOutputFileHandle)		fclose(gOutputFileHandle);
 
@@ -664,6 +687,7 @@ int FileData::pass2()
 	PreprocessorFile_c datei;
 	gPreprocessor.m_CurrentFile=&datei;
 	m_cMnData.ResetReadPos();
+	bool csourceActive = false;
 
 	while (ner<20 && m_cMnData.CanReadMore())
 	{
@@ -673,19 +697,45 @@ int FileData::pass2()
 		if (!l)
 		{
 			Tokens nType=(Tokens)m_cMnData.ReadByte();
-			if (nType==T_LINE)
+			if (nType==T_CSOURCE)
 			{
 				datei.SetCurrentLine(m_cMnData.ReadUShort());
+				datei.SetCurrentFileName(m_cMnData.ReadString());
+				csourceActive = true;
+			}
+			else
+			if (nType==T_LINE)
+			{
+				if (!csourceActive)
+				{
+					datei.SetCurrentLine(m_cMnData.ReadUShort());
+				}
+				else
+				{
+					m_cMnData.ReadUShort();  // consume but ignore — keep C source mapping
+				}
 			}
 			else
 			if (nType==T_FILE)
 			{
 				datei.SetCurrentLine(m_cMnData.ReadUShort());
 				datei.SetCurrentFileName(m_cMnData.ReadString());
+				csourceActive = false;  // back to normal assembly tracking
+			}
+			else
+			if (nType==T_CTYPE)
+			{
+				std::string ctypeLine = m_cMnData.ReadString();
+				m_ctypeLines.push_back(ctypeLine);
 			}
 			else
 			{
 				printf("Invalid type: %u",nType);
+			}
+			// Record line table entry (last writer wins for same address)
+			if (!datei.GetCurrentFileName().empty())
+			{
+				m_lineTable[TablePcSegment[gCurrentSegment]] = std::make_pair(datei.GetCurrentFileName(), datei.GetCurrentLine());
 			}
 		}
 		else
@@ -987,6 +1037,57 @@ static ErrorCode getline(char *s)
 				afile->WriteUShort(line);
 				afile->WriteSequence((signed char*)gPreprocessor.m_CurrentFile->GetCurrentFileName().c_str(),gPreprocessor.m_CurrentFile->GetCurrentFileName().size()+1);
 				ec=E_OK;
+			}
+
+			// Intercept .csource directives from C compiler (emitted by stabline)
+			// Format: .csource "filename" linenum
+			if (!ec && strncmp(GetLineBuffer+i, ".csource ", 9)==0)
+			{
+				int p=i+9;
+				while (GetLineBuffer[p]==' ') p++;
+				if (GetLineBuffer[p]=='\"')
+				{
+					p++;
+					char csrc_filename[256];
+					int fi=0;
+					while (GetLineBuffer[p] && GetLineBuffer[p]!='\"' && fi<255)
+					{
+						csrc_filename[fi++]=GetLineBuffer[p++];
+					}
+					csrc_filename[fi]=0;
+					if (GetLineBuffer[p]=='\"') p++;
+					while (GetLineBuffer[p]==' ') p++;
+					unsigned int csrc_line=0;
+					while (GetLineBuffer[p]>='0' && GetLineBuffer[p]<='9')
+					{
+						csrc_line=csrc_line*10+(GetLineBuffer[p]-'0');
+						p++;
+					}
+					afile->WriteShort(0);
+					afile->WriteByte(T_CSOURCE);
+					afile->WriteUShort(csrc_line);
+					afile->WriteSequence((signed char*)csrc_filename,fi+1);
+				}
+				GetLineBuffer[i]=0;  // treat as empty line
+			}
+
+			// Intercept .ctype directives from C compiler
+			// Format: .ctype struct <name> <size> <fields...>
+			//     or: .ctype var <asm_name> <type> <size>
+			if (!ec && strncmp(GetLineBuffer+i, ".ctype ", 7)==0)
+			{
+				int p=i+7;
+				// Find the end of the line content
+				int len=0;
+				while (GetLineBuffer[p+len] && GetLineBuffer[p+len]!='\n' && GetLineBuffer[p+len]!='\r') len++;
+				// Write T_CTYPE token with the raw content (null-terminated)
+				char save=GetLineBuffer[p+len];
+				GetLineBuffer[p+len]=0;
+				afile->WriteShort(0);
+				afile->WriteByte(T_CTYPE);
+				afile->WriteSequence((signed char*)(GetLineBuffer+p), len+1);
+				GetLineBuffer[p+len]=save;
+				GetLineBuffer[i]=0;  // treat as empty line
 			}
 		}
 		while (!ec && GetLineBuffer[i]==0);

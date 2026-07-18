@@ -26,6 +26,16 @@ IF NOT "%OSDKDISK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% -d OSDK.DSK -s symbols
 :: Breakpoints
 IF EXIST %OSDKBREAKPOINTS% SET OSDKORICUTRON=%OSDKORICUTRON% --breakpoint :%OSDKBREAKPOINTS%
 
+:: - GDB Remote Serial Protocol server port (for the VS Code debugger). Honours the
+::   OSDKGDBPORT environment variable, so a debug session can pick a port at launch
+::   time and pass it in via the environment without editing any project script.
+IF NOT "%OSDKGDBPORT%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% --gdb_port %OSDKGDBPORT%
+
+:: - GDB initial breakpoint (OSDKGDBBREAK environment variable, hex address). Armed
+::   when the stub binds so the emulator halts at the program entry and waits for the
+::   debugger, regardless of connect timing. Set by the VS Code debug session.
+IF NOT "%OSDKGDBBREAK%"=="" SET OSDKORICUTRON=%OSDKORICUTRON% --gdb_break %OSDKGDBBREAK%
+
 
 ::
 :: Check if the program was compiled

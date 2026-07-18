@@ -665,7 +665,14 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
       else
       if (state == e_LabelReference)
       {
-        AddReferencedLabel(foundLabel, filename, line_number);
+        // Link65 can't evaluate #ifdef/#ifndef/#if conditions (see the nesting
+        // tracking above), so a reference inside a conditional block may well be
+        // compiled out at assembly time. Don't demand it resolves — otherwise a
+        // symbol used only by a disabled block (e.g. the debugger module-id stamp
+        // in the CRT, guarded by #ifdef OSDK_MODULE_ID) raises a bogus
+        // "unresolved external" and pulls libraries that aren't really needed.
+        if (conditionalNestingLevel == 0)
+          AddReferencedLabel(foundLabel, filename, line_number);
       }
 
       if (isDefineLine)
@@ -1173,14 +1180,23 @@ int Linker::Main()
     //
     if (m_FlagEnableFileDirective)
     {
-      char current_directory[_MAX_PATH+1];
-      char filename[_MAX_PATH];
-      char dummy[_MAX_PATH];
+      // Emit the ACTUAL absolute path of the file being linked. The previous code
+      // stamped getcwd()+basename, which mislabeled library sources (e.g. the OSDK
+      // lib's printf.s or header.s) as living in the project directory — breaking
+      // the debugger's go-to-definition for library symbols. m_FileName is the very
+      // path LoadText opens below, so resolving it gives the true location.
+      char absolute_path[_MAX_PATH+1];
+#ifdef _WIN32
+      if (!_fullpath(absolute_path,inputFile.m_FileName.c_str(),_MAX_PATH))
+#else
+      if (!realpath(inputFile.m_FileName.c_str(),absolute_path))
+#endif
+      {
+        strncpy(absolute_path,inputFile.m_FileName.c_str(),_MAX_PATH);
+      }
+      absolute_path[_MAX_PATH]=0;
 
-      getcwd(current_directory,_MAX_PATH);
-      SplitPath(inputFile.m_FileName.c_str(),dummy,dummy,filename,dummy);
-
-      fprintf(gofile,"#file \"%s\\%s.s\"\r\n",current_directory,filename);
+      fprintf(gofile,"#file \"%s\"\r\n",absolute_path);
     }
 
     // Mike: The code should really reuse the previously loaded/parsed files

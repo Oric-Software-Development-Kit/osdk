@@ -138,7 +138,7 @@ SET TEMP=%OSDKT%
 SET OCC=%OSDK%
 SET LCC65=%OSDK%
 SET LCC65DIR=%OSDK%
-SET OSDKVERSION=1.23
+SET OSDKVERSION=1.24
 
 ::
 :: Create a build directory if it does not exist
@@ -342,7 +342,7 @@ IF ERRORLEVEL 1 GOTO ErFailure
 :: (-W -C are meant to disallow the 65816 and 65c02 instructions)
 ::%OSDKB%\xa.exe %OSDKT%\linked.s -o final.out -e xaerr.txt -l xalbl.txt
 IF %OSDKVERBOSITY% GEQ 2 ECHO Assembling
-%OSDKB%\xa.exe -I%OSDKLIB% %OSDKT%\linked.s -o build\final.out -e build\xaerr.txt -l build\symbols -bt %OSDKADDR% -DASSEMBLER=XA %OSDKXAPARAMS% -DOSDKNAME_%OSDKNAME%
+%OSDKB%\xa.exe -I%OSDKLIB% %OSDKT%\linked.s -o build\final.out -e build\xaerr.txt -l build\symbols -S build\symbols_ext -bt %OSDKADDR% -DASSEMBLER=XA %OSDKXAPARAMS% -DOSDKNAME_%OSDKNAME%
 IF NOT EXIST "build\final.out" GOTO ErFailure
 
 
