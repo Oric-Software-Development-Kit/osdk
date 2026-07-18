@@ -1018,6 +1018,26 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 				}
 			}
 
+			// Pattern 9: algebraic identity - "lda #0 : and Z" -> "lda #0".
+			// With A==0, "and Z" leaves A unchanged (0 & Z == 0) AND sets the
+			// same N/Z flags lda #0 already set (Z=1, N=0), so the AND is a pure
+			// no-op. Very common as the high byte of a char bit-test computed at
+			// word width (ANDW t,mask where mask<256 -> #>mask == 0). Skip
+			// I/O-page reads (a hardware side effect). No flag guard needed:
+			// the result flags are identical to lda #0's.
+			if (!a.eliminated && !b.eliminated
+				&& a.mnemonic == "lda" && a.operand == "#0"
+				&& b.mnemonic == "and" && !IsIOPageAddress(b.operand))
+			{
+				int bytes = EstimateInstructionSize(b.mnemonic, b.operand);
+				b.eliminated = true;
+				eliminated++;
+				bytesSaved += bytes;
+				if (g_verbosity >= 3)
+					printf("MacroSplitter: [line %d] Redundant AND after lda #0 eliminated: %s (%d bytes)\n", b.lineIndex + 1, b.text.c_str(), bytes);
+				continue;
+			}
+
 			// Pattern 4: Tail call optimization (jsr X : rts -> jmp X, remove rts)
 			// Safe because resolved branch labels act as barriers if the rts is a branch target.
 			if (a.mnemonic == "jsr" && b.mnemonic == "rts")
