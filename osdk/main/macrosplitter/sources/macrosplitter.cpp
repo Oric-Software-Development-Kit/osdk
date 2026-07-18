@@ -842,6 +842,93 @@ static int MarkRedundantImmLoads(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// A bare direct memory operand (a zero-page temp/reg, a label, or expr like
+// "tmp0+1") - not immediate, accumulator, indexed, or indirect.
+static bool IsSimpleDirect(const std::string& op)
+{
+	if (op.empty()) return false;
+	if (op[0] == '#') return false;
+	if (op == "a" || op == "A") return false;
+	if (op.find('(') != std::string::npos) return false;
+	if (op.find(',') != std::string::npos) return false;
+	return true;
+}
+
+// Copy propagation. On the 6502 tmpN and regN are all zero page, so a
+// `lda X : sta Y` copy exists only to shuffle a value between equivalent
+// locations. When, in the straight-line run that follows, every read of Y can
+// be re-pointed at X (X unmodified up to that read) and Y is then overwritten
+// before the run ends (so the copy's value can't escape the block), we forward
+// those reads to X and delete the `sta Y`. The now-dead `lda X` and any freed
+// stores are cleaned up by the other passes in the fixpoint loop. Deliberately
+// bails at the first label/branch/complication - correctness over coverage.
+static bool ReadsMemMnem(const std::string& m)
+{
+	return m=="lda"||m=="ldx"||m=="ldy"||m=="adc"||m=="sbc"||m=="and"
+		|| m=="ora"||m=="eor"||m=="cmp"||m=="cpx"||m=="cpy"||m=="bit";
+}
+static bool WritesMemMnem(const std::string& m)  // simple stores only (RMW handled separately)
+{
+	return m=="sta"||m=="stx"||m=="sty";
+}
+static bool IsRMWMnem(const std::string& m)
+{
+	return m=="inc"||m=="dec"||m=="asl"||m=="lsr"||m=="rol"||m=="ror";
+}
+static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++) {
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "lda") continue;
+		const std::string X = toks[i].operand;
+		if (!IsSimpleDirect(X) || IsIOPageAddress(X)) continue;
+		// the very next real token must be `sta Y`, forming the copy
+		size_t s = i + 1;
+		while (s < toks.size() && (toks[s].eliminated || toks[s].type == TokenType::Comment)) s++;
+		if (s >= toks.size() || toks[s].type != TokenType::Instruction
+			|| toks[s].mnemonic != "sta") continue;
+		const std::string Y = toks[s].operand;
+		if (!IsSimpleDirect(Y) || IsIOPageAddress(Y) || Y == X || toks[s].frozen) continue;
+		// pointer base of Y (strip a trailing "+N"): an indirect/indexed operand
+		// "(P),y" uses BOTH P and P+1, but its text only names P - so guard on the
+		// base to protect a pointer's high byte (Y=="P+1") too.
+		std::string baseY = Y; { size_t p = baseY.find('+'); if (p != std::string::npos) baseY = baseY.substr(0, p); }
+		// scan the straight-line run after the copy
+		std::vector<size_t> reads;
+		bool confined = false, fail = false, xLive = true;
+		for (size_t k = s + 1; k < toks.size(); k++) {
+			Token& t = toks[k];
+			if (t.eliminated || t.type == TokenType::Comment) continue;
+			if (t.type != TokenType::Instruction) { fail = true; break; }  // label/directive
+			const std::string& m = t.mnemonic;
+			if (IsControlFlowMnem(m) || t.frozen) { fail = true; break; }
+			// Y (or its pointer base) touched via indexed/indirect: can't reason -> bail
+			if ((t.operand.find('(') != std::string::npos || t.operand.find(',') != std::string::npos)
+				&& t.operand.find(baseY) != std::string::npos) { fail = true; break; }
+			if (IsRMWMnem(m) && t.operand == Y) { fail = true; break; }
+			if (WritesMemMnem(m) && t.operand == Y) { confined = true; break; } // Y redefined -> value consumed
+			if (ReadsMemMnem(m) && t.operand == Y) {
+				if (!xLive) { fail = true; break; }  // X changed -> this read still needs Y
+				reads.push_back(k);
+			}
+			if (((WritesMemMnem(m) || IsRMWMnem(m)) && t.operand == X)) xLive = false;
+		}
+		if (fail || !confined) continue;
+		for (size_t r = 0; r < reads.size(); r++) {
+			toks[reads[r]].operand = X;
+			toks[reads[r]].text = toks[reads[r]].mnemonic + " " + X;
+		}
+		bytesSaved += EstimateInstructionSize(toks[s].mnemonic, toks[s].operand);
+		toks[s].eliminated = true;
+		changed++;
+		if (g_verbosity >= 3)
+			printf("MacroSplitter: [line %d] Copy-propagated %s -> %s (%d read%s), store removed\n",
+				toks[s].lineIndex + 1, Y.c_str(), X.c_str(), (int)reads.size(), reads.size()==1?"":"s");
+	}
+	return changed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1169,6 +1256,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 			}
 		}
 
+		// copy propagation (forward lda X:sta Y into later Y-reads, kill the store)
+		eliminated += CopyPropagate(allTokens, bytesSaved);
 		// block-scoped redundant immediate-load elimination + iny/dey rewrites
 		eliminated += MarkRedundantImmLoads(allTokens, bytesSaved);
 
