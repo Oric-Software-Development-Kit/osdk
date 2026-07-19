@@ -1251,6 +1251,90 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// Statement-scoped temp deadness. Compiler temporaries (tmp*) never carry a
+// value across a statement boundary, and every label / branch / jump / call
+// in compiler-generated code IS a statement boundary (calls save any still-
+// live temps explicitly, which reads them). So a temp is dead when the
+// forward scan reaches a flow boundary - or a pure overwrite - without a
+// read. The peephole only ever processes compiler output, never hand
+// assembler, so the axiom holds by construction.
+static bool TempDeadAfter(const std::vector<Token>& toks, size_t from,
+                          const std::string& T)
+{
+	for (size_t s = from; ; )
+	{
+		s = NextRealInstr(toks, s + 1);
+		if (s == (size_t)-1) return true;             // label/directive boundary
+		const std::string& m = toks[s].mnemonic;
+		const std::string& op = toks[s].operand;
+		if (m == "jsr" || m == "jmp" || m == "rts" || m == "rti"
+			|| m == "beq" || m == "bne" || m == "bmi" || m == "bpl"
+			|| m == "bcc" || m == "bcs" || m == "bvc" || m == "bvs")
+			return true;                              // statement over
+		if (m == "sta" || m == "stx" || m == "sty")
+		{
+			if (op == T) return true;                 // pure overwrite
+			if (PlainDirect(op)) continue;            // another location
+			if (op.find(T) != std::string::npos) return false;  // (T),y
+			continue;
+		}
+		if (op.find(T) != std::string::npos) return false;      // any read
+	}
+}
+
+// Commutative staging fold. The compiler stages one operand of a commutative
+// bitwise op through a scratch temp even when both live in memory:
+//     lda X : sta T : lda Y : eor T     ->      lda Y : eor X
+// (same for ora/and). The reordering of the X/Y reads is safe - nothing is
+// written in between and I/O locations are excluded; the temp must be
+// statement-dead. X may be an immediate (folds lda #n : sta T : lda Y :
+// eor T into lda Y : eor #n).
+static int FoldCommutativeStage(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "lda" || toks[i].frozen) continue;
+		const std::string X = toks[i].operand;
+		bool xImm = !X.empty() && X[0] == '#';
+		if (!xImm && (!PlainDirect(X) || IsIOPageAddress(X))) continue;
+
+		size_t i1 = NextRealInstr(toks, i + 1);
+		if (i1 == (size_t)-1 || toks[i1].frozen) continue;
+		if (toks[i1].mnemonic != "sta") continue;
+		const std::string T = toks[i1].operand;
+		if (T.compare(0, 3, "tmp") != 0 || T == X) continue;
+
+		size_t i2 = NextRealInstr(toks, i1 + 1);
+		if (i2 == (size_t)-1 || toks[i2].frozen) continue;
+		if (toks[i2].mnemonic != "lda") continue;
+		const std::string Y = toks[i2].operand;
+		bool yImm = !Y.empty() && Y[0] == '#';
+		if (Y == T) continue;
+		if (!yImm && (!PlainDirect(Y) || IsIOPageAddress(Y))) continue;
+
+		size_t i3 = NextRealInstr(toks, i2 + 1);
+		if (i3 == (size_t)-1 || toks[i3].frozen) continue;
+		const std::string& m3 = toks[i3].mnemonic;
+		if (m3 != "eor" && m3 != "ora" && m3 != "and") continue;
+		if (toks[i3].operand != T) continue;
+
+		if (!TempDeadAfter(toks, i3, T)) continue;
+
+		bytesSaved += EstimateInstructionSize(toks[i].mnemonic, X);
+		bytesSaved += EstimateInstructionSize(toks[i1].mnemonic, T);
+		bytesSaved -= EstimateInstructionSize(m3, X)
+		            - EstimateInstructionSize(m3, T);
+		toks[i].eliminated = true;
+		toks[i1].eliminated = true;
+		toks[i3].operand = X;
+		toks[i3].text = m3 + " " + X;
+		changed++;
+	}
+	return changed;
+}
+
 // Carry-branch fold (the xtime() idiom). After
 //     lda X : sta P : asl X        (or : asl : ... - the accumulator form)
 // the carry holds bit 7 of the PRE-shift value, which is exactly what a
@@ -2434,6 +2518,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FoldShiftToMemory(allTokens, bytesSaved);
 		// (P & $80) test after an asl of the value P copies -> carry branch
 		eliminated += FoldCarryBranch(allTokens, bytesSaved);
+		// lda X : sta T : lda Y : eor/ora/and T -> lda Y : op X (T dead)
+		eliminated += FoldCommutativeStage(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
