@@ -1251,6 +1251,99 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// while(v--) post-decrement collapse. The compiler tests the ORIGINAL value
+// and stores the decrement through two scratch temps:
+//     lda V : sta T : sec : lda T : sbc #1 : sta T2 : [lda T2] : sta V :
+//     lda T : bne/beq label
+// (the bracketed reload is already gone when copy propagation ran first).
+// Temps are statement-scoped and the branch ends the statement, so T/T2 are
+// dead past it by construction; the whole cluster is
+//     ldx V : dex : stx V : inx : bne/beq label
+// The inx brings X back to the ORIGINAL value and sets N/Z from it - exactly
+// the flags the dropped `lda T` produced (using the dex flags instead would
+// be off by one at V==1). dex/inx leave the carry alone, and no statement
+// consumes a previous statement's carry (every arithmetic macro starts with
+// sec/clc), so dropping the sbc's carry is safe. Byte variables only by
+// construction - this is the expansion of the byte-narrowed SUBB/NE0B shape.
+// Runs FIRST in the fixpoint so it sees the virgin expansion.
+static int FoldPostDecrement(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "lda" || toks[i].frozen) continue;
+		const std::string V = toks[i].operand;
+		if (!PlainDirect(V) || IsIOPageAddress(V)) continue;
+		if (V.compare(0, 3, "tmp") == 0) continue;   // V is the user variable
+
+		size_t w[9];
+		w[0] = i;
+		bool ok = true;
+		for (int k = 1; k < 9 && ok; k++)
+		{
+			w[k] = NextRealInstr(toks, w[k-1] + 1);
+			if (w[k] == (size_t)-1 || toks[w[k]].frozen) ok = false;
+		}
+		if (!ok) continue;
+
+		// sta T : sec : lda T : sbc #1 : sta T2
+		if (toks[w[1]].mnemonic != "sta") continue;
+		const std::string T = toks[w[1]].operand;
+		if (T.compare(0, 3, "tmp") != 0) continue;
+		if (toks[w[2]].mnemonic != "sec") continue;
+		if (toks[w[3]].mnemonic != "lda" || toks[w[3]].operand != T) continue;
+		if (toks[w[4]].mnemonic != "sbc" || toks[w[4]].operand != "#1") continue;
+		if (toks[w[5]].mnemonic != "sta") continue;
+		const std::string T2 = toks[w[5]].operand;
+		if (T2.compare(0, 3, "tmp") != 0 || T2 == T) continue;
+		if (V == T || V == T2) continue;
+
+		// [lda T2] : sta V : lda T : bne/beq label
+		size_t p = 6;                                 // shape without the reload
+		size_t sV, ldT, br;
+		if (toks[w[6]].mnemonic == "lda" && toks[w[6]].operand == T2)
+		{
+			p = 7;                                    // optional reload present
+			sV  = w[7];
+			ldT = w[8];
+			br  = NextRealInstr(toks, w[8] + 1);
+		}
+		else
+		{
+			sV  = w[6];
+			ldT = w[7];
+			br  = w[8];
+		}
+		if (br == (size_t)-1 || toks[br].frozen) continue;
+
+		if (toks[sV].mnemonic != "sta" || toks[sV].operand != V) continue;
+		if (toks[ldT].mnemonic != "lda" || toks[ldT].operand != T) continue;
+		if (toks[br].mnemonic != "bne" && toks[br].mnemonic != "beq") continue;
+
+		// rewrite: ldx V : dex : stx V : inx  (+ untouched branch)
+		bytesSaved += EstimateInstructionSize("sec", "");
+		bytesSaved += EstimateInstructionSize("lda", T);
+		bytesSaved += EstimateInstructionSize("sbc", "#1");
+		bytesSaved += EstimateInstructionSize("sta", T2);
+		if (p == 7)
+			bytesSaved += EstimateInstructionSize("lda", T2);
+		bytesSaved += EstimateInstructionSize("lda", T);
+		toks[w[0]].mnemonic = "ldx"; toks[w[0]].operand = V; toks[w[0]].text = "ldx " + V;
+		toks[w[1]].mnemonic = "dex"; toks[w[1]].operand = ""; toks[w[1]].text = "dex";
+		toks[w[2]].mnemonic = "stx"; toks[w[2]].operand = V; toks[w[2]].text = "stx " + V;
+		toks[w[3]].mnemonic = "inx"; toks[w[3]].operand = ""; toks[w[3]].text = "inx";
+		toks[w[4]].eliminated = true;
+		toks[w[5]].eliminated = true;
+		if (p == 7)
+			toks[w[6]].eliminated = true;
+		toks[sV].eliminated = true;
+		toks[ldT].eliminated = true;
+		changed++;
+	}
+	return changed;
+}
+
 // Accumulator-form shift fold. The compiler routes a shifted value through a
 // scratch temp even when the value is already in A:
 //     lda V : sta T : [stores] : asl T : lda T : ...
@@ -1763,6 +1856,10 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 	for (;;)
 	{
 		int eliminated = 0;
+
+		// while(v--) collapse first: it matches the virgin 10-instruction
+		// expansion before the generic passes reshape it
+		eliminated += FoldPostDecrement(allTokens, bytesSaved);
 
 		for (size_t i = 0; i < allTokens.size(); i++)
 		{

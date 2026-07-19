@@ -37,6 +37,18 @@ void main(void)
 	a = 10; b = 20; c = (a + b) & 0x0F;      /* 30 & 15 = 14 */
 	tk_check_eq(c, 14, "chain");
 
+	/* while(v--): the post-decrement collapse (ldx/dex/stx/inx) must test
+	   the ORIGINAL value and wrap the stored one - boundary cases c==1
+	   (one iteration, not zero) and c==0 (no iteration, wraps to 255) */
+	a = 3; b = 0; while (a--) b++;
+	tk_check_eq(b, 3, "postdec-count");
+	tk_check_eq(a, 255, "postdec-wrap");     /* last test decrements 0 */
+	a = 1; b = 0; while (a--) b++;
+	tk_check_eq(b, 1, "postdec-one");
+	a = 0; b = 77; while (a--) b = 0;
+	tk_check_eq(b, 77, "postdec-zero");
+	tk_check_eq(a, 255, "postdec-zerowrap");
+
 	/* the low byte must be correct even when operands' high bytes differ:
 	   here everything is char so this just re-confirms no stray high byte */
 	a = 0; b = 1; c = a - b;                 /* -1 -> 255 */
