@@ -1231,6 +1231,88 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// Accumulator-form shift fold. The compiler routes a shifted value through a
+// scratch temp even when the value is already in A:
+//     lda V : sta T : [stores] : asl T : lda T : ...
+// When T is provably dead afterwards (rewritten before any read, same block),
+// this is just a shift of A:
+//     lda V : [stores] : asl : ...
+// Window rules: between `sta T` and the shift only plain stores to OTHER
+// locations may appear (they keep A, the carry and T intact); any label,
+// branch, jump or call bails out. asl/lsr ignore carry-in; rol/ror are safe
+// too because plain stores don't touch the carry. Flags after the fold are
+// identical (the shift sets N/Z/C from the same value the dropped `lda T`
+// reloaded).
+static int FoldAccumulatorShift(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "sta" || toks[i].frozen) continue;
+		const std::string T = toks[i].operand;
+		if (!PlainDirect(T) || IsIOPageAddress(T)) continue;
+
+		// forward: only plain stores to other locations until the shift
+		size_t j = i;
+		size_t shiftAt = (size_t)-1;
+		for (;;)
+		{
+			j = NextRealInstr(toks, j + 1);
+			if (j == (size_t)-1) break;
+			const std::string& m = toks[j].mnemonic;
+			const std::string& op = toks[j].operand;
+			if ((m == "asl" || m == "lsr" || m == "rol" || m == "ror") && op == T)
+			{
+				shiftAt = j;
+				break;
+			}
+			if ((m == "sta" || m == "stx" || m == "sty")
+				&& PlainDirect(op) && op != T)
+				continue;
+			break;                                   // anything else: bail
+		}
+		if (shiftAt == (size_t)-1 || toks[shiftAt].frozen) continue;
+
+		size_t reloadAt = NextRealInstr(toks, shiftAt + 1);
+		if (reloadAt == (size_t)-1) continue;
+		if (toks[reloadAt].mnemonic != "lda" || toks[reloadAt].operand != T
+			|| toks[reloadAt].frozen) continue;
+
+		// T must be overwritten before any later read (block scope only)
+		bool dead = false;
+		for (size_t s = reloadAt; ; )
+		{
+			s = NextRealInstr(toks, s + 1);
+			if (s == (size_t)-1) break;              // label/directive: unknown
+			const std::string& m = toks[s].mnemonic;
+			const std::string& op = toks[s].operand;
+			if (m == "jsr" || m == "jmp" || m == "rts" || m == "rti") break;
+			if (m == "beq" || m == "bne" || m == "bmi" || m == "bpl"
+				|| m == "bcc" || m == "bcs" || m == "bvc" || m == "bvs") break;
+			if (m == "sta" || m == "stx" || m == "sty")
+			{
+				if (op == T) { dead = true; break; }  // pure overwrite first
+				if (PlainDirect(op)) continue;        // another byte: writes only
+				if (op.find(T) != std::string::npos) break;  // (T),y: reads the pointer
+				continue;                             // unrelated indexed store
+			}
+			if (op.find(T) != std::string::npos) break;   // any other use: read
+		}
+		if (!dead) continue;
+
+		bytesSaved += EstimateInstructionSize(toks[i].mnemonic, T);           // sta T
+		bytesSaved += EstimateInstructionSize(toks[reloadAt].mnemonic, T);    // lda T
+		bytesSaved += EstimateInstructionSize(toks[shiftAt].mnemonic, T) - 1; // abs->acc
+		toks[i].eliminated = true;
+		toks[reloadAt].eliminated = true;
+		toks[shiftAt].operand = "";
+		toks[shiftAt].text = toks[shiftAt].mnemonic;
+		changed++;
+	}
+	return changed;
+}
+
 static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
 {
 	int changed = 0;
@@ -1923,6 +2005,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FuseLongShellsY(allTokens, bytesSaved);
 		// block-scoped known-zero propagation (dup zero stores, and/ora/eor with 0)
 		eliminated += TrackKnownZero(allTokens, bytesSaved);
+		// shift-through-temp -> accumulator-form shift when the temp is dead
+		eliminated += FoldAccumulatorShift(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
