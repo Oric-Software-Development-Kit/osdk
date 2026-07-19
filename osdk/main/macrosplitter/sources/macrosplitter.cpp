@@ -1261,6 +1261,13 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 static bool TempDeadAfter(const std::vector<Token>& toks, size_t from,
                           const std::string& T)
 {
+	// Scan for the temp's BASE name ("tmp0" for "tmp0+2"): the 32-bit shells
+	// consume whole pairs indirectly by taking the base address (lda #<tmp0 /
+	// (tmp0),y), which must count as a read of every pair member.
+	std::string base = T;
+	size_t plus = base.find('+');
+	if (plus != std::string::npos) base.erase(plus);
+
 	for (size_t s = from; ; )
 	{
 		s = NextRealInstr(toks, s + 1);
@@ -1274,12 +1281,65 @@ static bool TempDeadAfter(const std::vector<Token>& toks, size_t from,
 		if (m == "sta" || m == "stx" || m == "sty")
 		{
 			if (op == T) return true;                 // pure overwrite
-			if (PlainDirect(op)) continue;            // another location
-			if (op.find(T) != std::string::npos) return false;  // (T),y
+			if (PlainDirect(op) && op.find(base) == std::string::npos)
+				continue;                             // unrelated location
+			if (op.find(base) != std::string::npos && op != T)
+				return false;                         // pair mate / pointer take
 			continue;
 		}
-		if (op.find(T) != std::string::npos) return false;      // any read
+		if (op.find(base) != std::string::npos) return false;   // any read
 	}
+}
+
+// Transfer + store -> direct store (Mike's find):  tya : sta X  ->  sty X
+// (same for txa). One byte and two cycles per site. The transfer set N/Z
+// from the value while st* sets no flags, so the fold requires N/Z dead -
+// the existing NZFlagsDeadAt guard. (At a site like tya : sta reg1 : bne L
+// the branch consumes the transfer's flags and the fold correctly skips.)
+// A must also be dead: dropping the transfer leaves A with its OLD value -
+// guarded the same way as the other folds (next A operation overwrites it).
+static int FoldTransferStore(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		const std::string& tm = toks[i].mnemonic;
+		if ((tm != "tya" && tm != "txa") || toks[i].frozen) continue;
+
+		size_t st = NextRealInstr(toks, i + 1);
+		if (st == (size_t)-1 || toks[st].frozen) continue;
+		if (toks[st].mnemonic != "sta") continue;
+		const std::string& X = toks[st].operand;
+		if (!PlainDirect(X)) continue;
+
+		if (!NZFlagsDeadAt(toks, st)) continue;      // st* sets no flags
+
+		// A dead: next A-touching op must overwrite without reading
+		bool aDead = false;
+		for (size_t s = st; ; )
+		{
+			s = NextRealInstr(toks, s + 1);
+			if (s == (size_t)-1) break;
+			const std::string& m = toks[s].mnemonic;
+			if (m == "lda" || m == "pla" || m == "txa" || m == "tya")
+			{ aDead = true; break; }
+			if (m == "ldx" || m == "ldy" || m == "stx" || m == "sty"
+				|| m == "inx" || m == "iny" || m == "dex" || m == "dey"
+				|| m == "clc" || m == "sec" || m == "nop")
+				continue;
+			break;
+		}
+		if (!aDead) continue;
+
+		const char* store = (tm == "tya") ? "sty" : "stx";
+		bytesSaved += 1;                              // transfer dropped
+		toks[i].eliminated = true;
+		toks[st].mnemonic = store;
+		toks[st].text = std::string(store) + " " + X;
+		changed++;
+	}
+	return changed;
 }
 
 // Commutative staging fold. The compiler stages one operand of a commutative
@@ -2520,6 +2580,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FoldCarryBranch(allTokens, bytesSaved);
 		// lda X : sta T : lda Y : eor/ora/and T -> lda Y : op X (T dead)
 		eliminated += FoldCommutativeStage(allTokens, bytesSaved);
+		// tya/txa : sta X -> sty/stx X (N/Z and A dead)
+		eliminated += FoldTransferStore(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
