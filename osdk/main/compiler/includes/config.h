@@ -34,6 +34,12 @@ typedef struct {
 	char	narrow;		/* 8-bit narrowing: on an arith node -> emit the byte (B)
 				   family; on a CVCU/CVSU widen -> skip it (the result is
 				   only used as a char, so the high byte is irrelevant) */
+	char	width;		/* value width in bytes (0/2 = word, 4 = 32-bit long).
+				   dag nodes carry no Type, and long ops share the I/U
+				   opcodes, so this is the only channel telling the
+				   backend a node computes a 32-bit value. Stamped at
+				   dag construction from the tree's type; compare nodes
+				   read their KIDS' width (their own type is int). */
 } Xnode;
 
 typedef struct {

@@ -13,7 +13,8 @@
 #define P	7	/* void* */
 #define V	8	/* void */
 #define B	9	/* struct */
-#define TYPENAMES " FDCSIUPVB"
+#define L	10	/* long (32 bit) */
+#define TYPENAMES " FDCSIUPVBL"
 
 #ifdef __STDC__
 typedef enum opcode {
@@ -60,6 +61,7 @@ typedef enum opcode {
 	CVID=(8<<4)+D,
 	CVIS=(8<<4)+S,
 	CVIU=(8<<4)+U,
+	CVIL=(8<<4)+L,	/* int -> long: sign extend */
 	CVP=9<<4,
 	CVPU=(9<<4)+U,
 	CVS=10<<4,
@@ -70,6 +72,7 @@ typedef enum opcode {
 	CVUI=(11<<4)+I,
 	CVUP=(11<<4)+P,
 	CVUS=(11<<4)+S,
+	CVUL=(11<<4)+L,	/* unsigned -> long: zero extend */
 	NEG=12<<4,
 	NEGD=(12<<4)+D,
 	NEGF=(12<<4)+F,
@@ -171,7 +174,11 @@ typedef enum opcode {
 	JUMPV=(36<<4)+V,
 	LABEL=37<<4,
 	LABELV=(37<<4)+V,
-	MAXOP=38<<4,
+	CVL=38<<4,	/* conversions FROM long (truncate / to float) */
+	CVLI=(38<<4)+I,
+	CVLU=(38<<4)+U,
+	CVLD=(38<<4)+D,
+	MAXOP=39<<4,
 	/* additional tree operators: */
 	AND=MAXOP,
 	NOT=MAXOP+1*16,
@@ -225,6 +232,7 @@ typedef int Opcode;
 #define CVID	((8<<4)+D)
 #define CVIS	((8<<4)+S)
 #define CVIU	((8<<4)+U)
+#define CVIL	((8<<4)+L)
 #define CVP	(9<<4)
 #define CVPU	((9<<4)+U)
 #define CVS	(10<<4)
@@ -235,6 +243,7 @@ typedef int Opcode;
 #define CVUI	((11<<4)+I)
 #define CVUP	((11<<4)+P)
 #define CVUS	((11<<4)+S)
+#define CVUL	((11<<4)+L)
 #define NEG	(12<<4)
 #define NEGD	((12<<4)+D)
 #define NEGF	((12<<4)+F)
@@ -336,7 +345,11 @@ typedef int Opcode;
 #define JUMPV	((36<<4)+V)
 #define LABEL	(37<<4)
 #define LABELV	((37<<4)+V)
-#define MAXOP	(38<<4)
+#define CVL	(38<<4)
+#define CVLI	((38<<4)+I)
+#define CVLU	((38<<4)+U)
+#define CVLD	((38<<4)+D)
+#define MAXOP	(39<<4)
 #define AND	MAXOP
 #define	NOT	(MAXOP+1*16)
 #define	OR	(MAXOP+2*16)
@@ -384,5 +397,6 @@ typedef int Opcode;
 "NE",
 "JUMP",
 "LABEL",
+"CVL",
 #undef NEEDNAMES
 #endif /* NEEDNAMES */

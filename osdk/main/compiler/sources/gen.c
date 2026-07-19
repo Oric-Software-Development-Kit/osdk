@@ -67,7 +67,7 @@ static char *opcode_names[] = {
     "CVS","CVU","NEG","CALL","LOAD","RET","ADDRG","ADDRF","ADDRL","ADD",
     "SUB","LSH","MOD","RSH","BAND","BCOM","BOR","BXOR","DIV","MUL",
     "EQ","GE","GT","LE","LT","NE","JUMP","LABEL","MAXOP" };
-static char type_name[] = " FDCSIUPVB??????";
+static char type_name[] = " FDCSIUPVBL?????";
 static char *additional_operators[] = {
     "AND","NOT","OR","COND","RIGHT","FIELD" };
 

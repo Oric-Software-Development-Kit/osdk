@@ -132,9 +132,9 @@ static int mul(x, y, min, max, needconst) double x, y, min, max; int needconst; 
 #define cvtcnst(FTYPE,TTYPE,EXP) \
 	if (l->op == CNST+FTYPE) { \
 		p = tree(CNST+ttob(TTYPE), TTYPE, 0, 0); EXP; return p; }
-#define commute(L,R) \
-	if (generic(R->op) == CNST && generic(L->op) != CNST) { \
-		Tree t = L; L = R; R = t; }
+#define commute(LT,RT) \
+	if (generic(RT->op) == CNST && generic(LT->op) != CNST) { \
+		Tree t = LT; LT = RT; RT = t; }
 #define zerofield(OP,TYPE,VAR) \
 	if (l->op == FIELD && r->op == CNST+TYPE && r->u.v.VAR == 0) \
 		return eqnode(OP, bitnode(BAND, l->kids[0], \
@@ -174,14 +174,14 @@ static int mul(x, y, min, max, needconst) double x, y, min, max; int needconst; 
 	&& r->u.v.i >= 0 && r->u.v.i < 8*l->type->size) { \
 		p = tree(CNST+ttob(RTYPE), RTYPE, 0, 0); \
 		p->u.v.VAR = tgtwrapu(l->u.v.VAR OP r->u.v.i); return p; }
-#define foldaddp(L,R,RTYPE,VAR) \
-	if (L->op == CNST+P && R->op == CNST+RTYPE) { \
+#define foldaddp(LT,RT,RTYPE,VAR) \
+	if (LT->op == CNST+P && RT->op == CNST+RTYPE) { \
 		p = tree(CNST+P, ty, 0, 0); \
-		p->u.v.p = L->u.v.p + R->u.v.VAR; return p; }
-#define geu(L,R,V) \
-	if (R->op == CNST+U && R->u.v.u == 0) { \
+		p->u.v.p = LT->u.v.p + RT->u.v.VAR; return p; }
+#define geu(LT,RT,V) \
+	if (RT->op == CNST+U && RT->u.v.u == 0) { \
 		warning("result of unsigned comparison is constant\n"); \
-		return tree(RIGHT, inttype, root(L), constnode(V, inttype)); }
+		return tree(RIGHT, inttype, root(LT), constnode(V, inttype)); }
 #define idempotent(OP) if (l->op == OP) return l->kids[0];
 #define identity(X,Y,TYPE,VAR,VAL) if (X->op == CNST+TYPE && X->u.v.VAR == VAL) return Y
 
