@@ -46,6 +46,7 @@ _test
 #include <sys/stat.h>
 
 #include <string>
+#include <set>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -1196,6 +1197,154 @@ static int FoldWidenReturn(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// Block-scoped known-zero tracking. After `lda #0 : sta X` the location X
+// provably holds zero (and A is zero) until something writes it, so:
+//   - a second `sta X` while A is still zero is a dead duplicate
+//   - `lda X` / `ldx X` / `ldy X` become the immediate #0 form
+//   - `and X` (or `and #0`) becomes `lda #0` (algebraic zero)
+//   - `ora X` / `eor X` vanish when the preceding instruction already set
+//     N/Z from A (or when N/Z are dead) - A|0 == A^0 == A
+// Facts reset at labels/directives (join points), and any jsr / indexed or
+// indirect store clears the location set (unknown writes / aliasing).
+static bool PlainDirect(const std::string& op)
+{
+	if (op.empty() || op[0] == '#') return false;
+	if (op.find(',') != std::string::npos) return false;
+	if (op.find('(') != std::string::npos) return false;
+	return true;
+}
+
+// true when the previous real instruction leaves N/Z set from the current A
+static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
+{
+	for (size_t j = i; j-- > 0; )
+	{
+		if (toks[j].eliminated) continue;
+		TokenType tt = toks[j].type;
+		if (tt == TokenType::Comment || tt == TokenType::Empty
+			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+		if (tt != TokenType::Instruction) return false;
+		const std::string& m = toks[j].mnemonic;
+		if (m=="sta"||m=="stx"||m=="sty") continue;        // no flag change, A intact
+		return m=="lda"||m=="and"||m=="ora"||m=="eor"||m=="pla"||m=="txa"||m=="tya";
+	}
+	return false;
+}
+
+static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	bool aZero = false;
+	std::set<std::string> zero;
+
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		Token& t = toks[i];
+		if (t.eliminated) continue;
+		TokenType tt = t.type;
+		if (tt == TokenType::Comment || tt == TokenType::Empty
+			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+		if (tt != TokenType::Instruction) { aZero = false; zero.clear(); continue; }
+
+		const std::string& m = t.mnemonic;
+		const std::string& op = t.operand;
+		bool direct = PlainDirect(op);
+
+		if (m == "lda")
+		{
+			if (op == "#0") { aZero = true; continue; }
+			if (direct && zero.count(op) && !t.frozen)
+			{
+				bytesSaved += EstimateInstructionSize(m, op) - 2;
+				t.operand = "#0"; t.text = "lda #0"; t.mnemonic = "lda";
+				aZero = true; changed++; continue;
+			}
+			aZero = false; continue;
+		}
+		if (m == "ldx" || m == "ldy")
+		{
+			if (direct && zero.count(op) && !t.frozen)
+			{
+				bytesSaved += EstimateInstructionSize(m, op) - 2;
+				t.operand = "#0"; t.text = m + " #0"; changed++;
+			}
+			continue;
+		}
+		if (m == "sta")
+		{
+			if (!direct) { zero.clear(); continue; }     // indexed/indirect: aliasing
+			if (aZero)
+			{
+				if (zero.count(op) && !t.frozen)
+				{
+					bytesSaved += EstimateInstructionSize(m, op);
+					t.eliminated = true; changed++; continue;
+				}
+				if (!IsIOPageAddress(op))    // hardware registers are volatile
+					zero.insert(op);
+			}
+			else
+				zero.erase(op);
+			continue;
+		}
+		if (m == "stx" || m == "sty")
+		{
+			if (!direct) zero.clear(); else zero.erase(op);
+			continue;
+		}
+		if (m == "and")
+		{
+			if ((op == "#0" || (direct && zero.count(op))) && !t.frozen)
+			{
+				bytesSaved += EstimateInstructionSize(m, op) - 2;
+				t.mnemonic = "lda"; t.operand = "#0"; t.text = "lda #0";
+				aZero = true; changed++; continue;
+			}
+			if (!aZero) aZero = false;                   // 0 & x stays 0
+			continue;
+		}
+		if (m == "ora" || m == "eor")
+		{
+			if (direct && zero.count(op) && !t.frozen
+				&& (PrevSetsFlagsFromA(toks, i) || NZFlagsDeadAt(toks, i)))
+			{
+				bytesSaved += EstimateInstructionSize(m, op);
+				t.eliminated = true; changed++; continue;
+			}
+			if (!(aZero && op == "#0")) aZero = false;
+			continue;
+		}
+		if (m == "inc" || m == "dec" || m == "asl" || m == "lsr"
+			|| m == "rol" || m == "ror")
+		{
+			if (!op.empty())
+			{
+				if (!direct) zero.clear(); else zero.erase(op);
+			}
+			else
+				aZero = false;                           // accumulator form
+			continue;
+		}
+		if (m == "jsr") { aZero = false; zero.clear(); continue; }
+		if (m == "jmp" || m == "rts" || m == "rti" || m == "brk")
+		{ aZero = false; zero.clear(); continue; }
+		if (m == "beq" || m == "bne" || m == "bmi" || m == "bpl"
+			|| m == "bcc" || m == "bcs" || m == "bvc" || m == "bvs")
+			continue;                                    // branches write nothing
+		if (m == "cmp" || m == "cpx" || m == "cpy" || m == "bit"
+			|| m == "clc" || m == "sec" || m == "cld" || m == "sed"
+			|| m == "cli" || m == "sei" || m == "clv" || m == "nop"
+			|| m == "php" || m == "pha")
+			continue;                                    // A and memory intact
+		// anything else that can change A (adc, sbc, pla, txa, tya, ...)
+		if (m == "adc" || m == "sbc" || m == "pla" || m == "txa" || m == "tya"
+			|| m == "plp")
+			aZero = false;
+		// tax/tay/tsx/txs/dex/dey/inx/iny: A and tracked memory intact
+	}
+	return changed;
+}
+
 // Fuse chained 32-bit (long) macro shells. Every L operation copies its
 // operand into op1..op2+1 and its result back out, so two chained operations
 // produce a cancelling pair: a full 4-byte store from op1:op2 to X followed
@@ -1772,6 +1921,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		// cancel the reload half of chained 32-bit shells (value already in op1:op2)
 		eliminated += FuseLongShells(allTokens, bytesSaved);
 		eliminated += FuseLongShellsY(allTokens, bytesSaved);
+		// block-scoped known-zero propagation (dup zero stores, and/ora/eor with 0)
+		eliminated += TrackKnownZero(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
