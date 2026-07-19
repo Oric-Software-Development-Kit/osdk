@@ -1196,6 +1196,157 @@ static int FoldWidenReturn(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// Fuse chained 32-bit (long) macro shells. Every L operation copies its
+// operand into op1..op2+1 and its result back out, so two chained operations
+// produce a cancelling pair: a full 4-byte store from op1:op2 to X followed
+// immediately (across transparent tokens only - a label is a barrier) by a
+// full 4-byte reload of X into op1:op2. The value is still in op1:op2, so
+// the reload is dead. Two reload shapes exist:
+//   direct   (operand A of the next op is X itself, 8 instructions)
+//   pointer  (INDIRL_C* of a global just stored: materialize &X into tmp,
+//             then (tmp),y-load the 4 bytes back - 15 instructions)
+// Only the reload half is removed; the store stays (the location may be
+// read later). Flags are preserved: both sequences end with A holding the
+// op2+1 byte.
+static bool MatchStoreOp32(const std::vector<Token>& t, size_t idx[8], std::string& X)
+{
+	// lda op1 : sta X : lda op1+1 : sta X+1 : lda op2 : sta X+2 : lda op2+1 : sta X+3
+	static const char* src[4] = { "op1", "op1+1", "op2", "op2+1" };
+	for (int k = 0; k < 4; k++)
+	{
+		const Token& l = t[idx[k*2]];
+		const Token& s = t[idx[k*2+1]];
+		if (l.mnemonic != "lda" || l.operand != src[k]) return false;
+		if (s.mnemonic != "sta" || s.frozen)            return false;
+		if (k == 0)
+		{
+			X = s.operand;
+			if (X.empty() || X[0] == '#')                       return false;
+			if (X.find('(') != std::string::npos)               return false;
+			if (X.find(',') != std::string::npos)               return false;
+			if (X.compare(0, 2, "op") == 0 || X == "tmp")       return false;
+		}
+		else
+		{
+			char suffix[4]; sprintf(suffix, "+%d", k);
+			if (s.operand != X + suffix) return false;
+		}
+	}
+	return true;
+}
+
+static int FuseLongShells(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "lda" || toks[i].operand != "op1" || toks[i].frozen) continue;
+
+		// collect the 8-instruction store block
+		size_t st[8]; st[0] = i;
+		bool ok = true;
+		for (int k = 1; k < 8 && ok; k++)
+		{
+			st[k] = NextRealInstr(toks, st[k-1] + 1);
+			if (st[k] == (size_t)-1) ok = false;
+		}
+		if (!ok) continue;
+		std::string X;
+		if (!MatchStoreOp32(toks, st, X)) continue;
+
+		// candidate reload starts right after the store block
+		size_t r0 = NextRealInstr(toks, st[7] + 1);
+		if (r0 == (size_t)-1) continue;
+
+		// ---- shape 1: direct reload  lda X : sta op1 : ... (8 instructions)
+		{
+			size_t r[8]; r[0] = r0; bool okr = true;
+			for (int k = 1; k < 8 && okr; k++)
+			{
+				r[k] = NextRealInstr(toks, r[k-1] + 1);
+				if (r[k] == (size_t)-1) okr = false;
+			}
+			if (okr)
+			{
+				static const char* dst[4] = { "op1", "op1+1", "op2", "op2+1" };
+				bool match = true;
+				for (int k = 0; k < 4 && match; k++)
+				{
+					const Token& l = toks[r[k*2]];
+					const Token& s = toks[r[k*2+1]];
+					std::string want = X;
+					if (k) { char sfx[4]; sprintf(sfx, "+%d", k); want += sfx; }
+					if (l.mnemonic != "lda" || l.operand != want || l.frozen) match = false;
+					else if (s.mnemonic != "sta" || s.operand != dst[k] || s.frozen) match = false;
+				}
+				if (match)
+				{
+					for (int k = 0; k < 8; k++)
+					{
+						bytesSaved += EstimateInstructionSize(toks[r[k]].mnemonic, toks[r[k]].operand);
+						toks[r[k]].eliminated = true;
+					}
+					changed++;
+					continue;
+				}
+			}
+		}
+
+		// ---- shape 2: pointer reload of the just-stored global (INDIRL_C*)
+		//   lda #<(X) : sta tmp : lda #>(X) : sta tmp+1 : ldy #0 :
+		//   lda (tmp),y : sta op1 : iny : lda (tmp),y : sta op1+1 : iny :
+		//   lda (tmp),y : sta op2 : iny : lda (tmp),y : sta op2+1
+		{
+			size_t r[15]; r[0] = r0; bool okr = true;
+			for (int k = 1; k < 15 && okr; k++)
+			{
+				r[k] = NextRealInstr(toks, r[k-1] + 1);
+				if (r[k] == (size_t)-1) okr = false;
+			}
+			if (!okr) continue;
+			const std::string lo = "#<(" + X + ")";
+			const std::string hi = "#>(" + X + ")";
+			static const char* mn[15]  = { "lda","sta","lda","sta","ldy",
+			                               "lda","sta","iny","lda","sta","iny",
+			                               "lda","sta","iny","lda" };
+			// operands checked explicitly below; the last "lda (tmp),y" pairs
+			// with a final "sta op2+1" fetched separately
+			bool match = true;
+			for (int k = 0; k < 15 && match; k++)
+			{
+				if (toks[r[k]].mnemonic != mn[k] || toks[r[k]].frozen) match = false;
+			}
+			if (!match) continue;
+			size_t rLast = NextRealInstr(toks, r[14] + 1);
+			if (rLast == (size_t)-1 || toks[rLast].mnemonic != "sta"
+				|| toks[rLast].operand != "op2+1" || toks[rLast].frozen) continue;
+			if (toks[r[0]].operand  != lo)        continue;
+			if (toks[r[1]].operand  != "tmp")     continue;
+			if (toks[r[2]].operand  != hi)        continue;
+			if (toks[r[3]].operand  != "tmp+1")   continue;
+			if (toks[r[4]].operand  != "#0")      continue;
+			if (toks[r[5]].operand  != "(tmp),y") continue;
+			if (toks[r[6]].operand  != "op1")     continue;
+			if (toks[r[8]].operand  != "(tmp),y") continue;
+			if (toks[r[9]].operand  != "op1+1")   continue;
+			if (toks[r[11]].operand != "(tmp),y") continue;
+			if (toks[r[12]].operand != "op2")     continue;
+			if (toks[r[14]].operand != "(tmp),y") continue;
+
+			for (int k = 0; k < 15; k++)
+			{
+				bytesSaved += EstimateInstructionSize(toks[r[k]].mnemonic, toks[r[k]].operand);
+				toks[r[k]].eliminated = true;
+			}
+			bytesSaved += EstimateInstructionSize(toks[rLast].mnemonic, toks[rLast].operand);
+			toks[rLast].eliminated = true;
+			changed++;
+		}
+	}
+	return changed;
+}
+
 static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 {
 	bytesSaved = 0;
@@ -1533,6 +1684,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += DissolveOrphanedFolds(allTokens, bytesSaved);
 		// fold a word return routed through a scratch temp into a direct X:A load
 		eliminated += FoldWidenReturn(allTokens, bytesSaved);
+		// cancel the reload half of chained 32-bit shells (value already in op1:op2)
+		eliminated += FuseLongShells(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
