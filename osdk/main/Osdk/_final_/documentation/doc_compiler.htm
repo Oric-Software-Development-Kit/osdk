@@ -89,8 +89,10 @@ void function_being_debugged(void)
 
 <ul>
 <li>Pointers are 16 bits long</li>
-<li>char and shorts are 8 bits long</li>
+<li>char and shorts are 8 bits long (note: standard C requires short to be at least 16 bits; here it is an alias of char)</li>
 <li>int are 16 bits long</li>
+<li><b>long are 16 bits long as well - there is no 32 bit integer type.</b> This is an important deviation from standard C (which requires long to be at least 32 bits): "long" is accepted by the compiler but is simply an alias of int, so code written for other platforms that relies on 32 bit arithmetic (values beyond 65535, 32 bit fixed point, checksums, ...) will compile and run but silently compute wrong results. Typical symptom: a calculation whose intermediate values exceed 16 bits wraps around and produces garbage. If your algorithm needs 32 bit integers, you currently have to implement them manually (pairs of 16 bit values)</li>
+<li>float and double are the 40 bits (5 bytes) Oric ROM floating point format</li>
 </ul>
 
 
