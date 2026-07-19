@@ -1251,6 +1251,110 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// Carry-branch fold (the xtime() idiom). After
+//     lda X : sta P : asl X        (or : asl : ... - the accumulator form)
+// the carry holds bit 7 of the PRE-shift value, which is exactly what a
+// following  lda #128 : and P  (or lda P : and #128) recomputes. When only
+// C-preserving instructions sit in between and the AND result feeds nothing
+// but the flags (an optional statement-dead tmp store and the branch), the
+// whole test collapses into the branch itself:
+//     beq L -> bcc L        bne L -> bcs L
+// A and the other flags are dead past the branch by the macro-seam
+// convention (every macro loads its registers before use).
+static int FoldCarryBranch(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "asl" || toks[i].frozen) continue;
+		const std::string X = toks[i].operand;      // "" = accumulator form
+
+		// backward anchor: lda ? : sta P (: asl). For the RMW form the lda
+		// must be from X itself so that P == pre-shift X.
+		size_t pStore = (size_t)-1, pLoad = (size_t)-1;
+		for (size_t b = i; b-- > 0; )
+		{
+			if (toks[b].eliminated) continue;
+			TokenType tt = toks[b].type;
+			if (tt == TokenType::Comment || tt == TokenType::Empty
+				|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+			if (tt != TokenType::Instruction) break;
+			if (pStore == (size_t)-1)
+			{
+				if (toks[b].mnemonic != "sta" || toks[b].frozen) break;
+				pStore = b;
+				continue;
+			}
+			pLoad = (toks[b].mnemonic == "lda" && !toks[b].frozen) ? b : (size_t)-1;
+			break;
+		}
+		if (pStore == (size_t)-1 || pLoad == (size_t)-1) continue;
+		const std::string P = toks[pStore].operand;
+		if (!PlainDirect(P) || IsIOPageAddress(P) || P == X) continue;
+		if (!X.empty())
+		{
+			if (!PlainDirect(X) || toks[pLoad].operand != X) continue;
+		}
+
+		// forward: C-preserving instructions, then the mask-test cluster
+		size_t j = i;
+		size_t c1 = (size_t)-1;
+		for (;;)
+		{
+			j = NextRealInstr(toks, j + 1);
+			if (j == (size_t)-1) break;
+			const std::string& m = toks[j].mnemonic;
+			const std::string& op = toks[j].operand;
+			if (m == "lda" && (op == "#128" || op == P)) { c1 = j; break; }
+			if ((m == "sta" || m == "stx" || m == "sty")
+				&& PlainDirect(op) && op != P)
+				continue;                            // C and P intact
+			if (m == "ldx" || m == "ldy" || m == "tax" || m == "tay"
+				|| m == "txa" || m == "tya" || m == "nop")
+				continue;
+			break;                                   // touches C / unknown
+		}
+		if (c1 == (size_t)-1 || toks[c1].frozen) continue;
+
+		size_t c2 = NextRealInstr(toks, c1 + 1);
+		if (c2 == (size_t)-1 || toks[c2].frozen) continue;
+		if (toks[c2].mnemonic != "and") continue;
+		bool shape1 = (toks[c1].operand == "#128" && toks[c2].operand == P);
+		bool shape2 = (toks[c1].operand == P && toks[c2].operand == "#128");
+		if (!shape1 && !shape2) continue;
+
+		size_t c3 = NextRealInstr(toks, c2 + 1);
+		if (c3 == (size_t)-1 || toks[c3].frozen) continue;
+		size_t br = c3;
+		size_t deadStore = (size_t)-1;
+		if (toks[c3].mnemonic == "sta"
+			&& toks[c3].operand.compare(0, 3, "tmp") == 0)
+		{
+			deadStore = c3;                          // statement-dead temp
+			br = NextRealInstr(toks, c3 + 1);
+			if (br == (size_t)-1 || toks[br].frozen) continue;
+		}
+		if (toks[br].mnemonic != "beq" && toks[br].mnemonic != "bne") continue;
+
+		// collapse the test into the branch: Z(P&$80) == !C
+		const char* branch = (toks[br].mnemonic == "beq") ? "bcc" : "bcs";
+		bytesSaved += EstimateInstructionSize(toks[c1].mnemonic, toks[c1].operand);
+		bytesSaved += EstimateInstructionSize(toks[c2].mnemonic, toks[c2].operand);
+		toks[c1].eliminated = true;
+		toks[c2].eliminated = true;
+		if (deadStore != (size_t)-1)
+		{
+			bytesSaved += EstimateInstructionSize(toks[deadStore].mnemonic, toks[deadStore].operand);
+			toks[deadStore].eliminated = true;
+		}
+		toks[br].mnemonic = branch;
+		toks[br].text = std::string(branch) + " " + toks[br].operand;
+		changed++;
+	}
+	return changed;
+}
+
 // Accumulator shift -> memory RMW. When A provably holds X's memory value
 // (anchored at a `lda X` or `sta X`, with only A- and X-preserving stores in
 // between), an accumulator shift immediately stored back -
@@ -2328,6 +2432,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FoldAccumulatorShift(allTokens, bytesSaved);
 		// accumulator shift stored back with A dead -> memory RMW shift
 		eliminated += FoldShiftToMemory(allTokens, bytesSaved);
+		// (P & $80) test after an asl of the value P copies -> carry branch
+		eliminated += FoldCarryBranch(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)

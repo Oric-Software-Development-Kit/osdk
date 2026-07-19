@@ -55,6 +55,17 @@ void main(void)
 	c = ((a & 0x07) == 5) ? 1 : 2;           /* nonzero byte const compare */
 	tk_check_eq(c, 1, "andmask-eqn");
 
+	/* the xtime() idiom: copy, shift, test bit 7 of the COPY - the carry
+	   fold turns the whole (copy & 0x80) test into the asl's carry */
+	a = 0x91; b = a; a = a << 1;
+	c = (b & 0x80) ? 1 : 2;
+	tk_check_eq(a, 0x22, "xtime-shift");     /* 0x91<<1 wraps to 0x22 */
+	tk_check_eq(c, 1, "xtime-carryset");
+	a = 0x41; b = a; a = a << 1;
+	c = (b & 0x80) ? 1 : 2;
+	tk_check_eq(a, 0x82, "xtime-shift2");
+	tk_check_eq(c, 2, "xtime-carryclear");
+
 	/* while(v--): the post-decrement collapse (ldx/dex/stx/inx) must test
 	   the ORIGINAL value and wrap the stored one - boundary cases c==1
 	   (one iteration, not zero) and c==0 (no iteration, wraps to 255) */
