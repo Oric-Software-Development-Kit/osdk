@@ -119,6 +119,15 @@ Fixed a number of issues in the linker:
   header.s and tail.s are likewise taken from the first directory providing
   them. A single -d behaves exactly as before (suggested by iss).
 
+- Library resolution is now deferred until every command line file has been
+  parsed. Previously a symbol referenced by an early file but defined by a
+  LATER user file already pulled the library implementation in, and the two
+  definitions then collided at assembly time ("Label defined error") - a
+  project could not provide its own version of a function listed in
+  library.ndx. Pulled library files are inserted between the user files and
+  tail.s; library-to-library dependencies still resolve in the same single
+  pass.
+
 */
 
 

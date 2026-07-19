@@ -1087,6 +1087,18 @@ int Linker::Main()
   // (command line order; earlier directories overload later ones)
   LoadLibraries();
 
+  // Library resolution is deferred until every user file has been parsed:
+  // a symbol referenced by an early file but defined by a LATER user file
+  // must not pull (and then collide with) a library implementation. The
+  // pull point is the last command-line (priority 1) file, so pulled
+  // library files are inserted between the user files and tail.s.
+  unsigned int lastUserFile = 0;
+  for (unsigned int k=0;k<m_InputFileList.size();k++)
+  {
+    if (m_InputFileList[k].m_SortPriority == 1)
+      lastUserFile = k;
+  }
+
   // Scanning files loop
   for (unsigned int k=0;k<m_InputFileList.size();k++)
   {
@@ -1110,7 +1122,7 @@ int Linker::Main()
       }
     }
 
-    if (!m_FlagLibrarian)
+    if (!m_FlagLibrarian && k >= lastUserFile)
     {
       // Check for not resolved labels.
       // If defined in lib file index then insert their file right after in the list
