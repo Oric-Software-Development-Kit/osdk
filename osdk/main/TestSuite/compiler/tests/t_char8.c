@@ -37,6 +37,24 @@ void main(void)
 	a = 10; b = 20; c = (a + b) & 0x0F;      /* 30 & 15 = 14 */
 	tk_check_eq(c, 14, "chain");
 
+	/* (x & mask) tests: the AND result is byte-bounded, so the compare
+	   narrows to a single-byte test (and the operand widen is elided) */
+	a = 0x85;
+	c = (a & 0x80) ? 1 : 2;
+	tk_check_eq(c, 1, "andmask-set");
+	c = (a & 0x02) ? 1 : 2;
+	tk_check_eq(c, 2, "andmask-clear");
+	b = 0x7F;
+	c = (b & 0x80) ? 1 : 2;
+	tk_check_eq(c, 2, "andmask-top");
+	b = 0x05;
+	c = ((a & b) != 0) ? 1 : 2;              /* var & var */
+	tk_check_eq(c, 1, "andvar-ne");
+	c = ((a & 0x42) == 0) ? 1 : 2;           /* 0x85 & 0x42 = 0 */
+	tk_check_eq(c, 1, "andmask-eq0");
+	c = ((a & 0x07) == 5) ? 1 : 2;           /* nonzero byte const compare */
+	tk_check_eq(c, 1, "andmask-eqn");
+
 	/* while(v--): the post-decrement collapse (ldx/dex/stx/inx) must test
 	   the ORIGINAL value and wrap the stored one - boundary cases c==1
 	   (one iteration, not zero) and c==0 (no iteration, wraps to 255) */

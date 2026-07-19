@@ -713,6 +713,27 @@ static int is_byte_const(Node n) {
         && n->syms[0]->u.c.v.i >= 0 && n->syms[0]->u.c.v.i <= 255;
 }
 static int is_eq_cmp(int op)  { return op==EQI || op==NEI; }
+/* a single-use BANDU whose result provably fits a byte: AND can only clear
+ * bits, so one byte-widen operand bounds the result to 0..255 regardless of
+ * the other side. The partner must still be a byte widen or a byte constant
+ * so the emitted ANDB reads the right low byte. Test only - marking is done
+ * by mark_byte_and() once the surrounding compare shape is accepted. */
+static int is_byte_and(Node n) {
+    Node a, b;
+    if (!n || n->op != BANDU || n->count != 1) return 0;
+    a = under_conv(n->kids[0]);
+    b = under_conv(n->kids[1]);
+    if (is_byte_widen(a) && (is_byte_widen(b) || is_byte_const(b))) return 1;
+    if (is_byte_widen(b) && (is_byte_widen(a) || is_byte_const(a))) return 1;
+    return 0;
+}
+static void mark_byte_and(Node n) {
+    Node a = under_conv(n->kids[0]);
+    Node b = under_conv(n->kids[1]);
+    n->x.narrow = 1;                      /* emit ANDB */
+    if (is_byte_widen(a)) a->x.narrow = 1;   /* widen elision candidates */
+    if (is_byte_widen(b)) b->x.narrow = 1;
+}
 static int is_ord_cmp(int op) {
     return op==LTI||op==LTU||op==GTI||op==GTU
         || op==LEI||op==LEU||op==GEI||op==GEU;
@@ -728,15 +749,24 @@ static void mark_byte_narrowing(Node head) {
          * stays on the word path. The compare node is flagged narrow so the
          * operand widens can be elided (it counts as a byte reader). */
         if (is_eq_cmp(m->op)) {
+            int aval, bval;
             ka = under_conv(m->kids[0]);
             kb = under_conv(m->kids[1]);
-            /* == / != are symmetric, so accept char on either side */
-            if (is_byte_widen(ka) && is_byte_widen(kb)) {
-                m->x.narrow = ka->x.narrow = kb->x.narrow = 1;
-            } else if (is_byte_widen(ka) && is_byte_const(kb)) {
-                m->x.narrow = ka->x.narrow = 1;
-            } else if (is_byte_widen(kb) && is_byte_const(ka)) {
-                m->x.narrow = kb->x.narrow = 1;
+            /* == / != are symmetric, so accept char on either side. A side
+             * qualifies as byte-VALUED when it is a CVCU widen of a char or
+             * a single-use AND bounded by a byte operand (the "(x & mask)"
+             * test idiom: the AND result cannot exceed 255, so the 16-bit
+             * compare equals the single-byte one and the operand's dead
+             * zero-extend can be elided). */
+            aval = is_byte_widen(ka) || is_byte_and(ka);
+            bval = is_byte_widen(kb) || is_byte_and(kb);
+            if ((aval && (bval || is_byte_const(kb)))
+             || (bval && is_byte_const(ka))) {
+                m->x.narrow = 1;
+                if (is_byte_widen(ka))    ka->x.narrow = 1;
+                else if (aval)            mark_byte_and(ka);
+                if (is_byte_widen(kb))    kb->x.narrow = 1;
+                else if (bval)            mark_byte_and(kb);
             }
             continue;
         }
