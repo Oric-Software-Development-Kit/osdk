@@ -57,6 +57,9 @@
 	_puts
 	_gets
 	gets
+-conio.s
+	__putc
+	__puts
 -graphics.s
 	_curset
 	_curmov
