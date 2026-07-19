@@ -249,8 +249,12 @@ doc_historic.htm's debug section.)
 
 # PERFORMANCE (ISS oricCompilerBenchmark, 22 samples, vs 1.23 -O2)
 
-Correctness-gated: every size/cycle figure reported only after the sample's computed output is
-byte-identical across all five configs (all 22 verified). **Code size** new-O3pp −20..31% typical
+Two gates. (1) Agreement: every size/cycle figure reported only after the sample's computed output
+is byte-identical across all five configs — proves no regression vs 1.23, NOT absolute correctness.
+(2) Known-answer (2026-07-19): outputs also diffed against MSVC-host reference builds (32-bit long):
+**19 of 22 PASS byte-for-byte; 10-pi and 08-mandelbrot FAIL because OSDK's `long` is 16-bit** —
+a pre-existing limitation (types.c maps longtype to INT_METRICS, identical wrong output on 1.23),
+surfaced by the ISS benchmark v2 report. **Code size** new-O3pp −20..31% typical
 (−30.9% frogmove), aes256 −19.7%; total 98184 → 77983 B (−20.8%). **Speed** frogmove −70.4%,
 memcopy −44.0%, aes256 −42.2% (-O3), selection-sort −35.0%, bubble-sort −30.2%. The peephole never
 changes output; its win scales with macro density — ~1-3% on tight scalar code but up to −20.8%

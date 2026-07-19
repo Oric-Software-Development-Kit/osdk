@@ -58,7 +58,7 @@
 		</ul>
 		</li>
 		<li>The OSDK C runtime (lib/header.s) stamps a module-id byte at program entry when OSDK_MODULE_ID is defined at build time (a no-op otherwise), letting external tools identify which run-time-loaded overlay module is currently active</li>
-		<li>Combined effect of the code generation and peephole work, measured on the ISS oricCompilerBenchmark (22 samples). Every sample's computed output is verified byte-identical to the 1.23 output before any figure is trusted; the numbers below compare the best 1.24 configuration against 1.23 at -O2:
+		<li>Combined effect of the code generation and peephole work, measured on the ISS oricCompilerBenchmark (22 samples). Every sample's computed output is verified byte-identical to the 1.23 output, and additionally checked against reference outputs produced by a host compiler: 19 of 22 samples match the reference byte-for-byte; the pi and mandelbrot samples compute wrong values on OSDK because their algorithms need a 32-bit "long", which the compiler does not have (long is 16 bits, identical behaviour in 1.23 and earlier - a pre-existing limitation, not a regression). The numbers below compare the best 1.24 configuration against 1.23 at -O2:
 		<ul>
 			<li>Code size: typically 20 to 31% smaller (total 98184 -&gt; 77983 bytes, -20.8%); for example aes256 -19.7%, frogmove -30.9%</li>
 			<li>Speed: frogmove -70.4%, memcopy -44.0%, aes256 -42.2%, selection-sort -35.0%, bubble-sort -30.2% fewer cycles</li>

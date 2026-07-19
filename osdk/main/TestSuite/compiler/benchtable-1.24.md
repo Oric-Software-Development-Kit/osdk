@@ -1,4 +1,4 @@
-# OSDK 1.24 benchmark table (ISS oricCompilerBenchmark) — correctness-gated
+# OSDK 1.24 benchmark table (ISS oricCompilerBenchmark) — agreement- and known-answer-gated
 
 Regenerated 2026-07-18 against the full 1.24 compiler+peephole set as of this
 branch: 8-bit char ops (incl. the -O3 dead-char-widen elision, `ec00e1da`),
@@ -9,43 +9,70 @@ dissolve, epilogue-fold). Sizes = .tap bytes (build only). Cycles = Oricutron
 internal cycle counter via GDB step-over of the timed call, IRQ masked (`sei`),
 fresh emulator per sample, measured on the arg-fixed `oricutron-cbench2` build.
 
-**Every metric is correctness-gated.** Before any size/cycle number is trusted,
-each sample's *computed output* (routed through the printer) is required to be
-byte-identical across all five configs (1.23-O2 as anchor where it builds). All
-22 samples verified — see the correctness matrix. `ERR`/`-` on 1.23 = the two
-samples 1.23 cannot build (0b literals / _Static_assert); their 4 new configs
-still agree with each other.
+**Every metric is agreement-gated, and that is weaker than correctness.** The
+gate requires each sample's *computed output* (routed through the printer) to be
+byte-identical across all five configs (1.23-O2 as anchor where it builds) — that
+proves **no regression vs 1.23**, but it CANNOT catch a result that is wrong on
+1.23 too: all configs agree on the same wrong answer and the gate passes.
+`ERR`/`-` on 1.23 = the two samples 1.23 cannot build (0b literals /
+_Static_assert); their 4 new configs still agree with each other.
 
-## Correctness (output identical across all buildable configs; 1.23 anchor)
+**Known-answer verification (added 2026-07-19):** every sample was ALSO
+compiled on the host with MSVC x64 (`/D__HOST_C__`, 32-bit `long`, VM-array
+peek/poke) and its output diffed against the Oric-captured output. This is the
+authoritative gate the agreement gate lacked. Results: **19 of 22 PASS**
+byte-for-byte (including aes256's full 489-char ciphertext output, sieve's
+2622 chars, all nine sorts, shuffle, frogmove, eight-queens).
 
-| sample | verified |
-|---|:--:|
-| 00-type-sizes | yes |
-| 01-dummy | yes |
-| 02-hello-world | yes |
-| 03-bytecpy | yes |
-| 04-memcopy | yes |
-| 05-0xcafe | yes |
-| 06-sieve | yes |
-| 07-aes256 | yes |
-| 08-mandelbrot | yes |
-| 09-frogmove | yes |
-| 10-pi | yes |
-| 11-shuffle | yes |
-| 12-bubble-sort | yes |
-| 13-selection-sort | yes |
-| 14-insertion-sort | yes |
-| 15-merge-sort | yes |
-| 16-quick-sort | yes |
-| 17-counting-sort | yes |
-| 18-radix-sort | yes |
-| 19-shell-sort | yes |
-| 20-heap-sort | yes |
-| 21-eight-queens | yes |
+**The two absolute failures are both the same root cause — OSDK's `long` is
+16-bit** (types.c maps longtype to INT_METRICS; no 32-bit type exists), wrong
+on 1.23 AND 1.24 at every level, so the agreement gate could not see it:
+
+- **10-pi: FAIL.** Needs 32-bit intermediates (10000*2000); prints
+  `pi=0.0018094...` garbage instead of 3.14159... on every config. The
+  size/cycle rows below still measure real generated code, but the program
+  computes the wrong answer.
+- **08-mandelbrot: FAIL.** All its fixed-point math is `long`; the Oric prints
+  an ascending ASCII ramp instead of the set (escape counts corrupted by
+  16-bit wraparound).
+- **00-type-sizes: N/A** — its output is factually correct (truthfully reports
+  LONG:2, SHORT:1) and documents the limitation; host sizes differ by design.
+- 11-shuffle PASSES despite its `long` seed — its PRNG only depends on the
+  low 16 bits, verified against the 32-bit host reference.
+
+Harness: `scratchpad/hostref/` (build_hostref.ps1 + compare_ref.py); host
+reference for the new 22-qrcode sample is captured, pending an Oric run.
+
+## Correctness matrix (agree = identical across all 5 configs, 1.23 anchor; known-answer = vs MSVC 32-bit-long host reference)
+
+| sample | configs agree | known-answer |
+|---|:--:|---|
+| 00-type-sizes | yes | N/A (documents LONG:2) |
+| 01-dummy | yes | PASS (no output) |
+| 02-hello-world | yes | PASS |
+| 03-bytecpy | yes | PASS (no output) |
+| 04-memcopy | yes | PASS (no output) |
+| 05-0xcafe | yes | PASS |
+| 06-sieve | yes | PASS |
+| 07-aes256 | yes | PASS |
+| 08-mandelbrot | yes | **FAIL (16-bit long)** |
+| 09-frogmove | yes | PASS |
+| 10-pi | yes | **FAIL (16-bit long)** |
+| 11-shuffle | yes | PASS |
+| 12-bubble-sort | yes | PASS |
+| 13-selection-sort | yes | PASS |
+| 14-insertion-sort | yes | PASS |
+| 15-merge-sort | yes | PASS |
+| 16-quick-sort | yes | PASS |
+| 17-counting-sort | yes | PASS |
+| 18-radix-sort | yes | PASS |
+| 19-shell-sort | yes | PASS |
+| 20-heap-sort | yes | PASS |
+| 21-eight-queens | yes | PASS |
 
 ## Code size (tap bytes)
 
-| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | correct |
+| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | agree |
 |---|--:|--:|--:|--:|--:|--:|:--:|
 | 00-type-sizes | ERR | 2526 | 2403 | 2181 | 2083 | - | yes |
 | 01-dummy | 1993 | 1715 | 1631 | 1461 | 1395 | -26.7% | yes |
@@ -71,9 +98,9 @@ still agree with each other.
 | 21-eight-queens | 4270 | 3992 | 3751 | 3433 | 3301 | -19.6% | yes |
 | **total** | 98184 | 94920 | 89125 | 82044 | 77983 | | |
 
-## Cycles (verified-correct only)
+## Cycles (agreement-gated; pi and mandelbrot compute wrong values — see known-answer matrix)
 
-| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | correct |
+| sample | 123-O2 | new-O2 | new-O2pp | new-O3 | new-O3pp | O3 vs 1.23 | agree |
 |---|--:|--:|--:|--:|--:|--:|:--:|
 | 00-type-sizes | - | 11104 | 10888 | 10596 | 10492 | - | yes |
 | 01-dummy | 16 | 16 | 16 | 16 | 16 | +0.0% | yes |
