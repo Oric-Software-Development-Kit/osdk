@@ -814,7 +814,8 @@ static bool NZFlagsDeadAt(const std::vector<Token>& toks, size_t i)
 }
 // Track known immediate per register within a block; drop redundant reloads and
 // turn +/-1 reloads into iny/dey/inx/dex. Returns number of tokens changed.
-static int MarkRedundantImmLoads(std::vector<Token>& toks, int& bytesSaved)
+static int MarkRedundantImmLoads(std::vector<Token>& toks, int& bytesSaved,
+                                 bool allowTransfers = false)
 {
 	int changed = 0;
 	bool hv[3] = { false, false, false };   // 0=a 1=x 2=y known?
@@ -852,6 +853,25 @@ static int MarkRedundantImmLoads(std::vector<Token>& toks, int& bytesSaved)
 						kv[reg] = v; changed++;         // still known
 						continue;
 					}
+				}
+			}
+			if (ok && !t.frozen && allowTransfers) {
+				// another register already holds this immediate: a 1-byte
+				// transfer replaces the 2-byte load (same N/Z behavior).
+				// Only enabled in the post-fixpoint cleanup: several pattern
+				// passes match on explicit ld* #imm shapes and must get
+				// first pick.
+				int src = -1;
+				if (reg == 0) src = (hv[1] && kv[1]==v) ? 1 : (hv[2] && kv[2]==v) ? 2 : -1;
+				else          src = (hv[0] && kv[0]==v) ? 0 : -1;   // no X<->Y transfer
+				if (src >= 0) {
+					const char* transfer = (reg==0) ? ((src==1) ? "txa" : "tya")
+					                     : (reg==1) ? "tax" : "tay";
+					bytesSaved += EstimateInstructionSize(m, t.operand) - 1;
+					if (g_verbosity >= 3) printf("MacroSplitter: [line %d] %s -> %s (other reg already #%ld)\n", t.lineIndex+1, t.text.c_str(), transfer, v);
+					t.mnemonic = transfer; t.operand = ""; t.text = transfer;
+					hv[reg]=true; kv[reg]=v; changed++;
+					continue;
 				}
 			}
 			if (ok) { hv[reg]=true; kv[reg]=v; } else hv[reg]=false;
@@ -1316,7 +1336,7 @@ static int FoldAccumulatorShift(std::vector<Token>& toks, int& bytesSaved)
 static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
 {
 	int changed = 0;
-	bool aZero = false;
+	bool aZero = false, xZero = false, yZero = false;
 	std::set<std::string> zero;
 
 	for (size_t i = 0; i < toks.size(); i++)
@@ -1326,7 +1346,8 @@ static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
 		TokenType tt = t.type;
 		if (tt == TokenType::Comment || tt == TokenType::Empty
 			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
-		if (tt != TokenType::Instruction) { aZero = false; zero.clear(); continue; }
+		if (tt != TokenType::Instruction)
+		{ aZero = xZero = yZero = false; zero.clear(); continue; }
 
 		const std::string& m = t.mnemonic;
 		const std::string& op = t.operand;
@@ -1345,13 +1366,24 @@ static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
 		}
 		if (m == "ldx" || m == "ldy")
 		{
+			bool& regZero = (m == "ldx") ? xZero : yZero;
+			if (op == "#0") { regZero = true; continue; }
 			if (direct && zero.count(op) && !t.frozen)
 			{
 				bytesSaved += EstimateInstructionSize(m, op) - 2;
 				t.operand = "#0"; t.text = m + " #0"; changed++;
+				regZero = true; continue;
 			}
+			regZero = false;
 			continue;
 		}
+		if (m == "txa") { aZero = xZero; continue; }
+		if (m == "tya") { aZero = yZero; continue; }
+		if (m == "tax") { xZero = aZero; continue; }
+		if (m == "tay") { yZero = aZero; continue; }
+		if (m == "inx" || m == "dex") { xZero = false; continue; }
+		if (m == "iny" || m == "dey") { yZero = false; continue; }
+		if (m == "tsx") { xZero = false; continue; }
 		if (m == "sta")
 		{
 			if (!direct) { zero.clear(); continue; }     // indexed/indirect: aliasing
@@ -1371,7 +1403,20 @@ static int TrackKnownZero(std::vector<Token>& toks, int& bytesSaved)
 		}
 		if (m == "stx" || m == "sty")
 		{
-			if (!direct) zero.clear(); else zero.erase(op);
+			bool regZero = (m == "stx") ? xZero : yZero;
+			if (!direct) { zero.clear(); continue; }
+			if (regZero)
+			{
+				if (zero.count(op) && !t.frozen)
+				{
+					bytesSaved += EstimateInstructionSize(m, op);
+					t.eliminated = true; changed++; continue;
+				}
+				if (!IsIOPageAddress(op))
+					zero.insert(op);
+			}
+			else
+				zero.erase(op);
 			continue;
 		}
 		if (m == "and")
@@ -2008,6 +2053,20 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		// shift-through-temp -> accumulator-form shift when the temp is dead
 		eliminated += FoldAccumulatorShift(allTokens, bytesSaved);
 
+		totalEliminated += eliminated;
+		if (eliminated == 0)
+			break;
+	}
+
+	// Post-fixpoint cleanup: immediate-load -> register-transfer rewrites
+	// (ld* #N -> txa/tax/... when another register holds #N). Kept out of
+	// the main loop so the shape-matching passes above always get first
+	// pick at the explicit ld* #imm forms; iterate with the known-zero
+	// pass, which understands the transfers.
+	for (;;)
+	{
+		int eliminated = MarkRedundantImmLoads(allTokens, bytesSaved, true);
+		eliminated += TrackKnownZero(allTokens, bytesSaved);
 		totalEliminated += eliminated;
 		if (eliminated == 0)
 			break;
