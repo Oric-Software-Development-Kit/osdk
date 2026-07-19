@@ -111,6 +111,14 @@ Fixed a number of issues in the linker:
   debugger module-id stamp guarded by "#ifdef OSDK_MODULE_ID" without breaking the
   build of ordinary single-module programs that never define OSDK_MODULE_ID.
 
+- The -d option can now be repeated: the library directories are searched in
+  command line order, each with its own library.ndx, and when several define
+  the same symbol the FIRST directory wins. This lets a project overload
+  default library functions with its own implementations without modifying
+  the OSDK library:  link65 -d my-funcs/ -d osdk-lib/ main.s
+  header.s and tail.s are likewise taken from the first directory providing
+  them. A single -d behaves exactly as before (suggested by iss).
+
 */
 
 

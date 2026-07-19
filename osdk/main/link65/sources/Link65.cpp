@@ -97,6 +97,8 @@ public:
   LabelState Parseline(char* inpline, bool parseIncludeFiles);
 
   bool LoadLibrary(const std::string& path_library_files);
+  void LoadLibraries();
+  std::string FindLibraryFile(const char* fileName) const;
   void LoadSymbolFile(const std::string& path);
 
   void AddInputFile(const std::string& filePath, int sortPriority);
@@ -115,7 +117,8 @@ public:
   char *m_CurrentToken = nullptr;               ///< Contains the last value read from strtok while parsing files
 
   // Init the path_library_files variable with default library directory and the output_file_name var with the default go.s
-  std::string m_PathLibraryFiles = "lib6502\\";         ///< Directory to find library files (Set by -d)
+  std::string m_PathLibraryFiles = "lib6502\\";         ///< Primary library directory (first -d)
+  std::vector<std::string> m_LibraryDirs;               ///< All -d directories in command line order; earlier ones overload later ones
   std::string m_PathSourceFiles = "";                   ///< Directory to find source files (set by -s)
   std::vector<std::string> m_PathHeaderFiles = {""};    ///< Directories to find header files (set by -i)
   std::string m_OutputFileName = "go.s";                ///< Output file (set by -o)
@@ -687,6 +690,39 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
 
 
 
+// Locate a library support file (header.s / tail.s) in the -d directories,
+// searched in command line order; falls back to the primary directory so the
+// existing "cannot open" diagnostics stay unchanged when the file is missing.
+std::string Linker::FindLibraryFile(const char* fileName) const
+{
+  for (const std::string& dir : m_LibraryDirs)
+  {
+    std::string candidate = dir + fileName;
+    FILE* file = fopen(candidate.c_str(), "r");
+    if (file)
+    {
+      fclose(file);
+      return candidate;
+    }
+  }
+  return m_PathLibraryFiles + fileName;
+}
+
+// Load every -d directory's library.ndx, in command line order: when the same
+// label appears in several directories the FIRST one wins (this is how a
+// project overloads a default library function with its own implementation).
+void Linker::LoadLibraries()
+{
+  if (m_LibraryDirs.empty())
+  {
+    m_LibraryDirs.push_back(m_PathLibraryFiles);
+  }
+  for (const std::string& dir : m_LibraryDirs)
+  {
+    LoadLibrary(dir);
+  }
+}
+
 bool Linker::LoadLibrary(const std::string& path_library_files)
 {
   std::string ndxstr=path_library_files+"library.ndx";
@@ -703,6 +739,11 @@ bool Linker::LoadLibrary(const std::string& path_library_files)
   LabelEntry labelEntry;
   labelEntry.file_name	="";
   labelEntry.label_name	="";
+
+  // entries below this index come from earlier -d directories and take
+  // precedence: a duplicate label from THIS directory is skipped (overload),
+  // while a duplicate within the same directory is still an index error
+  const size_t precedingCount = m_LibraryReferencesList.size();
 
   for (const std::string& lineEntry : textData)
   {
@@ -736,16 +777,27 @@ bool Linker::LoadLibrary(const std::string& path_library_files)
         labelEntry.label_name=currentLine;
 
         // Check if label is duplicate
-        for (const LabelEntry& existingEntry : m_LibraryReferencesList)
+        bool overloaded = false;
+        for (size_t entryIndex = 0; entryIndex < m_LibraryReferencesList.size(); entryIndex++)
         {
-          if (labelEntry.label_name == existingEntry.label_name)
+          if (labelEntry.label_name == m_LibraryReferencesList[entryIndex].label_name)
           {
+            if (entryIndex < precedingCount)
+            {
+              // defined by an earlier -d directory: that one wins
+              if (m_FlagVerbose)
+                printf("Library overload: %s uses %s\n", labelEntry.label_name.c_str(),
+                       m_LibraryReferencesList[entryIndex].file_name.c_str());
+              overloaded = true;
+              break;
+            }
             ShowError("Duplicate label %s in lib index file\n",labelEntry.label_name.c_str());
           }
         }
 
         // One more entry in the table
-        m_LibraryReferencesList.push_back(labelEntry);
+        if (!overloaded)
+          m_LibraryReferencesList.push_back(labelEntry);
       }
     }
   }
@@ -850,13 +902,24 @@ int Linker::Main()
     else
     if (IsSwitch("-d") || IsSwitch("-D"))
     {
-      // Directory to find library files.Next arg in line is the dir name. e.g : link65 -d /usr/oric/lib/ test.s
+      // Directory to find library files. Next arg in line is the dir name. e.g : link65 -d /usr/oric/lib/ test.s
+      // The option can be repeated: directories are searched in command line
+      // order, so an earlier directory can overload symbols (and header.s /
+      // tail.s) of a later one:  link65 -d my-funcs/ -d osdk-lib/ main.s
+      // (give the -d options before the source files).
       if (!ProcessNextArgument() || !IsParameter())
       {
         printf(" Must have dir name after -d option\n");
         exit(1);
       }
-      m_PathLibraryFiles=GetStringValue();
+      {
+        std::string libraryDir = GetStringValue();
+        if (m_LibraryDirs.empty())
+        {
+          m_PathLibraryFiles = libraryDir;      // first -d = primary (compatibility)
+        }
+        m_LibraryDirs.push_back(libraryDir);
+      }
     }
     else
     if (m_ptr_arg && m_ptr_arg[0] == '-' && m_ptr_arg[1] == 'S' && m_ptr_arg[2] == '\0')
@@ -951,7 +1014,8 @@ int Linker::Main()
       {
         // header.s is the first file used.
         // So reserve the 0 place in array for after option scanning, to put there the dir name too if needed.
-        AddInputFile(m_PathLibraryFiles + "header.s" ,0);
+        // (searched across the -d directories given so far - put -d before the files)
+        AddInputFile(FindLibraryFile("header.s"), 0);
       }
 
       //
@@ -1007,7 +1071,7 @@ int Linker::Main()
   {
     // Now put the tail.s .
     // Give it nflist of 2 to put it last in file list after the sort
-    AddInputFile(m_PathLibraryFiles + "tail.s", 2);
+    AddInputFile(FindLibraryFile("tail.s"), 2);
   }
 
   // Validate -t option
@@ -1019,8 +1083,9 @@ int Linker::Main()
       ShowError("Symbol '%s' not found in symbol file %s\n", m_TextAddressSymbol.c_str(), m_SymbolFileName.c_str());
   }
 
-  // Open and scan Index file for labels - file pair list
-  LoadLibrary(m_PathLibraryFiles);
+  // Open and scan every -d directory's index for label - file pairs
+  // (command line order; earlier directories overload later ones)
+  LoadLibraries();
 
   // Scanning files loop
   for (unsigned int k=0;k<m_InputFileList.size();k++)
