@@ -436,6 +436,22 @@ void blockend(Env *e) {
 static void gettmp(Node p) {
     int t;
     if ( optype(p->op)!=F && optype(p->op)!=D ) {
+        if (p->x.width==4) {
+            /* 32-bit long: two ADJACENT 2-byte slots (tmp<t> + tmp<t+1> are
+               4 contiguous zero-page bytes in zp_crt.inc). Only tmp0-7 have
+               zero-page backing, so the pair must fit below slot 7. */
+            for (t=0;t<7;t++)
+                if ((busy&(3<<t))==0) {
+                    busy |= 3<<t;
+                    p->x.result=temp[t];
+                    p->x.adrmode='Z';
+                    p->x.name = temp[t]->x.name;
+                    return;
+                }
+            fprintf(stderr, "Error in function '%s': expression too complex "
+                            "(no adjacent temporary pair free for a 32-bit value).\n", fname);
+            exit(1);
+        }
         for (t=0;t<32;t++)
             if ((busy&(1<<t))==0) {
                 busy |= 1<<t;
@@ -474,7 +490,11 @@ static void releasetmp(Node p) {
     if (p->count==0) {
         int i;
         for (i=0;i<32;i++) {
-            if (p->x.result == temp[i])   busy &= ~(1<<i);
+            if (p->x.result == temp[i]) {
+                busy &= ~(1<<i);
+                if (p->x.width==4 && i<31)
+                    busy &= ~(1<<(i+1));   /* free the pair's second slot */
+            }
             if (p->x.result==flt_temp[i]) busy_flt &= ~(1<<i);
         }
     }
@@ -560,7 +580,11 @@ static int needtmp(Node p) {
          *   and hence could have different behavior (TODO: example needed))
          * - the address mode of the INDIR operand is "de-referenceable"
          */
-                if (p->count <= 1 && is_dereferenceable(left->x.adrmode)) {
+                /* never fold a 32-bit INDIR into its address child: the
+                   child's temporary holds a 2-byte pointer, the result
+                   needs a 4-byte pair - allocate one normally instead */
+                if (p->count <= 1 && is_dereferenceable(left->x.adrmode)
+                    && p->x.width!=4) {
                     p->x.optimized = 1;
                     p->x.result    = left->x.result;
                     p->x.name      = left->x.result->x.name;
@@ -618,6 +642,8 @@ static void tmpalloc(Node p) {
          * (as the result of this child node)
          */
             if (optype(p->op)!=B        // no optimization on ASGNB (struct) nodes
+                && p->x.width!=4        // v1: no store-fold for 32-bit longs
+                && right->x.width!=4    //     (conservative - revisit later)
                 && !right->x.optimized
                 && p==right->x.next
                 && is_temporary(right->x.result)

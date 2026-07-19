@@ -12,6 +12,12 @@ static struct dag {		/* dags: */
 	struct dag *hlink;		/* next dag on hash chain */
 } *buckets[NBUCKETS];		/* hash table */
 static Node nodelist;		/* node list */
+/* width (in bytes) of the value computed by the node being built: 0/2 = word,
+   4 = 32-bit long. dag nodes carry no Type and long ops share the I/U opcodes,
+   so listnodes sets this from the tree's type just before each node() call;
+   node() includes it in the CSE equality (a 2-byte and a 4-byte INDIRI over
+   the same address must not merge) and dagnode() stamps it on the new node. */
+static int cur_width;
 dclproto(static struct dag *dagnode,(int, Node, Node, Symbol));
 dclproto(static void fixup,(Node));
 dclproto(static int haskid,(Node, Node));
@@ -60,6 +66,7 @@ static struct dag *dagnode(int op, Node l, Node r, Symbol sym)
 
 	BZERO(p, struct dag);
 	p->node.op = op;
+	p->node.x.width = (char)cur_width;
 	p->node.kids[0] = l; if (l) l->count++;
 	p->node.kids[1] = r; if (r) r->count++;
 	p->node.syms[0] = sym;
@@ -325,8 +332,10 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		assert(op == CNST+S || ty->u.sym);
 		if (op == CNST+S || ty->u.sym->addressed)
 			p = listnodes(cvtconst(tp), tlab, flab);
-		else if (tlab == 0 && flab == 0)
+		else if (tlab == 0 && flab == 0) {
+			cur_width = ty->size==4 ? 4 : 0;
 			p = node(tp->op, 0, 0, constant(ty, tp->u.v));
+		}
 		else {
 			assert(ty == inttype);
 			if (tlab && tp->u.v.i != 0)
@@ -472,6 +481,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 #else
 		r = listnodes(tp->kids[1], 0, 0);
 #endif
+		cur_width = tp->type->size==4 ? 4 : 0;
 		p = node(tp->op, l, r, 0);
 		break;
 	case RSH:
@@ -483,6 +493,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		else
 #endif
 			r = listnodes(tp->kids[1], 0, 0);
+		cur_width = tp->type->size==4 ? 4 : 0;
 		p = node(tp->op, l, r, 0);
 		break;
 	case ADD: case SUB:  case DIV: case MUL: case MOD:
@@ -490,6 +501,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		assert(tlab == 0 && flab == 0);
 		l = listnodes(tp->kids[0], 0, 0);
 		r = listnodes(tp->kids[1], 0, 0);
+		cur_width = tp->type->size==4 ? 4 : 0;
 		p = node(tp->op, l, r, 0);
 #ifdef SPARC
 		if(p->op == DIV+I || p->op == MOD+I || p->op == MUL+I
@@ -507,6 +519,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 	case CVP: case CVS: case CVU: case NEG: case BCOM:
 		assert(tlab == 0 && flab == 0);
 		l = listnodes(tp->kids[0], 0, 0);
+		cur_width = tp->type->size==4 ? 4 : 0;
 		p = node(tp->op, l, 0, 0);
 		break;
 	case INDIR: {
@@ -515,6 +528,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 			ty = unqual(ty)->type;
 		assert(tlab == 0 && flab == 0);
 		l = listnodes(tp->kids[0], 0, 0);
+		cur_width = tp->type->size==4 ? 4 : 0;
 		if (isvolatile(ty) || (isstruct(ty) && unqual(ty)->u.sym->u.s.vfields))
 			p = newnode(tp->op, l, 0, 0);
 		else
@@ -537,16 +551,26 @@ Node listnodes(Tree tp, int tlab, int flab) {
 			addlocal(tp->u.sym);
 			release(tp->u.sym);
 		}
+		cur_width = 0;	/* addresses are 16-bit */
 		p = node(tp->op, 0, 0, tp->u.sym);
 		break;
 	case ADDRG: case ADDRF:
 		assert(tlab == 0 && flab == 0);
 		if (tp->u.sym->scope == LABELS)
 			tp->u.sym->ref++;
+		cur_width = 0;	/* addresses are 16-bit */
 		p = node(tp->op, 0, 0, tp->u.sym);
 		break;
 	default:assert(0);
 	}
+	/* width choke point: newnode()-created value nodes (ASGN, CALL, RET,
+	   volatile INDIR...) get their width here; node()-created ones were
+	   already stamped via cur_width (same value - idempotent). Compares
+	   keep width 0: their own type is int, the emitters read the kids'
+	   width. B (struct) ops never allocate word/pair temporaries. */
+	if (p && tp->type->size==4 && optype(p->op)!=B
+	    && optype(p->op)!=F && optype(p->op)!=D)
+		p->x.width = 4;
 	return tp->node = p;
 }
 
@@ -560,7 +584,10 @@ Node jump(int lab) {
 
 /* newnode - allocate a node with the given fields */
 Node newnode(int op, Node l, Node r, Symbol sym) {
-	return &dagnode(op, l, r, sym)->node;
+	Node p = &dagnode(op, l, r, sym)->node;
+	p->x.width = 0;	/* non-CSE nodes get their real width at the
+			   listnodes exit point (or none: labels, jumps) */
+	return p;
 }
 
 /* node - search for a node with the given fields, or allocate it */
@@ -570,7 +597,8 @@ Node node(int op, Node l, Node r, Symbol sym) {
 
 	for (p = buckets[i]; p; p = p->hlink)
 		if (p->node.op == op && p->node.syms[0] == sym
-		&& p->node.kids[0] == l && p->node.kids[1] == r)
+		&& p->node.kids[0] == l && p->node.kids[1] == r
+		&& p->node.x.width == cur_width)
 			return &p->node;
 	p = dagnode(op, l, r, sym);
 	p->hlink = buckets[i];
