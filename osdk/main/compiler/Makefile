@@ -3,8 +3,7 @@ include ../../../rules.mk
 CPPFLAGS += -Iincludes -DPOSIX
 
 SOURCES=sources/dag.c    \
-	sources/debug.c  \
- 	sources/decl.c   \
+	sources/decl.c   \
 	sources/enode.c  \
 	sources/error.c  \
 	sources/expr.c   \

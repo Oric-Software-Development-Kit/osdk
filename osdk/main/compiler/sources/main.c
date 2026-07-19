@@ -52,9 +52,11 @@ int main(int argc, char *argv[]) {
 	}
 	if (outfile && *outfile != '-') {
 		close(1);
-                #define _S_IWRITE       0x0080          /* write permission, owner */
-                if (creat(outfile, _S_IWRITE) != 1) {
-		//if (creat(outfile, 0666) != 1) {
+		/* 0666: on POSIX creat() takes permission bits (umask-filtered), so
+		   anything narrower makes the output unreadable (a lone _S_IWRITE is
+		   --w-------); the Windows CRT only looks at the _S_IWRITE bit, which
+		   0666 contains, so this is correct on both. */
+		if (creat(outfile, 0666) != 1) {
 			fprint(2, "%s: can't write %s\n", argv[0], outfile);
 			exit(1);
 		}
