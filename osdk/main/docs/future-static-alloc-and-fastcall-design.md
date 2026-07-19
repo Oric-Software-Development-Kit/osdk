@@ -4,6 +4,11 @@
 field-tested. This is an ABI-touching feature; it must not destabilise a freshly-shipped
 compiler. This doc captures the design discussion (2026-07-18) so it can be picked up cleanly.
 
+**Sequencing note (2026-07-19):** the byte-granular zero-page slot allocator described in
+`future-zp-slot-allocator-and-long32-design.md` is the foundation piece — it should land
+first (it also delivers 32-bit `long`); the param bank / leaf-locals ideas here then reuse
+its allocator and interop rules.
+
 ---
 
 ## Motivation
