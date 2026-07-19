@@ -18,6 +18,8 @@
 ;
 	.text
 
+	.(
+
 ; ---- add / subtract / bitwise: straight unrolled 4-byte chains --------
 
 +ladd32
@@ -440,3 +442,5 @@ lsign		.dsb 2	; sign bookkeeping for the signed wrappers
 ldtmp		.dsb 2	; division inner-loop scratch (must NOT reuse lsign:
 			; the signed wrappers hold their flags there across
 			; the ldiv32u/lmod32u call)
+
+	.)
