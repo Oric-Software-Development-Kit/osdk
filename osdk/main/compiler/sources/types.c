@@ -41,11 +41,11 @@ void typeInit() {
 	xx(floattype,	  "float",		FLOAT,	  FLOAT_METRICS);
 	xx(inttype,	  "int",		INT,	  INT_METRICS);
 	xx(longdouble,	  "long double",	DOUBLE,	  DOUBLE_METRICS);
-	xx(longtype,	  "long int",		INT,	  INT_METRICS);
+	xx(longtype,	  "long int",		INT,	  LONG_METRICS);
 	xx(shorttype,	  "short",		SHORT,	  SHORT_METRICS);
 	xx(signedchar,	  "signed char",	CHAR,	  CHAR_METRICS);
 	xx(unsignedchar,  "unsigned char",	CHAR,	  CHAR_METRICS);
-	xx(unsignedlong,  "unsigned long int",	UNSIGNED, INT_METRICS);
+	xx(unsignedlong,  "unsigned long int",	UNSIGNED, LONG_METRICS);
 	xx(unsignedshort, "unsigned short int",	SHORT,	  SHORT_METRICS);
 	xx(unsignedtype,  "unsigned int",	UNSIGNED, INT_METRICS);
 	xx(voidtype,	  "void",		VOID,	  VOID_METRICS);

@@ -66,7 +66,7 @@ static char *opcode_names[] = {
     NULL,"CNST","ARG","ASGN","INDIR","CVC","CVD","CVF","CVI","CVP",
     "CVS","CVU","NEG","CALL","LOAD","RET","ADDRG","ADDRF","ADDRL","ADD",
     "SUB","LSH","MOD","RSH","BAND","BCOM","BOR","BXOR","DIV","MUL",
-    "EQ","GE","GT","LE","LT","NE","JUMP","LABEL","MAXOP" };
+    "EQ","GE","GT","LE","LT","NE","JUMP","LABEL","CVL","MAXOP" };
 static char type_name[] = " FDCSIUPVBL?????";
 static char *additional_operators[] = {
     "AND","NOT","OR","COND","RIGHT","FIELD" };
@@ -349,7 +349,9 @@ void space(int n) {
 }
 
 int allocreg(Symbol p) {
-    if (nbregs==8 || p->type->size==5) return 0;
+    /* size 5 = float (frame allocated); size 4 = 32-bit long - the reg
+       slots are 2 bytes, so longs stay in memory (v1: no reg pairs) */
+    if (nbregs==8 || p->type->size==5 || p->type->size==4) return 0;
     p->x.name=regname[nbregs];
     p->x.adrmode='R';
     nbregs++;
@@ -1461,7 +1463,10 @@ static void emitdag(Node p) {
         case ASGNI: case ASGNP:
             if (!p->x.optimized)
                 print("\tASGN%s_%c%c(%s,%s)\n"
-                        ,p->x.width==4 ? "L" : "W"
+                        /* the store size travels in syms[0] (the ASGN dag
+                           node is never the listnodes return value, so it
+                           bypasses the width choke point) */
+                        ,p->syms[0] && p->syms[0]->u.c.v.i==4 ? "L" : "W"
                         ,simple_adrmode(b->x.adrmode)
                         ,reduced_adrmode(a->x.adrmode)     // keep 'Z' adrmode different from 'D'
                         ,output_arg(b)

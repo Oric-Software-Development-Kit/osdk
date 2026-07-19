@@ -790,32 +790,34 @@ int gettok() {
 }
 /* icon - scan for tail of an integer constant n, set token, return symbol */
 static Symbol icon(unsigned n, int overflow) {
-	int u = 0;
+	int u = 0, l = 0;
 
 	if (*cp == 'u' || *cp == 'U')
 		u = *cp++;
 	if (*cp == 'l' || *cp == 'L')
-		cp++;
-	if ((u == 0 && *cp == 'u') || *cp == 'U')
+		l = *cp++;
+	if (u == 0 && (*cp == 'u' || *cp == 'U'))
 		u = *cp++;
 	if (overflow) {
 		char c = *cp;
 		*cp = 0;
 		warning("overflow in constant `%s'\n", token);
 		*cp = c;
-		n = 0xFFFFu;
+		n = 0xFFFFFFFFu;
 	}
-	/* the target int is 16 bits: constants must be wrapped and classified
-	   with the TARGET limits, not the host's, or a literal like 40000
-	   would silently become an out-of-range signed int */
-	if (n > 0xFFFFu) {
-		char c = *cp;
-		*cp = 0;
-		warning("constant `%s' exceeds 16 bits\n", token);
-		*cp = c;
-		n &= 0xFFFFu;
-	}
-	if (u || n > 0x7FFFu) {
+	/* Typing: int is 16 bits, long is 32. For 16-bit values keep the
+	   historic OSDK classification (int, else unsigned) so existing code
+	   compiles identically; a value beyond 16 bits - or an explicit
+	   L suffix - makes the constant a 32-bit long / unsigned long. */
+	if (l || n > 0xFFFFu) {
+		if (u || n > 0x7FFFFFFFu) {
+			tval.type = unsignedlong;
+			tval.u.c.v.u = n;
+		} else {
+			tval.type = longtype;
+			tval.u.c.v.i = n;
+		}
+	} else if (u || n > 0x7FFFu) {
 		tval.type = unsignedtype;
 		tval.u.c.v.u = n;
 	} else {

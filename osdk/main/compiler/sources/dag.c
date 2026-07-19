@@ -515,7 +515,7 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		p = newnode(tp->op, l, 0, 0);
 		list(p);
 		break;
-	case CVC: case CVD: case CVF: case CVI:
+	case CVC: case CVD: case CVF: case CVI: case CVL:
 	case CVP: case CVS: case CVU: case NEG: case BCOM:
 		assert(tlab == 0 && flab == 0);
 		l = listnodes(tp->kids[0], 0, 0);

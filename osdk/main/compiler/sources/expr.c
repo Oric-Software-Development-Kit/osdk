@@ -201,8 +201,17 @@ Tree cast(p, type) Tree p; Type type; {
 		p = simplify(CVC, inttype, p, 0);
 	else if (pty == shorttype)
 		p = simplify(CVS, inttype, p, 0);
-	else if (pty == longtype)
-		p = retype(p, inttype);
+	else if (pty == longtype) {
+		/* long is 32-bit: long->long/ulong is a relabel; anything
+		   narrower goes through an explicit truncation (CVLI);
+		   long->float must be a value conversion (CVLD) */
+		if (ty == longtype || ty == unsignedlong)
+			return retype(p, type);
+		if (ty == floattype || ty == doubletype || ty == longdouble)
+			p = simplify(CVL, doubletype, p, 0);
+		else
+			p = simplify(CVL, inttype, p, 0);
+	}
 	else if (pty == floattype)
 		p = simplify(CVF, doubletype, p, 0);
 	else if (pty == longdouble)
@@ -211,8 +220,14 @@ Tree cast(p, type) Tree p; Type type; {
 		p = simplify(CVC, unsignedtype, p, 0);
 	else if (pty == unsignedshort)
 		p = simplify(CVS, unsignedtype, p, 0);
-	else if (pty == unsignedlong)
-		p = retype(p, unsignedtype);
+	else if (pty == unsignedlong) {
+		if (ty == longtype || ty == unsignedlong)
+			return retype(p, type);
+		if (ty == floattype || ty == doubletype || ty == longdouble)
+			p = simplify(CVL, doubletype, p, 0);
+		else
+			p = simplify(CVL, unsignedtype, p, 0);
+	}
 	else if (isptr(pty)) {
 		if (isstruct(pty->type) && isptr(ty) && isstruct(ty->type)
 		&& (q = extends(pty->type, ty->type)))
@@ -231,12 +246,21 @@ Tree cast(p, type) Tree p; Type type; {
 			constnode(q->offset, inttype)));
 	pty = unqual(p->type);
 	if (pty == inttype || isenum(pty)) {
-		if (ty == floattype || ty == doubletype || ty == longdouble)
+		if (ty == longtype || ty == unsignedlong)
+			/* sign extend to 32 bits (C89: int -> unsigned long is
+			   also value mod 2^32, i.e. a sign extension of the
+			   bits); the tail retypes long -> unsigned long */
+			p = simplify(CVIL, longtype, p, 0);
+		else if (ty == floattype || ty == doubletype || ty == longdouble)
 			p = simplify(CVI, doubletype, p, 0);
 		else if (ty == unsignedtype  || ty == unsignedchar
-		     ||  ty == unsignedshort || ty == unsignedlong || isptr(ty))
+		     ||  ty == unsignedshort || isptr(ty))
 			p = simplify(CVI, unsignedtype, p, 0);
 	} else if (pty == doubletype) {
+		if (ty == longtype || ty == unsignedlong)
+			/* v1: float -> long goes through the 16-bit int
+			   conversion, then extends (documented range limit) */
+			return cast(cast(p, ty == longtype ? inttype : unsignedtype), type);
 		if (ty == signedchar || ty == chartype || isenum(ty)
 		||  ty == shorttype  || ty == inttype  || ty == longtype)
 			p = simplify(CVD, inttype, p, 0);
@@ -257,8 +281,10 @@ Tree cast(p, type) Tree p; Type type; {
 				simplify(CVD, inttype, p, 0));
 		}
 	} else if (pty == unsignedtype) {
-		if (ty == signedchar || ty == chartype || isenum(ty)
-		||  ty == shorttype  || ty == inttype  || ty == longtype)
+		if (ty == longtype || ty == unsignedlong)
+			p = simplify(CVUL, longtype, p, 0);	/* zero extend */
+		else if (ty == signedchar || ty == chartype || isenum(ty)
+		||  ty == shorttype  || ty == inttype)
 			p = simplify(CVU, inttype, p, 0);
 		else if (ty == floattype || ty == doubletype || ty == longdouble) {
 			/*

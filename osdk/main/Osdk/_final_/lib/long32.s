@@ -16,15 +16,6 @@
 ; so the compiler's live values survive these calls - same contract as
 ; mul16i/div16i.
 ;
-	.bss
-lscratch	.dsb 4	; constant-operand staging (LPTB_C)
-lwork		.dsb 4	; local copy of operand B (mul/div shift space)
-lrem		.dsb 4	; division remainder accumulator
-lsign		.dsb 2	; sign bookkeeping for the signed wrappers
-ldtmp		.dsb 2	; division inner-loop scratch (must NOT reuse lsign:
-			; the signed wrappers hold their flags there across
-			; the ldiv32u/lmod32u call)
-
 	.text
 
 ; ---- add / subtract / bitwise: straight unrolled 4-byte chains --------
@@ -436,3 +427,16 @@ lcmpdone
 	lda op1
 	cmp (tmp),y
 	rts
+
+; ---- workspace --------------------------------------------------------
+; Plain .dsb in the text section (NOT .bss - XA interleaves .bss symbol
+; addresses with the surrounding code, which self-modifies the routines).
+; 16 bytes of zeros in the image; must stay AFTER the code.
+
++lscratch	.dsb 4	; constant-operand staging (the macros' LPTB_C path)
+lwork		.dsb 4	; local copy of operand B (mul/div shift space)
+lrem		.dsb 4	; division remainder accumulator
+lsign		.dsb 2	; sign bookkeeping for the signed wrappers
+ldtmp		.dsb 2	; division inner-loop scratch (must NOT reuse lsign:
+			; the signed wrappers hold their flags there across
+			; the ldiv32u/lmod32u call)

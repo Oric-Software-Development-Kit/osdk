@@ -120,6 +120,12 @@ static Type binary(Type xty, Type yty) {
 		return doubletype;
 	if (xty == floattype || yty == floattype)
 		return floattype;
+	/* 32-bit long outranks every 16-bit integer; long can represent
+	   all unsigned int (16-bit) values, so long + unsigned -> long */
+	if (xty == unsignedlong || yty == unsignedlong)
+		return unsignedlong;
+	if (xty == longtype || yty == longtype)
+		return longtype;
 	if (isunsigned(xty) || isunsigned(yty))
 		return unsignedtype;
 	return inttype;
@@ -130,18 +136,25 @@ Tree bitnode(int op, Tree l, Tree r) {
 	Type ty = inttype;
 
 	if (isint(l->type) && isint(r->type)) {
+		Type uty;
  		ty = binary(l->type, r->type);
 		l = cast(l, ty);
 		r = cast(r, ty);
 		if (op != MOD) {
-			l = cast(l, unsignedtype);
-			r = cast(r, unsignedtype);
+			/* the bitwise op runs at the UNSIGNED type of the same
+			   WIDTH - collapsing a long to 16-bit unsigned would
+			   truncate the high word */
+			uty = (ty == longtype || ty == unsignedlong)
+			      ? unsignedlong : unsignedtype;
+			l = cast(l, uty);
+			r = cast(r, uty);
 		}
 	} else
 		typeerror(op, l, r);
 	if (op == MOD)
 		return simplify(op, ty, l, r);
-	return cast(simplify(op, unsignedtype, l, r), ty);
+	return cast(simplify(op, (ty == longtype || ty == unsignedlong)
+	                         ? unsignedlong : unsignedtype, l, r), ty);
 }
 
 /* callnode - construct call node to f, return type ty, arguments args */

@@ -6,6 +6,7 @@
 #define CHAR_METRICS     1,1,0
 #define SHORT_METRICS    1,1,0
 #define INT_METRICS      2,1,0
+#define LONG_METRICS     4,1,0
 #define FLOAT_METRICS    5,1,1
 #define DOUBLE_METRICS   5,1,1
 #define POINTER_METRICS  2,1,0
