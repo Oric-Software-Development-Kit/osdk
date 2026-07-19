@@ -1235,6 +1235,91 @@ static bool MatchStoreOp32(const std::vector<Token>& t, size_t idx[8], std::stri
 	return true;
 }
 
+// Shape 3: the Y-indexed pair (frame slots and pointer-indexed stores).
+//   store:  ldy #N : lda op1 : sta P,y : iny : lda op1+1 : sta P,y : iny :
+//           lda op2 : sta P,y : iny : lda op2+1 : sta P,y          (12 ins)
+//   reload: ldy #N : lda P,y : sta op1 : iny : lda P,y : sta op1+1 : iny :
+//           lda P,y : sta op2 : iny : lda P,y : sta op2+1          (12 ins)
+// Deleting the reload leaves even Y identical (N+3 either way).
+static int FuseLongShellsY(std::vector<Token>& toks, int& bytesSaved)
+{
+	static const char* src[4] = { "op1", "op1+1", "op2", "op2+1" };
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		if (toks[i].mnemonic != "ldy" || toks[i].frozen) continue;
+		if (toks[i].operand.empty() || toks[i].operand[0] != '#') continue;
+
+		// collect the 12-instruction Y-form store block
+		size_t st[12]; st[0] = i; bool ok = true;
+		for (int k = 1; k < 12 && ok; k++)
+		{
+			st[k] = NextRealInstr(toks, st[k-1] + 1);
+			if (st[k] == (size_t)-1) ok = false;
+		}
+		if (!ok) continue;
+		const std::string N = toks[i].operand;
+		std::string P;
+		{
+			static const int ldaAt[4] = { 1, 4, 7, 10 };
+			static const int staAt[4] = { 2, 5, 8, 11 };
+			static const int inyAt[3] = { 3, 6, 9 };
+			bool match = true;
+			for (int k = 0; k < 4 && match; k++)
+			{
+				const Token& l = toks[st[ldaAt[k]]];
+				const Token& s = toks[st[staAt[k]]];
+				if (l.mnemonic != "lda" || l.operand != src[k]) match = false;
+				else if (s.mnemonic != "sta" || s.frozen)       match = false;
+				else if (k == 0)
+				{
+					P = s.operand;
+					if (P.size() < 3 || P.compare(P.size()-2, 2, ",y") != 0) match = false;
+				}
+				else if (s.operand != P) match = false;
+			}
+			for (int k = 0; k < 3 && match; k++)
+				if (toks[st[inyAt[k]]].mnemonic != "iny") match = false;
+			if (!match) continue;
+		}
+
+		// candidate Y-form reload right after
+		size_t r[12]; r[0] = NextRealInstr(toks, st[11] + 1); bool okr = (r[0] != (size_t)-1);
+		for (int k = 1; k < 12 && okr; k++)
+		{
+			r[k] = NextRealInstr(toks, r[k-1] + 1);
+			if (r[k] == (size_t)-1) okr = false;
+		}
+		if (!okr) continue;
+		{
+			static const int ldaAt[4] = { 1, 4, 7, 10 };
+			static const int staAt[4] = { 2, 5, 8, 11 };
+			static const int inyAt[3] = { 3, 6, 9 };
+			bool match = (toks[r[0]].mnemonic == "ldy" && toks[r[0]].operand == N
+			              && !toks[r[0]].frozen);
+			for (int k = 0; k < 4 && match; k++)
+			{
+				const Token& l = toks[r[ldaAt[k]]];
+				const Token& s = toks[r[staAt[k]]];
+				if (l.mnemonic != "lda" || l.operand != P || l.frozen)       match = false;
+				else if (s.mnemonic != "sta" || s.operand != src[k] || s.frozen) match = false;
+			}
+			for (int k = 0; k < 3 && match; k++)
+				if (toks[r[inyAt[k]]].mnemonic != "iny") match = false;
+			if (!match) continue;
+		}
+
+		for (int k = 0; k < 12; k++)
+		{
+			bytesSaved += EstimateInstructionSize(toks[r[k]].mnemonic, toks[r[k]].operand);
+			toks[r[k]].eliminated = true;
+		}
+		changed++;
+	}
+	return changed;
+}
+
 static int FuseLongShells(std::vector<Token>& toks, int& bytesSaved)
 {
 	int changed = 0;
@@ -1686,6 +1771,7 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FoldWidenReturn(allTokens, bytesSaved);
 		// cancel the reload half of chained 32-bit shells (value already in op1:op2)
 		eliminated += FuseLongShells(allTokens, bytesSaved);
+		eliminated += FuseLongShellsY(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
