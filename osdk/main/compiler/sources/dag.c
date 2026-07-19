@@ -778,6 +778,8 @@ static Node undag1(Node p, Node root) {
 	else if (p->syms[2]) {
 		e = newnode(INDIR + (isunsigned(p->syms[2]->type) ? I : ttob(p->syms[2]->type)),
 			newnode(ADDRL+P, 0, 0, p->syms[2]), 0, 0);
+		if (p->syms[2]->type->size==4)
+			e->x.width = 4;	/* reload of a spilled 32-bit CSE value */
 		e->count = 1;
 		if (--p->count == 1) {
 			/* fprint(2, "releasing %s from ", p->syms[2]->name); printnode(p, 2, 1);
@@ -805,7 +807,11 @@ static Node undag1(Node p, Node root) {
 		p->kids[0] = undag1(p->kids[0], root);
 	} else {
 		assert(optype(p->op) > 0 && optype(p->op) < sizeof btot/sizeof btot[0]);
-		p->syms[2] = temporary(REGISTER, *btot[optype(p->op)]);
+		/* btot maps the op LETTER to a type, and I maps to inttype - a
+		   shared 32-bit node must spill into a longtype (4-byte) local,
+		   not a 2-byte int (silent truncation otherwise) */
+		p->syms[2] = temporary(REGISTER,
+			p->x.width==4 ? longtype : *btot[optype(p->op)]);
 		/* fprint(2, "allocating %s to ", p->syms[2]->name); printnode(p, 2, 1); */
 		if (!p->syms[2]->defined) {
 			p->syms[2]->scope = LOCAL;
@@ -817,6 +823,8 @@ static Node undag1(Node p, Node root) {
 		p->kids[1] = undag1(p->kids[1], root);
 		e = newnode(ASGN + (isunsigned(p->syms[2]->type) ? I : ttob(p->syms[2]->type)),
 			newnode(ADDRL+P, 0, 0, p->syms[2]), p, 0);
+		if (p->syms[2]->type->size==4)
+			e->x.width = 4;	/* spill store of a 32-bit CSE value */
 		e->syms[0] = intconst(p->syms[2]->type->size);
 		e->syms[1] = intconst(p->syms[2]->type->align);
 		/*

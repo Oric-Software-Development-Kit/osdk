@@ -888,7 +888,10 @@ static char *output_arg(Node n) {
 static int is_commutative(char *inst) {
     return strcmp(inst,"ADDW")==0 || strcmp(inst,"ANDW")==0
         || strcmp(inst,"ORW" )==0 || strcmp(inst,"XORW")==0
-        || strcmp(inst,"MULI")==0 || strcmp(inst,"MULU")==0;
+        || strcmp(inst,"MULI")==0 || strcmp(inst,"MULU")==0
+        || strcmp(inst,"ADDL")==0 || strcmp(inst,"ANDL")==0
+        || strcmp(inst,"ORL" )==0 || strcmp(inst,"XORL")==0
+        || strcmp(inst,"MULL")==0;
 }
 
 static void binary(char *inst) {
@@ -909,7 +912,8 @@ static void binary(char *inst) {
         am = bm; bm = 'C';
     }
     if (am=='C' && bm=='C') {
-        print("\tMOVW_C%c(%s,%s)\n", rm, output_arg(a), output_arg(r));
+        print("\tMOV%s_C%c(%s,%s)\n", r->x.width==4 ? "L" : "W",
+              rm, output_arg(a), output_arg(r));
         print("\t%s_%c%c%c(%s,%s,%s)\n"
             ,inst ,rm ,bm ,rm
             ,output_arg(r) ,output_arg(b) ,output_arg(r));
@@ -934,9 +938,11 @@ static void unary(char *inst) {
     am = simple_adrmode(a->x.adrmode);
     rm = simple_adrmode(r->x.adrmode);
     if (am=='C' && (strcmp(inst,"LSH1W")==0 || strcmp(inst,"COMW")==0
-                 || strcmp(inst,"NEGI")==0)) {
+                 || strcmp(inst,"NEGI")==0 || strcmp(inst,"COML")==0
+                 || strcmp(inst,"NEGL")==0)) {
         /* these families have no constant-operand variant */
-        print("\tMOVW_C%c(%s,%s)\n", rm, output_arg(a), output_arg(r));
+        print("\tMOV%s_C%c(%s,%s)\n", r->x.width==4 ? "L" : "W",
+              rm, output_arg(a), output_arg(r));
         print("\t%s_%c%c(%s,%s)\n", inst, rm, rm, output_arg(r), output_arg(r));
         return;
     }
@@ -1018,6 +1024,11 @@ static void restore_busy(Node p) {
 
 static void emitdag0(Node p) {
     a = p->kids[0]; b = p->kids[1]; r=p;
+    if (p->x.width==4 || (a && a->x.width==4) || (b && b->x.width==4)) {
+        fprintf(stderr, "Error in function '%s': 32-bit long requires "
+                        "optimization level -O1 or higher.\n", fname);
+        exit(1);
+    }
     switch (p->op) {
         case BANDU:  binary("BANDU");  break;
         case BORU:   binary("BORU" );  break;
@@ -1190,11 +1201,15 @@ static void emitdag(Node p) {
     a = p->kids[0]; b = p->kids[1]; r=p;
 
     switch (p->op) {
-        case BANDU:        if (p->x.narrow) binary("ANDB"); else binary("ANDW");   break;
-        case BORU:         if (p->x.narrow) binary("ORB" ); else binary("ORW" );   break;
-        case BXORU:        if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
+        case BANDU:        if (p->x.width==4) binary("ANDL");
+                           else if (p->x.narrow) binary("ANDB"); else binary("ANDW");   break;
+        case BORU:         if (p->x.width==4) binary("ORL");
+                           else if (p->x.narrow) binary("ORB" ); else binary("ORW" );   break;
+        case BXORU:        if (p->x.width==4) binary("XORL");
+                           else if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
         case ADDD:  case ADDF:            binary("ADDF");   break;
         case ADDI:  case ADDP:  case ADDU:
+            if (p->x.width==4) { binary("ADDL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1211,6 +1226,7 @@ static void emitdag(Node p) {
             break;
         case SUBD:  case SUBF:            binary("SUBF");  break;
         case SUBI:  case SUBP:  case SUBU:
+            if (p->x.width==4) { binary("SUBL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1226,26 +1242,29 @@ static void emitdag(Node p) {
                 binary("SUBW");
             break;
         case MULD:  case MULF:            binary("MULF");   break;
-        case MULI:                        binary("MULI");   break;
-        case MULU:                        binary("MULU");   break;
+        case MULI:  if (p->x.width==4) binary("MULL"); else binary("MULI");   break;
+        case MULU:  if (p->x.width==4) binary("MULL"); else binary("MULU");   break;
         case DIVD:  case DIVF:            binary("DIVF");   break;
-        case DIVI:                        binary("DIVI");   break;
-        case DIVU:                        binary("DIVU");   break;
-        case MODI:                        binary("MODI");   break;
-        case MODU:                        binary("MODU");   break;
+        case DIVI:  if (p->x.width==4) binary("DIVL");  else binary("DIVI");   break;
+        case DIVU:  if (p->x.width==4) binary("DIVUL"); else binary("DIVU");   break;
+        case MODI:  if (p->x.width==4) binary("MODL");  else binary("MODI");   break;
+        case MODU:  if (p->x.width==4) binary("MODUL"); else binary("MODU");   break;
         case RSHU:
+            if (p->x.width==4) { binary("RSHL"); break; }           /* 32-bit logical >> */
             if (p->x.narrow) byte_shift1("RSH1B");                  /* uchar x >> 1 (lsr) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
                      && simple_adrmode(a->x.adrmode)!='C') unary("RSHW8");  /* >>8 = byte move */
             else binary("RSHW");
             break;
         case RSHI:
+            if (p->x.width==4) { binary("ASRL"); break; }           /* 32-bit arithmetic >> */
             if (p->x.narrow) byte_shift1("RSH1B");                  /* uchar x >> 1 is logical (lsr) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"8")==0
                      && simple_adrmode(a->x.adrmode)!='C') unary("ASRW8");  /* signed >>8 = byte move + sign fill */
             else binary("ASRW");                                   /* signed >> keeps the sign */
             break;
         case LSHI:  case LSHU:
+            if (p->x.width==4) { binary("LSHL"); break; }           /* 32-bit << */
             if (p->x.narrow)
                 byte_shift1("LSH1B");   /* char x << 1 (asl) */
             else if (optimizelevel>=2 && strcmp(b->x.name,"1")==0)
@@ -1277,7 +1296,8 @@ static void emitdag(Node p) {
             break;
         case INDIRI: case INDIRP:
             if (!p->x.optimized)
-                print("\tINDIRW_%c%c(%s,%s)\n"
+                print("\tINDIR%s_%c%c(%s,%s)\n"
+                        ,p->x.width==4 ? "L" : "W"
                         ,reduced_adrmode(a->x.adrmode)    // keep 'Z' adrmode different from 'D'
                         ,simple_adrmode(r->x.adrmode)
                         ,output_arg(a)
@@ -1291,9 +1311,11 @@ static void emitdag(Node p) {
             if (!p->x.optimized)
                 unary("INDIRS");
             break;
-        case BCOMU:        if (p->x.narrow) unary("COMB"); else unary("COMW");   break;
+        case BCOMU:        if (p->x.width==4) unary("COML");
+                           else if (p->x.narrow) unary("COMB"); else unary("COMW");   break;
         case NEGD:  case NEGF:            unary("NEGF" );   break;
-        case NEGI:         if (p->x.narrow) unary("NEGB"); else unary("NEGI");   break;
+        case NEGI:         if (p->x.width==4) unary("NEGL");
+                           else if (p->x.narrow) unary("NEGB"); else unary("NEGI");   break;
         case CVCI: case CVSI:             unary("CSBW");    break;
         case CVCU: case CVSU:
             /* Phase 1b: drop a dead zero-extend. widen_dead_after() proves the
@@ -1332,6 +1354,20 @@ static void emitdag(Node p) {
                 || a->x.adrmode!=p->x.adrmode)
                 unary("MOVW");
             break;
+        case CVIL:                        unary("CSWL");  break;  /* int -> long: sign extend  */
+        case CVUL:                        unary("CZWL");  break;  /* uint -> long: zero extend */
+        case CVLI: case CVLU:
+            /* long -> int/unsigned: take the low word. A no-op only when
+               operand and result are the same location (same rule as CVUC) */
+            if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0
+                || a->x.adrmode!=p->x.adrmode)
+                unary("CLW");
+            break;
+        case CVLD:
+            fprintf(stderr, "Error in function '%s': long to float conversion "
+                            "is not supported yet.\n", fname);
+            exit(1);
+            break;
         case CVID:                        unary("CIF" );  break;
         case CVDF: case CVFD:
             if (optimizelevel<=1 || strcmp(a->x.name,p->x.name)!=0
@@ -1350,6 +1386,19 @@ static void emitdag(Node p) {
                         ,output_arg(a));
             break;
         case RETI:
+            if (a && a->x.width==4) {
+                /* 32-bit return value: whole value through op1:op2 (X:A only
+                   carries 16 bits); CALLL on the caller side reads it back */
+                if (optimizelevel>=2 && omit_frame && nbregs==0)
+                    print("\tRETL_%c(%s)\n"
+                            ,simple_adrmode(a->x.adrmode)
+                            ,output_arg(a));
+                else
+                    print("\tLEAVEL_%c(%s)\n"
+                            ,simple_adrmode(a->x.adrmode)
+                            ,output_arg(a));
+                break;
+            }
             if (optimizelevel>=2 && omit_frame && nbregs==0)
                 print("\tRETW_%c(%s)\n"
                         ,simple_adrmode(a->x.adrmode)
@@ -1411,7 +1460,8 @@ static void emitdag(Node p) {
             break;
         case ASGNI: case ASGNP:
             if (!p->x.optimized)
-                print("\tASGNW_%c%c(%s,%s)\n"
+                print("\tASGN%s_%c%c(%s,%s)\n"
+                        ,p->x.width==4 ? "L" : "W"
                         ,simple_adrmode(b->x.adrmode)
                         ,reduced_adrmode(a->x.adrmode)     // keep 'Z' adrmode different from 'D'
                         ,output_arg(b)
@@ -1433,7 +1483,9 @@ static void emitdag(Node p) {
             break;
         case ARGI: case ARGP:
             if (!p->x.optimized)
-                print("\tARGW_%c(%s,(sp),%d)\n"
+                print("\tARG%s_%c(%s,(sp),%d)\n"
+                        /* the arg's byte size travels in syms[0] */
+                        ,p->syms[0]->u.c.v.i==4 ? "L" : "W"
                         ,simple_adrmode(a->x.adrmode)
                         ,output_arg(a)
                         ,p->x.argoffset);
@@ -1469,7 +1521,8 @@ static void emitdag(Node p) {
             break;
         case CALLI:
             save_busy(p);
-            print("\tCALLW_%c%c(%s,%d,%s)\n"
+            print("\tCALL%s_%c%c(%s,%d,%s)\n"
+                    ,p->x.width==4 ? "L" : "W"
                     ,simple_adrmode(a->x.adrmode)
                     ,simple_adrmode(p->x.adrmode)
                     ,output_arg(a)
@@ -1486,6 +1539,7 @@ static void emitdag(Node p) {
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
+            if (a->x.width==4 || b->x.width==4) { compare("EQL"); break; }
             if (p->x.narrow) {
                 if (strcmp(b->x.name,"0")==0)
                     compare0("EQ0B");   /* lda sets Z: no cmp #0 */
@@ -1497,23 +1551,32 @@ static void emitdag(Node p) {
             else compare("EQW" );
             break;
         case GED:   case GEF:             compare("GEF" ); break;
-        case GEI:          if (p->x.narrow) compare("GEUB"); else compare("GEI"); break;
-        case GEU:          if (p->x.narrow) compare("GEUB"); else compare("GEU"); break;
+        case GEI:          if (a->x.width==4) compare("GEL");
+                           else if (p->x.narrow) compare("GEUB"); else compare("GEI"); break;
+        case GEU:          if (a->x.width==4) compare("GEUL");
+                           else if (p->x.narrow) compare("GEUB"); else compare("GEU"); break;
         case GTD:   case GTF:             compare("GTF" ); break;
-        case GTI:          if (p->x.narrow) compare("GTUB"); else compare("GTI"); break;
-        case GTU:          if (p->x.narrow) compare("GTUB"); else compare("GTU"); break;
+        case GTI:          if (a->x.width==4) compare("GTL");
+                           else if (p->x.narrow) compare("GTUB"); else compare("GTI"); break;
+        case GTU:          if (a->x.width==4) compare("GTUL");
+                           else if (p->x.narrow) compare("GTUB"); else compare("GTU"); break;
         case LED:   case LEF:             compare("LEF" ); break;
-        case LEI:          if (p->x.narrow) compare("LEUB"); else compare("LEI"); break;
-        case LEU:          if (p->x.narrow) compare("LEUB"); else compare("LEU"); break;
+        case LEI:          if (a->x.width==4) compare("LEL");
+                           else if (p->x.narrow) compare("LEUB"); else compare("LEI"); break;
+        case LEU:          if (a->x.width==4) compare("LEUL");
+                           else if (p->x.narrow) compare("LEUB"); else compare("LEU"); break;
         case LTD:   case LTF:             compare("LTF" ); break;
-        case LTI:          if (p->x.narrow) compare("LTUB"); else compare("LTI"); break;
-        case LTU:          if (p->x.narrow) compare("LTUB"); else compare("LTU"); break;
+        case LTI:          if (a->x.width==4) compare("LTL");
+                           else if (p->x.narrow) compare("LTUB"); else compare("LTI"); break;
+        case LTU:          if (a->x.width==4) compare("LTUL");
+                           else if (p->x.narrow) compare("LTUB"); else compare("LTU"); break;
         case NED:   case NEF:             compare("NEF" ); break;
         case NEI:
             /* symmetric: constant first operand goes right (see EQI) */
             if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)!='C') {
                 Node t=a; a=b; b=t;
             }
+            if (a->x.width==4 || b->x.width==4) { compare("NEL"); break; }
             if (p->x.narrow) {
                 if (strcmp(b->x.name,"0")==0)
                     compare0("NE0B");   /* lda sets Z: no cmp #0 */
