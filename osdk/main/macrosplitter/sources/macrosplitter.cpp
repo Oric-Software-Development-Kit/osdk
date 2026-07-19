@@ -1251,6 +1251,108 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// jmp -> always-taken-branch shortening. When the value that last set N/Z is
+// KNOWN at a jmp (e.g. `tya : sta reg1 : jmp L` where Y provably holds 1 -
+// stores preserve flags), the jmp can be the 2-byte always-taken conditional:
+// Z=0 -> bne, Z=1 -> beq. Range-checked with the same conservative span walk
+// as the branch relaxation (a wrong guess can only skip the rewrite). Runs in
+// the POST-fixpoint cleanup: patterns like FoldWidenReturn match on explicit
+// `jmp leave` and must get first pick.
+static int ShortenKnownFlagJumps(std::vector<Token>& toks, int& bytesSaved)
+{
+	const int MAXSPAN = 120;
+	int changed = 0;
+	bool hv[3] = { false, false, false };
+	long kv[3] = { 0, 0, 0 };
+	long flagVal = -1;                       // value that last set N/Z, -1 unknown
+
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		Token& t = toks[i];
+		if (t.eliminated) continue;
+		if (t.type == TokenType::Comment || t.type == TokenType::Empty
+			|| t.type == TokenType::FoldOpen || t.type == TokenType::FoldClose) continue;
+		if (t.type != TokenType::Instruction)
+		{ hv[0]=hv[1]=hv[2]=false; flagVal = -1; continue; }
+
+		const std::string& m = t.mnemonic;
+		const std::string& op = t.operand;
+
+		int reg = (m=="lda")?0 : (m=="ldx")?1 : (m=="ldy")?2 : -1;
+		if (reg >= 0)
+		{
+			long v;
+			if (!op.empty() && op[0]=='#' && EvalImmediate(op, v))
+			{ hv[reg]=true; kv[reg]=v&0xFF; flagVal = kv[reg]; }
+			else
+			{ hv[reg]=false; flagVal = -1; }
+			continue;
+		}
+		if (m=="txa") { hv[0]=hv[1]; kv[0]=kv[1]; flagVal = hv[0]?kv[0]:-1; continue; }
+		if (m=="tya") { hv[0]=hv[2]; kv[0]=kv[2]; flagVal = hv[0]?kv[0]:-1; continue; }
+		if (m=="tax") { hv[1]=hv[0]; kv[1]=kv[0]; flagVal = hv[1]?kv[1]:-1; continue; }
+		if (m=="tay") { hv[2]=hv[0]; kv[2]=kv[0]; flagVal = hv[2]?kv[2]:-1; continue; }
+		if (m=="inx") { if (hv[1]) { kv[1]=(kv[1]+1)&0xFF; flagVal=kv[1]; } else flagVal=-1; continue; }
+		if (m=="dex") { if (hv[1]) { kv[1]=(kv[1]-1)&0xFF; flagVal=kv[1]; } else flagVal=-1; continue; }
+		if (m=="iny") { if (hv[2]) { kv[2]=(kv[2]+1)&0xFF; flagVal=kv[2]; } else flagVal=-1; continue; }
+		if (m=="dey") { if (hv[2]) { kv[2]=(kv[2]-1)&0xFF; flagVal=kv[2]; } else flagVal=-1; continue; }
+		if (m=="sta" || m=="stx" || m=="sty" || m=="sec" || m=="clc"
+			|| m=="cld" || m=="sed" || m=="cli" || m=="sei" || m=="clv"
+			|| m=="nop" || m=="pha" || m=="php")
+			continue;                        // flags and tracked registers intact
+		if (m=="beq" || m=="bne" || m=="bmi" || m=="bpl"
+			|| m=="bcc" || m=="bcs" || m=="bvc" || m=="bvs")
+			continue;                        // branches change nothing
+
+		if (m == "jmp" && flagVal >= 0 && !t.frozen
+			&& !op.empty() && op.find('(') == std::string::npos)
+		{
+			// range check (same conservative walk as RelaxBranchIdioms)
+			bool inRange = false;
+			{
+				int span = 0;
+				for (size_t x = i + 1; x < toks.size(); x++)
+				{
+					if (toks[x].eliminated) continue;
+					if (toks[x].type == TokenType::Label && toks[x].text == op) { inRange = (span <= MAXSPAN); break; }
+					if (toks[x].type == TokenType::Directive || toks[x].frozen) break;
+					if (toks[x].type == TokenType::Instruction)
+						span += EstimateInstructionSize(toks[x].mnemonic, toks[x].operand);
+					if (span > MAXSPAN) break;
+				}
+			}
+			if (!inRange)
+			{
+				int span = 2;
+				for (size_t x = i; x-- > 0; )
+				{
+					if (toks[x].eliminated) continue;
+					if (toks[x].type == TokenType::Label && toks[x].text == op) { inRange = (span <= MAXSPAN); break; }
+					if (toks[x].type == TokenType::Directive || toks[x].frozen) break;
+					if (toks[x].type == TokenType::Instruction)
+						span += EstimateInstructionSize(toks[x].mnemonic, toks[x].operand);
+					if (span > MAXSPAN) break;
+				}
+			}
+			if (inRange)
+			{
+				const char* branch = (flagVal == 0) ? "beq" : "bne";
+				bytesSaved += 1;             // 3-byte jmp -> 2-byte branch
+				t.mnemonic = branch;
+				t.text = std::string(branch) + " " + op;
+				changed++;
+			}
+			hv[0]=hv[1]=hv[2]=false; flagVal = -1;   // control leaves
+			continue;
+		}
+
+		// anything else: registers/flags conservatively unknown
+		hv[0]=hv[1]=hv[2]=false;
+		flagVal = -1;
+	}
+	return changed;
+}
+
 // while(v--) post-decrement collapse. The compiler tests the ORIGINAL value
 // and stores the decrement through two scratch temps:
 //     lda V : sta T : sec : lda T : sbc #1 : sta T2 : [lda T2] : sta V :
@@ -2164,6 +2266,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 	{
 		int eliminated = MarkRedundantImmLoads(allTokens, bytesSaved, true);
 		eliminated += TrackKnownZero(allTokens, bytesSaved);
+		// jmp -> always-taken bne/beq when the flag-setting value is known
+		eliminated += ShortenKnownFlagJumps(allTokens, bytesSaved);
 		totalEliminated += eliminated;
 		if (eliminated == 0)
 			break;
