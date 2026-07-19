@@ -6346,14 +6346,17 @@ jsrto :\
  FSTORE_C(tmp) :\
 
 #define CALLF_YD(ptr,y2,size,tmp)\
+ .( :\
  ldy #y2 :\
  lda ptr,y :\
- sta jsrvect+1 :\
+ sta call+1 :\
  iny :\
  lda ptr,y :\
- sta jsrvect+2 :\
+ sta call+2 :\
  ldy #size :\
- jsr jsrvect :\
+call :\
+ jsr 0000 :\
+ .) :\
  FSTORE_C(tmp) :\
 
 #define CALLF_CY(adr,size,ptr2,y2)\
@@ -6374,14 +6377,17 @@ jsrto :\
  FSTORE_A(ptr2,y2) :\
 
 #define CALLF_YY(ptr,y0,size,ptr2,y2)\
+ .( :\
  ldy #y0 :\
  lda ptr,y :\
- sta jsrvect+1 :\
+ sta call+1 :\
  iny :\
  lda ptr,y :\
- sta jsrvect+2 :\
+ sta call+2 :\
  ldy #size :\
- jsr jsrvect :\
+call :\
+ jsr 0000 :\
+ .) :\
  FSTORE_A(ptr2,y2) :\
 
 #define FCOMP_D(tmp1)\

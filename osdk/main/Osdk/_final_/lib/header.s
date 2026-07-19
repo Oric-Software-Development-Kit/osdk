@@ -44,20 +44,19 @@ osdk_start
 	lda #>osdk_stack
 	sta sp+1
 	ldy #0
-	stx retstack
+	stx exitldx+1	; patch _exit's immediate: the saved hardware stack
+			; pointer lives IN the ldx operand (no .byt needed)
 	jmp _main
-retstack	
-	.byt 0
 
 ; enter/leave (the C stack-frame helpers) live in lib/frame.s so that
 ; programs whose functions are all frameless (-O2+ omit_frame) don't pay
 ; their bytes.
-
-jsrvect 
-	jmp (0000)
+; (jsrvect is gone: the indirect-call macros - CALLV_D/Y, CALLF_YD/YY -
+;  all self-modify a local jsr instead of sharing a vector here.)
 
 _exit
-	ldx retstack
+exitldx
+	ldx #00
 	txs
 	rts
 
