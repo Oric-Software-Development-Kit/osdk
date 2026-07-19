@@ -1251,6 +1251,81 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
+// Accumulator shift -> memory RMW. When A provably holds X's memory value
+// (anchored at a `lda X` or `sta X`, with only A- and X-preserving stores in
+// between), an accumulator shift immediately stored back -
+//     asl : sta X
+// is just  asl X  - one byte less, same cycles, same N/Z/C - PROVIDED the
+// shifted value in A is dead afterwards (next A operation overwrites it
+// without reading; labels/branches/calls bail). Mike's find in _gf_alog:
+//     lda reg1 : sta reg2 : asl : sta reg1 : lda #0 ...
+// becomes lda reg1 : sta reg2 : asl reg1 (and the dead-load pass may then
+// also drop the lda when nothing else consumed A).
+static int FoldShiftToMemory(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
+		const std::string& am = toks[i].mnemonic;
+		if ((am != "lda" && am != "sta") || toks[i].frozen) continue;
+		const std::string X = toks[i].operand;
+		if (!PlainDirect(X) || IsIOPageAddress(X)) continue;
+
+		// window: A- and X-preserving plain stores only, then the acc shift
+		size_t j = i;
+		size_t shiftAt = (size_t)-1;
+		for (;;)
+		{
+			j = NextRealInstr(toks, j + 1);
+			if (j == (size_t)-1) break;
+			const std::string& m = toks[j].mnemonic;
+			const std::string& op = toks[j].operand;
+			if ((m == "asl" || m == "lsr" || m == "rol" || m == "ror")
+				&& op.empty())
+			{
+				shiftAt = j;
+				break;
+			}
+			if ((m == "sta" || m == "stx" || m == "sty")
+				&& PlainDirect(op) && op != X)
+				continue;
+			break;
+		}
+		if (shiftAt == (size_t)-1 || toks[shiftAt].frozen) continue;
+
+		size_t stAt = NextRealInstr(toks, shiftAt + 1);
+		if (stAt == (size_t)-1 || toks[stAt].frozen) continue;
+		if (toks[stAt].mnemonic != "sta" || toks[stAt].operand != X) continue;
+
+		// A must die before being read (conservative: bail at flow control)
+		bool aDead = false;
+		for (size_t s = stAt; ; )
+		{
+			s = NextRealInstr(toks, s + 1);
+			if (s == (size_t)-1) break;
+			const std::string& m = toks[s].mnemonic;
+			if (m == "lda" || m == "pla" || m == "txa" || m == "tya")
+			{ aDead = true; break; }
+			if (m == "ldx" || m == "ldy" || m == "clc" || m == "sec"
+				|| m == "inx" || m == "iny" || m == "dex" || m == "dey"
+				|| m == "stx" || m == "sty" || m == "nop")
+				continue;                             // do not read A
+			break;                                    // reads A / flow / unknown
+		}
+		if (!aDead) continue;
+
+		// asl : sta X  ->  asl X   (drop the accumulator shift)
+		bytesSaved += 1;
+		toks[stAt].mnemonic = toks[shiftAt].mnemonic;
+		toks[stAt].text = toks[shiftAt].mnemonic + " " + X;
+		toks[stAt].operand = X;
+		toks[shiftAt].eliminated = true;
+		changed++;
+	}
+	return changed;
+}
+
 // jmp -> always-taken-branch shortening. When the value that last set N/Z is
 // KNOWN at a jmp (e.g. `tya : sta reg1 : jmp L` where Y provably holds 1 -
 // stores preserve flags), the jmp can be the 2-byte always-taken conditional:
@@ -2251,6 +2326,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += TrackKnownZero(allTokens, bytesSaved);
 		// shift-through-temp -> accumulator-form shift when the temp is dead
 		eliminated += FoldAccumulatorShift(allTokens, bytesSaved);
+		// accumulator shift stored back with A dead -> memory RMW shift
+		eliminated += FoldShiftToMemory(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
