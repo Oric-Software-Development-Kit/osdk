@@ -3034,7 +3034,22 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 
 		if (!hasAny)
 		{
-			output += "\r\n";
+			// Preserve a blank line only if the ORIGINAL source line was itself
+			// blank (intentional spacing). A line whose every token was
+			// eliminated by the optimizer collapses away, so surviving
+			// instructions stay contiguous instead of leaving ragged gaps.
+			bool originallyBlank = true;
+			for (size_t c = 0; c < lines[lineIdx].size(); c++)
+			{
+				char ch = lines[lineIdx][c];
+				if (ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n')
+				{
+					originallyBlank = false;
+					break;
+				}
+			}
+			if (originallyBlank)
+				output += "\r\n";
 		}
 	}
 
