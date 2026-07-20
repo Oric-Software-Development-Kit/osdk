@@ -1342,6 +1342,224 @@ static int FoldTransferStore(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// ---------------------------------------------------------------------------
+// Dead temp-store elimination v2: a real (tiny) backward liveness analysis
+// over the token CFG, tracking only the scratch temp bytes (tmp0..tmp7 and
+// their +1..+3 pair members). The v1 straight-line "statement boundary"
+// heuristic was proven wrong by the suite: ?:/&&/|| join temps cross labels
+// and branches. Here:
+//   - blocks split at labels and after branches/jumps/returns
+//   - successors = fallthrough + branch target (by label name)
+//   - an indirect jmp (switch tables) makes every temp live (unknown targets)
+//   - a NON-exact reference to a temp base (#<tmp0, (tmp0),y) is a USE of the
+//     whole 4-byte pair (the 32-bit shells consume pairs through pointers)
+//   - jsr is temp-transparent: callees never read a caller's temp invisibly
+//     (caller-saved convention; the SAVE macros and pointer-takes are visible
+//     reads), and treating it as no-def only keeps MORE things live
+// A store to a temp byte that is dead right after it is pure waste.
+
+struct TempLiveBlock
+{
+	size_t first, last;          // token index range [first, last]
+	unsigned use, def;           // bitmasks over tracked temp bytes
+	unsigned liveIn, liveOut;
+	int succ[2];                 // fallthrough / branch target (-1 = none)
+	bool allLive;                // indirect jump: everything live out
+};
+
+// tracked byte index for an EXACT temp operand ("tmp3+2" -> 3*4+2), -1 if not
+static int TempByteIndex(const std::string& op)
+{
+	if (op.compare(0, 3, "tmp") != 0) return -1;
+	if (op.size() < 4 || op[3] < '0' || op[3] > '7') return -1;
+	int slot = op[3] - '0';
+	if (op.size() == 4) return slot * 4;
+	if (op[4] != '+' || op.size() != 6) return -1;
+	if (op[5] < '1' || op[5] > '3') return -1;
+	return slot * 4 + (op[5] - '0');
+}
+
+// mask of temp bytes referenced NON-exactly by an operand (pointer take,
+// indirection, expression): the whole pair of any base that appears
+static unsigned TempLooseMask(const std::string& op)
+{
+	unsigned mask = 0;
+	for (size_t p = op.find("tmp"); p != std::string::npos;
+	     p = op.find("tmp", p + 1))
+	{
+		if (p + 3 < op.size() && op[p+3] >= '0' && op[p+3] <= '7')
+			mask |= 0xFu << ((op[p+3] - '0') * 4);
+	}
+	return mask;
+}
+
+static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
+{
+	// ---- collect block leaders ------------------------------------------
+	std::vector<size_t> order;                 // real tokens in order
+	std::map<std::string, size_t> labelAt;     // label name -> order index
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		if (toks[i].eliminated) continue;
+		TokenType tt = toks[i].type;
+		if (tt == TokenType::Comment || tt == TokenType::Empty
+			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+		if (tt == TokenType::Label)
+			labelAt[toks[i].text] = order.size();  // position of next real token
+		if (tt == TokenType::Instruction)
+			order.push_back(i);
+		if (tt == TokenType::Directive || tt == TokenType::Other)
+			order.push_back(i);                    // barrier token, kept in order
+	}
+	if (order.empty()) return 0;
+
+	std::vector<char> leader(order.size(), 0);
+	leader[0] = 1;
+	for (std::map<std::string, size_t>::iterator it = labelAt.begin();
+	     it != labelAt.end(); ++it)
+		if (it->second < order.size()) leader[it->second] = 1;
+	for (size_t k = 0; k < order.size(); k++)
+	{
+		const Token& t = toks[order[k]];
+		if (t.type != TokenType::Instruction) { if (k+1 < order.size()) leader[k+1] = 1; continue; }
+		const std::string& m = t.mnemonic;
+		if (m=="jmp"||m=="rts"||m=="rti"||m=="brk"
+			||m=="beq"||m=="bne"||m=="bmi"||m=="bpl"
+			||m=="bcc"||m=="bcs"||m=="bvc"||m=="bvs")
+			if (k+1 < order.size()) leader[k+1] = 1;
+	}
+
+	// ---- build blocks -----------------------------------------------------
+	std::vector<TempLiveBlock> blocks;
+	std::vector<int> blockOf(order.size(), -1);
+	for (size_t k = 0; k < order.size(); k++)
+	{
+		if (leader[k])
+		{
+			TempLiveBlock b;
+			b.first = k; b.last = k;
+			b.use = b.def = b.liveIn = b.liveOut = 0;
+			b.succ[0] = b.succ[1] = -1;
+			b.allLive = false;
+			blocks.push_back(b);
+		}
+		blocks.back().last = k;
+		blockOf[k] = (int)blocks.size() - 1;
+	}
+
+	// ---- per-block use/def (forward: first access wins) + successors ------
+	for (size_t bi = 0; bi < blocks.size(); bi++)
+	{
+		TempLiveBlock& b = blocks[bi];
+		bool fallsThrough = true;
+		for (size_t k = b.first; k <= b.last; k++)
+		{
+			const Token& t = toks[order[k]];
+			if (t.type != TokenType::Instruction)
+			{ b.allLive = true; continue; }        // directive: be conservative
+			const std::string& m = t.mnemonic;
+			const std::string& op = t.operand;
+
+			int exact = TempByteIndex(op);
+			bool isStore = (m=="sta"||m=="stx"||m=="sty");
+			if (exact >= 0)
+			{
+				unsigned bit = 1u << exact;
+				if (isStore) { if (!(b.use & bit)) b.def |= bit; }
+				else if (m=="inc"||m=="dec"||m=="asl"||m=="lsr"||m=="rol"||m=="ror")
+					b.use |= bit;                   // RMW reads first
+				else
+					b.use |= bit;                   // any other reference reads
+			}
+			else
+			{
+				unsigned loose = TempLooseMask(op);
+				if (loose) b.use |= loose;          // pointer take / indirect
+			}
+
+			if (m=="jmp")
+			{
+				fallsThrough = false;
+				if (!op.empty() && op[0]=='(') b.allLive = true;   // switch
+				else
+				{
+					std::map<std::string, size_t>::iterator it = labelAt.find(op);
+					if (it != labelAt.end() && it->second < order.size())
+						b.succ[1] = blockOf[it->second];
+					else
+						b.allLive = true;           // target outside view
+				}
+			}
+			else if (m=="rts"||m=="rti"||m=="brk")
+				fallsThrough = false;               // temps dead at return
+			else if (m=="beq"||m=="bne"||m=="bmi"||m=="bpl"
+				||m=="bcc"||m=="bcs"||m=="bvc"||m=="bvs")
+			{
+				std::map<std::string, size_t>::iterator it = labelAt.find(op);
+				if (it != labelAt.end() && it->second < order.size())
+					b.succ[1] = blockOf[it->second];
+				else
+					b.allLive = true;
+			}
+		}
+		if (fallsThrough && bi + 1 < blocks.size())
+			b.succ[0] = (int)bi + 1;
+	}
+
+	// ---- backward liveness to fixpoint ------------------------------------
+	for (bool changedFlow = true; changedFlow; )
+	{
+		changedFlow = false;
+		for (size_t bi = blocks.size(); bi-- > 0; )
+		{
+			TempLiveBlock& b = blocks[bi];
+			unsigned out = b.allLive ? 0xFFFFFFFFu : 0;
+			for (int s = 0; s < 2; s++)
+				if (b.succ[s] >= 0) out |= blocks[b.succ[s]].liveIn;
+			unsigned in = b.use | (out & ~b.def);
+			if (out != b.liveOut || in != b.liveIn)
+			{ b.liveOut = out; b.liveIn = in; changedFlow = true; }
+		}
+	}
+
+	// ---- eliminate stores to bytes dead right after them -------------------
+	int changed = 0;
+	for (size_t bi = 0; bi < blocks.size(); bi++)
+	{
+		TempLiveBlock& b = blocks[bi];
+		if (b.allLive) continue;
+		unsigned live = b.liveOut;
+		for (size_t k = b.last + 1; k-- > b.first; )
+		{
+			Token& t = toks[order[k]];
+			if (t.type != TokenType::Instruction) { live = 0xFFFFFFFFu; continue; }
+			const std::string& m = t.mnemonic;
+			const std::string& op = t.operand;
+			int exact = TempByteIndex(op);
+			bool isStore = (m=="sta"||m=="stx"||m=="sty");
+			if (exact >= 0 && isStore)
+			{
+				unsigned bit = 1u << exact;
+				if (!(live & bit) && !t.frozen)
+				{
+					bytesSaved += EstimateInstructionSize(m, op);
+					t.eliminated = true;
+					changed++;
+					continue;                        // liveness unchanged
+				}
+				live &= ~bit;                        // killed above the store
+				continue;
+			}
+			if (exact >= 0)
+			{ live |= 1u << exact; continue; }       // read (incl. RMW)
+			unsigned loose = TempLooseMask(op);
+			if (loose) live |= loose;
+			if (op.empty() && b.first == k) break;
+		}
+	}
+	return changed;
+}
+
 // Commutative staging fold. The compiler stages one operand of a commutative
 // bitwise op through a scratch temp even when both live in memory:
 //     lda X : sta T : lda Y : eor T     ->      lda Y : eor X
@@ -2582,6 +2800,8 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += FoldCommutativeStage(allTokens, bytesSaved);
 		// tya/txa : sta X -> sty/stx X (N/Z and A dead)
 		eliminated += FoldTransferStore(allTokens, bytesSaved);
+		// CFG-liveness dead temp-store elimination (v2: real dataflow)
+		eliminated += DropDeadTempStores(allTokens, bytesSaved);
 
 		totalEliminated += eliminated;
 		if (eliminated == 0)
