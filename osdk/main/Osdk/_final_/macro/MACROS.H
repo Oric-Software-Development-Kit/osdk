@@ -21841,80 +21841,48 @@ skip :\
  sta (zp2),y :\
 
 #define ASGNL_CA(cte1,ptr2,y2)\
- lda #<(cte1) :\
- sta op1 :\
- lda #>(cte1) :\
- sta op1+1 :\
- lda #<((cte1)>>16) :\
- sta op2 :\
- lda #>((cte1)>>16) :\
- sta op2+1 :\
  ldy #y2 :\
- lda op1 :\
+ lda #<(cte1) :\
  sta ptr2,y :\
  iny :\
- lda op1+1 :\
+ lda #>(cte1) :\
  sta ptr2,y :\
  iny :\
- lda op2 :\
+ lda #<((cte1)>>16) :\
  sta ptr2,y :\
  iny :\
- lda op2+1 :\
+ lda #>((cte1)>>16) :\
  sta ptr2,y :\
 
 #define ASGNL_CC(cte1,tmp2)\
  lda #<(cte1) :\
- sta op1 :\
- lda #>(cte1) :\
- sta op1+1 :\
- lda #<((cte1)>>16) :\
- sta op2 :\
- lda #>((cte1)>>16) :\
- sta op2+1 :\
- lda op1 :\
  sta tmp2 :\
- lda op1+1 :\
+ lda #>(cte1) :\
  sta tmp2+1 :\
- lda op2 :\
+ lda #<((cte1)>>16) :\
  sta tmp2+2 :\
- lda op2+1 :\
+ lda #>((cte1)>>16) :\
  sta tmp2+3 :\
 
 #define ASGNL_CD(cte1,tmp2)\
- lda #<(cte1) :\
- sta op1 :\
- lda #>(cte1) :\
- sta op1+1 :\
- lda #<((cte1)>>16) :\
- sta op2 :\
- lda #>((cte1)>>16) :\
- sta op2+1 :\
  lda tmp2 :\
  sta tmp :\
  lda tmp2+1 :\
  sta tmp+1 :\
  ldy #0 :\
- lda op1 :\
+ lda #<(cte1) :\
  sta (tmp),y :\
  iny :\
- lda op1+1 :\
+ lda #>(cte1) :\
  sta (tmp),y :\
  iny :\
- lda op2 :\
+ lda #<((cte1)>>16) :\
  sta (tmp),y :\
  iny :\
- lda op2+1 :\
+ lda #>((cte1)>>16) :\
  sta (tmp),y :\
 
 #define ASGNL_CY(cte1,ptr2,y2)\
- lda #<(cte1) :\
- sta op1 :\
- lda #>(cte1) :\
- sta op1+1 :\
- lda #<((cte1)>>16) :\
- sta op2 :\
- lda #>((cte1)>>16) :\
- sta op2+1 :\
  ldy #y2 :\
  lda ptr2,y :\
  sta tmp :\
@@ -21922,38 +21890,30 @@ skip :\
  lda ptr2,y :\
  sta tmp+1 :\
  ldy #0 :\
- lda op1 :\
+ lda #<(cte1) :\
  sta (tmp),y :\
  iny :\
- lda op1+1 :\
+ lda #>(cte1) :\
  sta (tmp),y :\
  iny :\
- lda op2 :\
+ lda #<((cte1)>>16) :\
  sta (tmp),y :\
  iny :\
- lda op2+1 :\
+ lda #>((cte1)>>16) :\
  sta (tmp),y :\
 
 #define ASGNL_CZ(cte1,zp2)\
- lda #<(cte1) :\
- sta op1 :\
- lda #>(cte1) :\
- sta op1+1 :\
- lda #<((cte1)>>16) :\
- sta op2 :\
- lda #>((cte1)>>16) :\
- sta op2+1 :\
  ldy #0 :\
- lda op1 :\
+ lda #<(cte1) :\
  sta (zp2),y :\
  iny :\
- lda op1+1 :\
+ lda #>(cte1) :\
  sta (zp2),y :\
  iny :\
- lda op2 :\
+ lda #<((cte1)>>16) :\
  sta (zp2),y :\
  iny :\
- lda op2+1 :\
+ lda #>((cte1)>>16) :\
  sta (zp2),y :\
 
 #define ASGNL_DA(tmp1,ptr2,y2)\
