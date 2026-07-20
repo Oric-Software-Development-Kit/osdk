@@ -46,6 +46,12 @@ typedef struct {
 				   so the store emits one ADDLK/SUBLK macro and the load
 				   and arithmetic nodes emit nothing. Survives tmpalloc
 				   (which only clears optimized/borrowed). */
+	char	fusek;		/* fused const add/sub: set by mark_fuse_addk on an
+				   ADD/SUB node whose result is `mem_long +/- const`
+				   into a temp - it emits one ADDLKM/SUBLKM macro that
+				   reads the source memory and writes the result temp
+				   directly (its INDIR operand is marked inplace to
+				   suppress its load). Survives tmpalloc. */
 } Xnode;
 
 typedef struct {

@@ -6727,6 +6727,85 @@ skip :\
 
 ;
 ; ============================================================
+; Fused 32-bit `dst = src +/- const` - ADDLKM/SUBLKM (hand-written)
+; ============================================================
+; emitted by gen.c's emit_fused_addk for `temp = mem_long +/- const`: read the
+; source long (frame (fp),y = _A ; static/absolute var = _C), add/sub the
+; constant's bytes with an inline carry/borrow chain, write the result temp.
+; No op1:op2, no lscratch, no jsr ladd32/lsub32. iny/lda/sta preserve the carry.
+; The source INDIR's own load is suppressed by gen.c (its node is marked inplace).
+;
+#define ADDLKM_A(ptr1,y1,cte,dst)\
+ ldy #y1 :\
+ clc :\
+ lda ptr1,y :\
+ adc #<(cte) :\
+ sta dst :\
+ iny :\
+ lda ptr1,y :\
+ adc #>(cte) :\
+ sta dst+1 :\
+ iny :\
+ lda ptr1,y :\
+ adc #<((cte)>>16) :\
+ sta dst+2 :\
+ iny :\
+ lda ptr1,y :\
+ adc #>((cte)>>16) :\
+ sta dst+3 :\
+
+#define SUBLKM_A(ptr1,y1,cte,dst)\
+ ldy #y1 :\
+ sec :\
+ lda ptr1,y :\
+ sbc #<(cte) :\
+ sta dst :\
+ iny :\
+ lda ptr1,y :\
+ sbc #>(cte) :\
+ sta dst+1 :\
+ iny :\
+ lda ptr1,y :\
+ sbc #<((cte)>>16) :\
+ sta dst+2 :\
+ iny :\
+ lda ptr1,y :\
+ sbc #>((cte)>>16) :\
+ sta dst+3 :\
+
+#define ADDLKM_C(src,cte,dst)\
+ clc :\
+ lda src :\
+ adc #<(cte) :\
+ sta dst :\
+ lda src+1 :\
+ adc #>(cte) :\
+ sta dst+1 :\
+ lda src+2 :\
+ adc #<((cte)>>16) :\
+ sta dst+2 :\
+ lda src+3 :\
+ adc #>((cte)>>16) :\
+ sta dst+3 :\
+
+#define SUBLKM_C(src,cte,dst)\
+ sec :\
+ lda src :\
+ sbc #<(cte) :\
+ sta dst :\
+ lda src+1 :\
+ sbc #>(cte) :\
+ sta dst+1 :\
+ lda src+2 :\
+ sbc #<((cte)>>16) :\
+ sta dst+2 :\
+ lda src+3 :\
+ sbc #>((cte)>>16) :\
+ sta dst+3 :\
+
+
+;
+; ============================================================
 ; Inline 32-bit compare vs a constant - <REL>LK_D (hand-written)
 ; ============================================================
 ; emitted by gen.c's compare() for a width-4 relation whose variable operand is

@@ -109,6 +109,22 @@ void main(void)
 		s=-1;           c=0; if (s <= 0x7FFFFFFF)    c=1; tk_check_eq(c,1,"sle-max2");
 	}
 
+	/* fused `dst = mem_long +/- const` (gen.c ADDLKM/SUBLKM): reads the source
+	   long and writes a different destination with an inline carry/borrow chain,
+	   no jsr ladd32/lsub32. Static source (_C) and frame-local source (_A). */
+	ga = 100000;    gr = ga + 6;     CHECK32(gr, 0x0001, 0x86A6u, "fk-add-c");
+	ga = 0x0000FFFF;gr = ga + 1;     CHECK32(gr, 0x0001, 0x0000u, "fk-add-carry");
+	ga = 100006;    gr = ga - 6;     CHECK32(gr, 0x0001, 0x86A0u, "fk-sub-c");
+	ga = 0x00010000;gr = ga - 1;     CHECK32(gr, 0x0000, 0xFFFFu, "fk-sub-borrow");
+	ga = -100;      gr = ga + 6;     CHECK32(gr, 0xFFFFu, 0xFFA2u, "fk-add-neg");
+	{
+		long fa, fb;
+		fa = 200000;    fb = fa + 70000; CHECK32(fb, 0x0004, 0x1EB0u, "fk-add-a");
+		fa = 0x00FFFFFF;fb = fa + 1;     CHECK32(fb, 0x0100, 0x0000u, "fk-add-a-carry");
+		fa = 270000;    fb = fa - 70000; CHECK32(fb, 0x0003, 0x0D40u, "fk-sub-a");
+		fa = 5;         fb = fa - 10;    CHECK32(fb, 0xFFFFu, 0xFFFBu, "fk-sub-a-borrow");
+	}
+
 	/* logic + unary */
 	ga = 0x0F0F5AA5; gb = 0x00FF00FF;
 	gr = ga & gb; CHECK32(gr, 0x000F, 0x00A5u, "and");

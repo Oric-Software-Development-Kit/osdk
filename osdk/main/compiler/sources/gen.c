@@ -865,6 +865,8 @@ static int widen_dead_after(Node p) {
     return 1;                               /* temp never read again */
 }
 
+static char simple_adrmode(char adrmode);   /* defined below; used by the pre-passes */
+
 /* In-place long read-modify-write with a constant. `long i += k` (and -=) is
  * lowered by the front end to asgn(i, add(indir(i), k)), and dag CSE gives the
  * store target and the add's INDIR source the SAME address node, so the store
@@ -913,11 +915,51 @@ static void mark_inplace_rmw(Node head) {
     }
 }
 
+/* Fused long `mem +/- const -> temp`. A width-4 ADD/SUB (not already an in-place
+ * RMW) with one operand a single-use INDIR of a frame/static long and the other
+ * an int constant, whose result is a temp: instead of INDIRL (load the long into
+ * a temp) + ADDL (stage the constant, jsr ladd32, store), emit one ADDLKM/SUBLKM
+ * that reads the source memory and writes the result temp with an inline adc/sbc
+ * chain - no op1:op2, no lscratch, no jsr. Mark the ADD (emits the macro) and its
+ * INDIR (inplace = suppress its load). ADD takes the constant on either side;
+ * SUB needs the INDIR on the left (mem - const). Runs before tmpalloc, so counts
+ * are still the source counts; the source addressing mode lives on the leaf
+ * address node and is already known here. */
+static void mark_fuse_addk(Node head) {
+    Node m;
+    for (m = head; m; m = m->x.next) m->x.fusek = 0;
+    if (optimizelevel < 2) return;
+    for (m = head; m; m = m->x.next) {
+        Node ind = 0, cnst = 0, addr;
+        int isadd;
+        char sm;
+        if (m->x.width != 4 || m->x.inplace) continue;      /* leave RMW alone */
+        isadd = is_long_add(m->op);
+        if (!isadd && !is_long_sub(m->op)) continue;
+        if (m->kids[0] && is_indir_word(m->kids[0]->op)
+            && m->kids[0]->x.width == 4 && m->kids[0]->count == 1
+            && is_int_const(m->kids[1])) {
+            ind = m->kids[0]; cnst = m->kids[1];
+        } else if (isadd && m->kids[1] && is_indir_word(m->kids[1]->op)
+            && m->kids[1]->x.width == 4 && m->kids[1]->count == 1
+            && is_int_const(m->kids[0])) {
+            ind = m->kids[1]; cnst = m->kids[0];            /* const + mem */
+        } else continue;
+        (void)cnst;
+        addr = ind->kids[0];                                /* the source address */
+        if (!addr) continue;
+        sm = simple_adrmode(addr->x.adrmode);
+        if (sm != 'A' && sm != 'C') continue;               /* frame / static only */
+        m->x.fusek = 1;
+        ind->x.inplace = 1;                                 /* suppress the load */
+    }
+}
+
 Node gen(Node p) {
     Node head, *last;
     for (last = &head; p; p = p->link)
         last = linearize(p, last, 0);
-    if (!graph_output) { mark_byte_narrowing(head); mark_inplace_rmw(head); }
+    if (!graph_output) { mark_byte_narrowing(head); mark_inplace_rmw(head); mark_fuse_addk(head); }
     for (p = head; p; p = p->x.next) {
         if (graph_output) print_graph_node(p);
         else tmpalloc(p);
@@ -1007,6 +1049,22 @@ static void binary(char *inst) {
         ,inst ,am ,bm ,rm
         ,output_arg(a)
         ,output_arg(b)
+        ,output_arg(r));
+}
+
+/* Emit a fused `result_temp = mem_long +/- const` (see mark_fuse_addk). Reads
+ * the source memory (frame 'A' -> ADDLKM_A / static 'C' -> ADDLKM_C) and writes
+ * the ADD/SUB result temp with an inline adc/sbc chain; the INDIR operand's own
+ * load was suppressed. a/b are the node's kids, r its result. */
+static void emit_fused_addk(int isadd) {
+    Node ind  = is_int_const(a) ? b : a;
+    Node cnst = is_int_const(a) ? a : b;
+    Node addr = ind->kids[0];
+    print("\t%sLKM_%c(%s,%s,%s)\n"
+        ,isadd ? "ADD" : "SUB"
+        ,simple_adrmode(addr->x.adrmode)
+        ,output_arg(addr)
+        ,output_arg(cnst)
         ,output_arg(r));
 }
 
@@ -1355,7 +1413,7 @@ static void emitdag(Node p) {
                            else if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
         case ADDD:  case ADDF:            binary("ADDF");   break;
         case ADDI:  case ADDP:  case ADDU:
-            if (p->x.width==4) { if (!p->x.inplace) binary("ADDL"); break; }
+            if (p->x.width==4) { if (p->x.fusek) emit_fused_addk(1); else if (!p->x.inplace) binary("ADDL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1372,7 +1430,7 @@ static void emitdag(Node p) {
             break;
         case SUBD:  case SUBF:            binary("SUBF");  break;
         case SUBI:  case SUBP:  case SUBU:
-            if (p->x.width==4) { if (!p->x.inplace) binary("SUBL"); break; }
+            if (p->x.width==4) { if (p->x.fusek) emit_fused_addk(0); else if (!p->x.inplace) binary("SUBL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
