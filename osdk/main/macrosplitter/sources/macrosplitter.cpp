@@ -51,6 +51,7 @@ _test
 #include <map>
 #include <algorithm>
 #include <cctype>
+#include <cstdint>   // uint64_t etc. (MSVC pulls it in transitively; gcc/clang need it explicit)
 
 
 // ============================================================================
