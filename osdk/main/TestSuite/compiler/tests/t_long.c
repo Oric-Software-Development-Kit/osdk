@@ -62,6 +62,53 @@ void main(void)
 		la = 0; la -= 1;                        CHECK32(la, 0xFFFFu, 0xFFFFu,"me-a-borrow");
 	}
 
+	/* inline long compare against a constant: gen.c LTLK/GELK/... - canonicalise
+	   const-on-left (flip relation) and fold a<=k -> a<k+1, a>k -> a>=k+1.
+	   Cover every relation, both operand orders, signed & unsigned, negative and
+	   multi-byte constants, the unsigned high-bit case, and the +1-overflow guard
+	   (a<=MAX must stay always-true via the routine fallback). */
+	{
+		long s; unsigned long u; int c;
+		s=99;    c=0; if (s <  100) c=1; tk_check_eq(c,1,"clt-below");
+		s=100;   c=0; if (s <  100) c=1; tk_check_eq(c,0,"clt-eq");
+		s=-5;    c=0; if (s <  100) c=1; tk_check_eq(c,1,"clt-neg");
+		s=100;   c=0; if (s <= 100) c=1; tk_check_eq(c,1,"cle-eq");     /* fold <101 */
+		s=101;   c=0; if (s <= 100) c=1; tk_check_eq(c,0,"cle-above");
+		s=101;   c=0; if (s >  100) c=1; tk_check_eq(c,1,"cgt-above");  /* fold >=101 */
+		s=100;   c=0; if (s >  100) c=1; tk_check_eq(c,0,"cgt-eq");
+		s=100;   c=0; if (s >= 100) c=1; tk_check_eq(c,1,"cge-eq");
+		s=99;    c=0; if (s >= 100) c=1; tk_check_eq(c,0,"cge-below");
+		s=100;   c=0; if (s == 100) c=1; tk_check_eq(c,1,"ceq-y");
+		s=99;    c=0; if (s == 100) c=1; tk_check_eq(c,0,"ceq-n");
+		s=99;    c=0; if (s != 100) c=1; tk_check_eq(c,1,"cne-y");
+		s=100;   c=0; if (s != 100) c=1; tk_check_eq(c,0,"cne-n");
+		/* constant on the LEFT (canonicalisation + relation flip) */
+		s=101;   c=0; if (100 <  s) c=1; tk_check_eq(c,1,"clft-lt-y");
+		s=100;   c=0; if (100 <  s) c=1; tk_check_eq(c,0,"clft-lt-n");
+		s=100;   c=0; if (100 >= s) c=1; tk_check_eq(c,1,"clft-ge-y");
+		s=101;   c=0; if (100 >= s) c=1; tk_check_eq(c,0,"clft-ge-n");
+		/* negative constant (signed MSB is 0xFF, flipped to 0x7F) */
+		s=-100;  c=0; if (s < -50) c=1; tk_check_eq(c,1,"cneg-y");
+		s=-40;   c=0; if (s < -50) c=1; tk_check_eq(c,0,"cneg-n");
+		/* multi-byte constants crossing byte boundaries */
+		s=99999; c=0; if (s < 100000) c=1; tk_check_eq(c,1,"cbig-y");
+		s=100001;c=0; if (s < 100000) c=1; tk_check_eq(c,0,"cbig-n");
+		s=-100001;c=0;if (s < -100000) c=1; tk_check_eq(c,1,"cbigneg-y");
+		s=-99999;c=0; if (s < -100000) c=1; tk_check_eq(c,0,"cbigneg-n");
+		/* unsigned: high-bit values must NOT be read as negative */
+		u=0x7FFFFFFFul; c=0; if (u <  0x80000000ul) c=1; tk_check_eq(c,1,"ult-y");
+		u=0x80000001ul; c=0; if (u <  0x80000000ul) c=1; tk_check_eq(c,0,"ult-n");
+		u=0x80000000ul; c=0; if (u >= 0x80000000ul) c=1; tk_check_eq(c,1,"uge-y");
+		u=0x7FFFFFFFul; c=0; if (u >= 0x80000000ul) c=1; tk_check_eq(c,0,"uge-n");
+		u=100;   c=0; if (u <= 100ul) c=1; tk_check_eq(c,1,"ule-y");
+		u=101;   c=0; if (u <= 100ul) c=1; tk_check_eq(c,0,"ule-n");
+		/* +1-overflow guard: a<=TYPE_MAX is always true (must fall back, not wrap) */
+		u=0xFFFFFFFFul; c=0; if (u <= 0xFFFFFFFFul) c=1; tk_check_eq(c,1,"ule-max");
+		u=12345ul;      c=0; if (u <= 0xFFFFFFFFul) c=1; tk_check_eq(c,1,"ule-max2");
+		s=0x7FFFFFFF;   c=0; if (s <= 0x7FFFFFFF)    c=1; tk_check_eq(c,1,"sle-max");
+		s=-1;           c=0; if (s <= 0x7FFFFFFF)    c=1; tk_check_eq(c,1,"sle-max2");
+	}
+
 	/* logic + unary */
 	ga = 0x0F0F5AA5; gb = 0x00FF00FF;
 	gr = ga & gb; CHECK32(gr, 0x000F, 0x00A5u, "and");

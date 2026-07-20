@@ -1059,19 +1059,81 @@ static void compare0(char *inst) {
             ,r->syms[0]->x.name);
 }
 
+/* Inline long compare against a constant. Given the long compare mnemonic
+ * `inst` and whether the constant is the LEFT operand, produce the "var REL
+ * const" form: pick the inline macro, whether its MSB compare is sign-flipped,
+ * and whether the constant must be incremented (folding a<=k -> a<k+1 and
+ * a>k -> a>=k+1, so only LT/GE/EQ/NE + unsigned LTU/GEU need macros). Const-
+ * left is canonicalised by flipping the relation (a<b == b>a). Returns 0 for a
+ * mnemonic that is not one of the ten long relations. */
+static int long_cmp_k(const char *inst, int constLeft,
+                      const char **macro, int *flipMSB, int *plus1)
+{
+    const char *rel = inst;
+    if (constLeft) {
+        if      (!strcmp(inst,"LTL"))  rel="GTL";
+        else if (!strcmp(inst,"GTL"))  rel="LTL";
+        else if (!strcmp(inst,"GEL"))  rel="LEL";
+        else if (!strcmp(inst,"LEL"))  rel="GEL";
+        else if (!strcmp(inst,"LTUL")) rel="GTUL";
+        else if (!strcmp(inst,"GTUL")) rel="LTUL";
+        else if (!strcmp(inst,"GEUL")) rel="LEUL";
+        else if (!strcmp(inst,"LEUL")) rel="GEUL";
+        else if (!strcmp(inst,"EQL") || !strcmp(inst,"NEL")) rel=inst;
+        else return 0;
+    }
+    *plus1 = 0; *flipMSB = 0;
+    if      (!strcmp(rel,"LTL"))  { *macro="LTLK_D";  *flipMSB=1; }
+    else if (!strcmp(rel,"GEL"))  { *macro="GELK_D";  *flipMSB=1; }
+    else if (!strcmp(rel,"LEL"))  { *macro="LTLK_D";  *flipMSB=1; *plus1=1; }
+    else if (!strcmp(rel,"GTL"))  { *macro="GELK_D";  *flipMSB=1; *plus1=1; }
+    else if (!strcmp(rel,"LTUL")) { *macro="LTULK_D"; }
+    else if (!strcmp(rel,"GEUL")) { *macro="GEULK_D"; }
+    else if (!strcmp(rel,"LEUL")) { *macro="LTULK_D"; *plus1=1; }
+    else if (!strcmp(rel,"GTUL")) { *macro="GEULK_D"; *plus1=1; }
+    else if (!strcmp(rel,"EQL"))  { *macro="EQLK_D"; }
+    else if (!strcmp(rel,"NEL"))  { *macro="NELK_D"; }
+    else return 0;
+    return 1;
+}
+
 static void compare(char *inst) {
-     if (optimizelevel==0)
+    if (optimizelevel==0) {
         print("\t%s(%s,%s,%s)\n"
-            ,inst
-            ,output_arg(a)
-            ,output_arg(b)
-            ,r->syms[0]->x.name);
-    else if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)=='C') {
+            ,inst ,output_arg(a) ,output_arg(b) ,r->syms[0]->x.name);
+        return;
+    }
+    /* Inline a width-4 compare against an integer constant when the variable
+       operand is a D-mode temp: a direct 4-byte MSB-down compare against the
+       constant's bytes, no lscratch staging and no jsr lcmp32. The bytes are
+       computed here (gen.c has the value); signed relations pass an already-
+       flipped MSB byte so the macro's `eor #$80` yields the signed result.
+       Falls back to the routine path for non-D operands and for the a<=MAX /
+       a>MAX cases whose +1 fold would wrap the type. */
+    if ((a->x.width==4 || b->x.width==4) && (is_int_const(a) ^ is_int_const(b))) {
+        Node var  = is_int_const(a) ? b : a;
+        Node cnst = is_int_const(a) ? a : b;
+        int constLeft = is_int_const(a);
+        const char *macro; int flipMSB, plus1;
+        if (simple_adrmode(var->x.adrmode)=='D'
+            && long_cmp_k(inst, constLeft, &macro, &flipMSB, &plus1)) {
+            unsigned long uv  = (unsigned long)cnst->syms[0]->u.c.v.i & 0xFFFFFFFFUL;
+            unsigned long lim = flipMSB ? 0x7FFFFFFFUL : 0xFFFFFFFFUL;
+            if (!(plus1 && uv == lim)) {          /* skip: +1 would wrap the type max */
+                unsigned long tv = plus1 ? ((uv + 1) & 0xFFFFFFFFUL) : uv;
+                int b0=(int)(tv&0xff), b1=(int)((tv>>8)&0xff),
+                    b2=(int)((tv>>16)&0xff), b3=(int)((tv>>24)&0xff);
+                if (flipMSB) b3 ^= 0x80;
+                print("\t%s(%s,%d,%d,%d,%d,%s)\n"
+                      ,macro ,output_arg(var) ,b0,b1,b2,b3 ,r->syms[0]->x.name);
+                return;
+            }
+        }
+    }
+    if (simple_adrmode(a->x.adrmode)=='C' && simple_adrmode(b->x.adrmode)=='C') {
         print("\tMOVW_CD(%s,op1)\n", output_arg(a));
         print("\t%s_DC(op1,%s,%s)\n"
-            ,inst
-            ,output_arg(b)
-            ,r->syms[0]->x.name);
+            ,inst ,output_arg(b) ,r->syms[0]->x.name);
     }
     else
         print("\t%s_%c%c(%s,%s,%s)\n"

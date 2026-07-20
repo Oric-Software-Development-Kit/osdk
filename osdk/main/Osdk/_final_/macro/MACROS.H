@@ -6727,6 +6727,137 @@ skip :\
 
 ;
 ; ============================================================
+; Inline 32-bit compare vs a constant - <REL>LK_D (hand-written)
+; ============================================================
+; emitted by gen.c's compare() for a width-4 relation whose variable operand is
+; a D-mode temp and whose other operand is an integer constant. Compares the 4
+; temp bytes MSB->LSB directly against the constant's bytes (b0..b3, passed as
+; literals by gen.c) - no op1:op2, no lscratch, no jsr lcmp32. Only LT/GE/EQ/NE
+; (+ unsigned LTU/GEU) exist: gen.c canonicalises the constant to the right and
+; folds a<=k -> a<k+1, a>k -> a>=k+1. Signed (LTLK/GELK) flip A's and (via the
+; passed byte) the constant's sign bit, turning the signed compare into an
+; unsigned one; the 4-byte compare leaves C and Z exactly like lcmp32i/u, so the
+; branch tail is the same as the routine macros'.
+;
+#define LTLK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ eor #$80 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ bcs skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define GELK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ eor #$80 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ bcc skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define LTULK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ bcs skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define GEULK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ bcc skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define EQLK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ bne skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+#define NELK_D(var,b0,b1,b2,b3,label)\
+ .( :\
+ lda var+3 :\
+ cmp #b3 :\
+ bne cdone :\
+ lda var+2 :\
+ cmp #b2 :\
+ bne cdone :\
+ lda var+1 :\
+ cmp #b1 :\
+ bne cdone :\
+ lda var :\
+ cmp #b0 :\
+cdone :\
+ beq skip :\
+ jmp label :\
+skip :\
+ .) :\
+
+
+;
+; ============================================================
 ; 32-bit (long) macro families - L suffix
 ; ============================================================
 ;
