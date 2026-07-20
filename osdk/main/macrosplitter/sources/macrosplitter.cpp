@@ -1718,6 +1718,84 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 	return changed;
 }
 
+// Sink an op1/op2 staging store to its final destination. A long INDIR loads
+// the value into the op1:op2 register and then copies it to a temp; copy-prop
+// collapses that round-trip only when the temp flows back into op1:op2 (arith
+// operand A). When the temp is consumed by a pointer-take (operand B) or a
+// store, the copy survives and op1:op2 is a dead 4-byte relay. Here, for a
+// `sta opK ... lda opK : sta Tk` where opK is the freshly-stored value, opK is
+// untouched between, Tk is untouched between, and opK is dead after the copy,
+// we redirect the store (`sta opK` -> `sta Tk`) and drop the `lda opK : sta Tk`.
+// Runs post-fixpoint so it only sees the copies copy-prop could not remove, so
+// arith-operand-A loads (which want op1:op2) are never disturbed. op1/op2 are
+// only ever accessed as the exact bytes op1/op1+1/op2/op2+1 or read by a jsr
+// into the long runtime, so exact-match + control-flow bail is sound.
+static bool IsStagingReg(const std::string& op) {
+	return op=="op1" || op=="op1+1" || op=="op2" || op=="op2+1";
+}
+static bool MentionsOp(const std::string& op) {   // any op1/op2 reference, exact or loose
+	return op.find("op1") != std::string::npos || op.find("op2") != std::string::npos;
+}
+static int SinkStagingStore(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++) {
+		if (toks[i].eliminated || toks[i].type != TokenType::Instruction || toks[i].frozen) continue;
+		if (toks[i].mnemonic != "sta" || !IsStagingReg(toks[i].operand)) continue;
+		const std::string opK = toks[i].operand;
+		// find the copy `lda opK`, requiring opK untouched (exactly) in between
+		size_t j = (size_t)-1; bool ok = true;
+		for (size_t k = i + 1; k < toks.size(); k++) {
+			Token& t = toks[k];
+			if (t.eliminated || t.type == TokenType::Comment) continue;
+			if (t.type != TokenType::Instruction || t.frozen) { ok = false; break; }
+			if (IsControlFlowMnem(t.mnemonic)) { ok = false; break; }   // jsr/branch reads op1/op2
+			if (t.operand == opK) {
+				if (t.mnemonic == "lda") { j = k; break; }              // the copy's load
+				ok = false; break;                                      // other read/write of opK
+			}
+			if (t.operand != opK && MentionsOp(t.operand) && !IsStagingReg(t.operand))
+				{ ok = false; break; }                                  // a loose op reference
+		}
+		if (!ok || j == (size_t)-1) continue;
+		size_t s = NextRealInstr(toks, j + 1);
+		if (s == (size_t)-1 || toks[s].mnemonic != "sta" || toks[s].frozen) continue;
+		const std::string Tk = toks[s].operand;
+		if (!IsSimpleDirect(Tk) || IsStagingReg(Tk) || IsIOPageAddress(Tk)) continue;
+		// Tk untouched between the redirected store (i) and the copy store (s)
+		std::string baseT = Tk; { size_t p = baseT.find('+'); if (p != std::string::npos) baseT = baseT.substr(0, p); }
+		bool tkClear = true;
+		for (size_t k = i + 1; k < s; k++) {
+			if (toks[k].eliminated || toks[k].type != TokenType::Instruction) continue;
+			if (k == j) continue;                                       // the copy's `lda opK`
+			const std::string& o = toks[k].operand;
+			if (o == Tk || (o.find(baseT) != std::string::npos
+				&& (o.find('(') != std::string::npos || o.find(',') != std::string::npos || o == baseT)))
+				{ tkClear = false; break; }
+		}
+		if (!tkClear) continue;
+		// opK dead after the copy store: a write to opK before any read/jsr/branch
+		bool dead = false;
+		for (size_t k = s + 1; k < toks.size(); k++) {
+			Token& t = toks[k];
+			if (t.eliminated || t.type == TokenType::Comment) continue;
+			if (t.type != TokenType::Instruction || t.frozen) break;
+			if (t.mnemonic == "jsr" || IsControlFlowMnem(t.mnemonic)) break;   // jsr reads op1/op2
+			if (t.operand == opK) { if (t.mnemonic=="sta"||t.mnemonic=="stx"||t.mnemonic=="sty") dead = true; break; }
+			if (MentionsOp(t.operand) && !IsStagingReg(t.operand)) break;       // loose op ref
+		}
+		if (!dead) continue;
+		// redirect the store and drop the copy
+		toks[i].operand = Tk;
+		toks[i].text = "sta " + Tk;
+		bytesSaved += EstimateInstructionSize("lda", opK) + EstimateInstructionSize("sta", Tk);
+		toks[j].eliminated = true;
+		toks[s].eliminated = true;
+		changed++;
+	}
+	return changed;
+}
+
 // Commutative staging fold. The compiler stages one operand of a commutative
 // bitwise op through a scratch temp even when both live in memory:
 //     lda X : sta T : lda Y : eor T     ->      lda Y : eor X
@@ -2980,6 +3058,10 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		// dead immediate loads left by staging elimination: cleaned up only
 		// here so the shape-matching passes above get first pick at ld* #imm
 		eliminated += EliminateDeadImmLoads(allTokens, bytesSaved);
+		// sink op1/op2 staging stores to their final temp for the INDIR loads
+		// copy-prop could not collapse (pointer/store consumers). Post-fixpoint
+		// so arith-operand-A loads (already collapsed into op1:op2) are untouched.
+		eliminated += SinkStagingStore(allTokens, bytesSaved);
 		totalEliminated += eliminated;
 		if (eliminated == 0)
 			break;
