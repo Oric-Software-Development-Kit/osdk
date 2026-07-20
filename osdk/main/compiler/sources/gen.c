@@ -267,8 +267,24 @@ void defsymbol(Symbol p) {
         if (p->x.name[0]=='0' && p->x.name[1]=='x') {
             p->x.name[0]=' '; p->x.name[1]='$';
         }
-    } else if (p->sclass == STATIC)
-        p->x.name = stringf("L%s%d", NamePrefix, genlabel(1));
+    } else if (p->sclass == STATIC) {
+        int lab = genlabel(1);
+        /* Append the original C name to the generated label for readable asm
+           (L<prefix><n><name>, e.g. Lpi129arr). The unique <n> keeps it
+           collision-free; the name is added only when it is a real identifier,
+           so compiler-generated statics (string literals, switch tables) whose
+           name is already a number stay as L<prefix><n>. Cap the appended part
+           so an unusually long identifier can't overflow assembler label
+           limits. Purely cosmetic - labels emit no bytes. */
+        char c0 = p->name ? p->name[0] : 0;
+        if ((c0 >= 'a' && c0 <= 'z') || (c0 >= 'A' && c0 <= 'Z') || c0 == '_') {
+            char buf[24]; int i;
+            for (i = 0; i < 23 && p->name[i]; i++) buf[i] = p->name[i];
+            buf[i] = 0;
+            p->x.name = stringf("L%s%d%s", NamePrefix, lab, buf);
+        } else
+            p->x.name = stringf("L%s%d", NamePrefix, lab);
+    }
     else if (p->generated)
         p->x.name = stringf("L%s%s", NamePrefix, p->name);
     else
