@@ -710,6 +710,25 @@ static bool ClobbersRegWithoutRead(const std::string& m, char reg)
 	return false;
 }
 
+// Does this instruction leave the accumulator completely untouched (neither
+// reads nor writes A)? A is not an index register, so ,x / ,y indexing is
+// transparent to it - only the explicit A ops touch A. Used to look PAST such
+// instructions (e.g. `ldy #n`) when proving an immediate A-load is dead.
+// Conservative: anything not listed here (sta/pha/tax/tay/cmp/adc/and/.../jsr/
+// branches) is treated as reading A or a barrier.
+static bool AccTransparent(const std::string& m, const std::string& op)
+{
+	if (m=="ldx"||m=="ldy"||m=="stx"||m=="sty"
+	 || m=="inx"||m=="iny"||m=="dex"||m=="dey"
+	 || m=="cpx"||m=="cpy"||m=="inc"||m=="dec"
+	 || m=="nop"||m=="sec"||m=="clc"||m=="sei"||m=="cli"
+	 || m=="cld"||m=="sed"||m=="clv") return true;
+	// shift/rotate on MEMORY (not the accumulator) leaves A alone
+	if ((m=="asl"||m=="lsr"||m=="rol"||m=="ror")
+	    && !op.empty() && op != "a" && op != "A") return true;
+	return false;
+}
+
 
 // Store/Load pairs for pattern matching
 struct RegisterPair
@@ -766,10 +785,48 @@ static bool ParseIntLiteral(const std::string& s, long& v)
 	}
 	v = r; return true;
 }
+// True if a numeric expression is IDENTICALLY zero regardless of the
+// assembler's integer width/sign conventions: the literal 0, parenthesised,
+// and/or shifted (0>>n and 0<<n are 0). Deliberately narrow - it never claims a
+// non-trivial expression is zero, so it can't fold to a wrong value. This lets
+// the constant staging of a long/int 0 (`#<(0)`, `#>((0)>>16)`, ...) be seen as
+// value 0 so its redundant reloads collapse, without reimplementing XA's full
+// expression evaluator (which would risk miscompiles on real expressions).
+static bool ExprIsZero(std::string e)
+{
+	std::string t;
+	for (size_t i = 0; i < e.size(); i++) if (e[i] != ' ' && e[i] != '\t') t += e[i];
+	e = t;
+	// strip a fully-enclosing paren pair (only when it wraps the whole string)
+	while (e.size() >= 2 && e[0] == '(' && e[e.size()-1] == ')') {
+		int depth = 0; bool enclosing = true;
+		for (size_t i = 0; i < e.size(); i++) {
+			if (e[i] == '(') depth++;
+			else if (e[i] == ')') { if (--depth == 0 && i + 1 < e.size()) { enclosing = false; break; } }
+		}
+		if (!enclosing) break;
+		e = e.substr(1, e.size() - 2);
+	}
+	if (e == "0") return true;
+	// a top-level shift (>> or <<) of a zero left-hand side is zero
+	int depth = 0;
+	for (size_t i = 0; i + 1 < e.size(); i++) {
+		if (e[i] == '(') depth++;
+		else if (e[i] == ')') depth--;
+		else if (depth == 0 && (e[i] == '>' || e[i] == '<') && e[i+1] == e[i])
+			return ExprIsZero(e.substr(0, i));
+	}
+	return false;
+}
 static bool EvalImmediate(const std::string& operand, long& val)
 {
 	if (operand.size() < 2 || operand[0] != '#') return false;
 	std::string e = operand.substr(1);
+	// a byte-select (#< low / #> high) of a provably-zero expression is 0
+	{
+		std::string inner = (e[0] == '<' || e[0] == '>') ? e.substr(1) : e;
+		if (ExprIsZero(inner)) { val = 0; return true; }
+	}
 	if (e.find_first_of("<>(*") != std::string::npos) return false;
 	long total = 0; int sign = 1; std::string cur; bool any = false;
 	for (size_t i = 0; i <= e.size(); i++) {
@@ -921,6 +978,44 @@ static bool IsRMWMnem(const std::string& m)
 {
 	return m=="inc"||m=="dec"||m=="asl"||m=="lsr"||m=="rol"||m=="ror";
 }
+// Dead immediate-load elimination that can see PAST accumulator-transparent
+// instructions. The adjacent-pair dead-load check (Pattern 8) only removes a
+// load whose value is clobbered by the very next instruction; it stops at an
+// intervening `ldy #n` / `stx` / etc. This pass scans forward over such A-
+// transparent instructions and removes a `lda #imm` whose value is overwritten
+// (by lda/txa/tya/pla) before A is next read - the residue left when the
+// staging-elimination pass drops a `sta op1` but leaves its feeding `lda #imm`.
+// Restricted to IMMEDIATE loads (no memory side effect) and guarded by
+// NZFlagsDeadAt so we never drop a load whose N/Z flags a later branch needs.
+static int EliminateDeadImmLoads(std::vector<Token>& toks, int& bytesSaved)
+{
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++) {
+		Token& t = toks[i];
+		if (t.eliminated || t.frozen || t.type != TokenType::Instruction) continue;
+		if (t.mnemonic != "lda" || t.operand.empty() || t.operand[0] != '#') continue;
+		bool dead = false;
+		for (size_t j = i + 1; j < toks.size(); j++) {
+			Token& u = toks[j];
+			if (u.eliminated || u.type == TokenType::Comment) continue;
+			if (u.type != TokenType::Instruction || u.frozen) break;   // barrier -> keep
+			const std::string& m = u.mnemonic;
+			if (ClobbersRegWithoutRead(m, 'a')) { dead = true; break; } // A rewritten unused
+			if (AccTransparent(m, u.operand)) continue;                // A untouched -> scan on
+			break;                                                     // reads A / control flow -> keep
+		}
+		if (dead && NZFlagsDeadAt(toks, i)) {
+			bytesSaved += EstimateInstructionSize(t.mnemonic, t.operand);
+			t.eliminated = true;
+			changed++;
+			if (g_verbosity >= 3)
+				printf("MacroSplitter: [line %d] Dead immediate load eliminated: %s\n",
+					t.lineIndex + 1, t.text.c_str());
+		}
+	}
+	return changed;
+}
+
 static int TempByteIndex(const std::string& op);   // DSE-tracked staging byte, or -1
 
 static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
@@ -2882,6 +2977,9 @@ static int OptimizeBuffer(std::string& buffer, int& bytesSaved)
 		eliminated += TrackKnownZero(allTokens, bytesSaved);
 		// jmp -> always-taken bne/beq when the flag-setting value is known
 		eliminated += ShortenKnownFlagJumps(allTokens, bytesSaved);
+		// dead immediate loads left by staging elimination: cleaned up only
+		// here so the shape-matching passes above get first pick at ld* #imm
+		eliminated += EliminateDeadImmLoads(allTokens, bytesSaved);
 		totalEliminated += eliminated;
 		if (eliminated == 0)
 			break;
