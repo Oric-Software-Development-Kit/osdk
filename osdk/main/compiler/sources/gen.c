@@ -175,7 +175,16 @@ void progbeg(int argc,char *argv[]) {
     int i;
     for(i=1;i<argc;i++) {
         if (strncmp(argv[i],"-N",2)==0) {
-            NamePrefix=argv[i]+2;
+            /* Sanitize the label prefix: XA treats '-' and other
+               punctuation as operators, so a source name like
+               "bubble-sort" would emit unparsable labels. Keep only
+               identifier characters and map the rest to '_'. */
+            char *s=argv[i]+2,*d;
+            NamePrefix=malloc(strlen(s)+1);
+            strcpy(NamePrefix,s);
+            for(d=NamePrefix;*d;d++)
+                if(!((*d>='0'&&*d<='9')||(*d>='A'&&*d<='Z')||(*d>='a'&&*d<='z')||*d=='_'))
+                    *d='_';
         } else if (strcmp(argv[i],"-G")==0) {
             graph_output=true;
         } else if (strcmp(argv[i],"-O")==0) {

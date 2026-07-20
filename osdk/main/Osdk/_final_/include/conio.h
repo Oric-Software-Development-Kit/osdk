@@ -16,4 +16,8 @@
 void _putc(char c);
 void _puts(const char* s);
 
+/* line-ending constants used by portable console code */
+#define LF '\x0a'
+#define CR '\x0d'
+
 #endif /* __CONIO_H__ */
