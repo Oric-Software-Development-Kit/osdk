@@ -10,8 +10,11 @@ _getchar
 	rts
 
 ;
-; putchar(c)
+; putchar(c) - also the conio _putc(c): identical (both output one char with
+; the same LF handling), so __putc is a zero-cost alias here rather than a
+; duplicate arg-load + jmp in conio.s.
 ;
+__putc
 _putchar
 	ldy #0
 	lda (sp),y

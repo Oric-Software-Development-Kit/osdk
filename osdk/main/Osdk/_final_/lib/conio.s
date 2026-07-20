@@ -8,10 +8,7 @@
 ; the console output.
 ;
 
-__putc
-	ldy #0
-	lda (sp),y
-	jmp putchar
+; __putc is a zero-cost alias of _putchar (see gpchar.s)
 
 __puts
 	ldy #0

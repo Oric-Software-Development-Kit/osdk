@@ -52,6 +52,7 @@
 	_gotoxy
 -gpchar.s
 	_getchar
+	__putc
 	_putchar
 	putchar
 	putchar2
@@ -59,7 +60,6 @@
 	_gets
 	gets
 -conio.s
-	__putc
 	__puts
 -long32ws.s
 	lscratch
