@@ -48,49 +48,11 @@ osdk_start
 			; pointer lives IN the ldx operand (no .byt needed)
 	jmp _main
 
-; enter/leave (the C stack-frame helpers) live in lib/frame.s so that
-; programs whose functions are all frameless (-O2+ omit_frame) don't pay
-; their bytes.
-; (jsrvect is gone: the indirect-call macros - CALLV_D/Y, CALLF_YD/YY -
-;  all self-modify a local jsr instead of sharing a vector here.)
-
 _exit
 exitldx
 	ldx #00
 	txs
 	rts
 
-reterr
-	lda #$ff	; return -1
-	tax
-	rts
-
-retzero
-false
-	lda #0		;return 0
-	tax
-	rts
-
-true
-	ldx #1		;return 1
-	lda #0
-	rts
-
-
-#define load_acc1	$DE7B
-#define load_acc2	$DD51
-#define store_acc	$DEAD
-#define fadd		$DB25
-#define fsub		$DB0E
-#define fmul		$DCF0
-#define fdiv		$DDE7
-#define fneg		$E271
-#define fcomp		$DF4C
-#define givayf		$DF40	; UNSIGNED 16bit A(high)/Y(low) to FPA (forces the sign
-							; byte positive). The historical cif value $DF24 was
-							; wrong: that is SGN's tail, converting only the signed
-							; 8bit value in A.
-
-; The int<->float conversion routines (cif/cfi) live in lib/float.s so
-; that only programs using floating point pay their bytes.
+#include "fp_rom.inc"
 
