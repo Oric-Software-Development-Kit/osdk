@@ -921,6 +921,8 @@ static bool IsRMWMnem(const std::string& m)
 {
 	return m=="inc"||m=="dec"||m=="asl"||m=="lsr"||m=="rol"||m=="ror";
 }
+static int TempByteIndex(const std::string& op);   // DSE-tracked staging byte, or -1
+
 static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
 {
 	int changed = 0;
@@ -928,7 +930,15 @@ static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
 		if (toks[i].eliminated || toks[i].type != TokenType::Instruction) continue;
 		if (toks[i].mnemonic != "lda") continue;
 		const std::string X = toks[i].operand;
-		if (!IsSimpleDirect(X) || IsIOPageAddress(X)) continue;
+		// A copy source is either a direct zp/abs location or an immediate
+		// constant. An immediate can never be clobbered, so it forwards under
+		// the same confinement rules below - xLive stays true for it by
+		// construction (no store can target an immediate operand), and
+		// re-materialising `lda #imm` at each read is never larger than the
+		// `lda Y` it replaces. This turns the long shells' constant staging
+		// (`lda #imm : sta op1 ... lda op1 : sta (fp),y`) into direct stores.
+		const bool xImm = (X.size() > 1 && X[0] == '#');
+		if (!xImm && (!IsSimpleDirect(X) || IsIOPageAddress(X))) continue;
 		// the very next real token must be `sta Y`, forming the copy
 		size_t s = i + 1;
 		while (s < toks.size() && (toks[s].eliminated || toks[s].type == TokenType::Comment)) s++;
@@ -960,17 +970,31 @@ static int CopyPropagate(std::vector<Token>& toks, int& bytesSaved)
 			}
 			if (((WritesMemMnem(m) || IsRMWMnem(m)) && t.operand == X)) xLive = false;
 		}
-		if (fail || !confined) continue;
+		// An immediate source is a constant that can be re-materialised at each
+		// read, so it can be forwarded even when the value is not proven dead in
+		// this straight-line run ("confined"): the reads are all valid (X never
+		// changes up to each) and the now-dead staging store is removed by
+		// DropDeadTempStores' cross-block liveness - which is what catches the
+		// long shells' `sta op1 ... <label>` pattern this scan cannot. Restrict
+		// forward-only to DSE-tracked staging locations (op1/op2, tmpN) so we
+		// churn nothing that a later pass can't clean up. A register-copy source
+		// keeps the strict confined rule (must prove Y dead here to drop the store).
+		bool removeStore = (!fail && confined);
+		bool forwardOnly = xImm && !removeStore && !reads.empty() && TempByteIndex(Y) >= 0;
+		if (!removeStore && !forwardOnly) continue;
 		for (size_t r = 0; r < reads.size(); r++) {
 			toks[reads[r]].operand = X;
 			toks[reads[r]].text = toks[reads[r]].mnemonic + " " + X;
 		}
-		bytesSaved += EstimateInstructionSize(toks[s].mnemonic, toks[s].operand);
-		toks[s].eliminated = true;
+		if (removeStore) {
+			bytesSaved += EstimateInstructionSize(toks[s].mnemonic, toks[s].operand);
+			toks[s].eliminated = true;
+		}
 		changed++;
 		if (g_verbosity >= 3)
-			printf("MacroSplitter: [line %d] Copy-propagated %s -> %s (%d read%s), store removed\n",
-				toks[s].lineIndex + 1, Y.c_str(), X.c_str(), (int)reads.size(), reads.size()==1?"":"s");
+			printf("MacroSplitter: [line %d] Copy-propagated %s -> %s (%d read%s), store %s\n",
+				toks[s].lineIndex + 1, Y.c_str(), X.c_str(), (int)reads.size(),
+				reads.size()==1?"":"s", removeStore ? "removed" : "left for DSE");
 	}
 	return changed;
 }
@@ -1353,23 +1377,40 @@ static int FoldTransferStore(std::vector<Token>& toks, int& bytesSaved)
 //   - an indirect jmp (switch tables) makes every temp live (unknown targets)
 //   - a NON-exact reference to a temp base (#<tmp0, (tmp0),y) is a USE of the
 //     whole 4-byte pair (the 32-bit shells consume pairs through pointers)
-//   - jsr is temp-transparent: callees never read a caller's temp invisibly
-//     (caller-saved convention; the SAVE macros and pointer-takes are visible
-//     reads), and treating it as no-def only keeps MORE things live
-// A store to a temp byte that is dead right after it is pure waste.
+//   - jsr is temp-transparent for tmp0..tmp7: callees never read a caller's
+//     tmpN invisibly (caller-saved convention; the SAVE macros and pointer-
+//     takes are visible reads), and treating it as no-def only keeps MORE live
+//   - jsr is NOT transparent for op1/op2: the long32 runtime routines read them
+//     as operand A and clobber them, so jsr is treated as a USE of op1/op2 (bits
+//     32..35). This keeps every arithmetic shell's `sta op1 ... jsr lmul32`
+//     store live, and only lets a const-staging `sta op1` (no jsr before its
+//     value is dead) be removed.
+// A store to a tracked byte that is dead right after it is pure waste.
+static const uint64_t OP_MASK = (uint64_t)0xF << 32;   // op1,op1+1,op2,op2+1
 
 struct TempLiveBlock
 {
 	size_t first, last;          // token index range [first, last]
-	unsigned use, def;           // bitmasks over tracked temp bytes
-	unsigned liveIn, liveOut;
+	uint64_t use, def;           // bitmasks over tracked bytes (tmp0..7 + op1/op2)
+	uint64_t liveIn, liveOut;
 	int succ[2];                 // fallthrough / branch target (-1 = none)
 	bool allLive;                // indirect jump: everything live out
 };
 
-// tracked byte index for an EXACT temp operand ("tmp3+2" -> 3*4+2), -1 if not
+// tracked byte index for an EXACT temp operand ("tmp3+2" -> 3*4+2), -1 if not.
+// tmp0..tmp7 occupy bits 0..31 (4 bytes each); the long staging registers
+// op1/op2 occupy bits 32..35 (op1=32, op1+1=33, op2=34, op2+1=35). Unlike the
+// tmpN scratch, op1/op2 are read (as operand A) and clobbered by every jsr into
+// the long32 runtime - so this pass treats jsr as a USE of op1/op2 (see below).
 static int TempByteIndex(const std::string& op)
 {
+	// op1 / op2: exactly "op1", "op1+1", "op2", "op2+1"
+	if (op.size() >= 3 && op[0]=='o' && op[1]=='p' && (op[2]=='1' || op[2]=='2')) {
+		int base = 32 + (op[2] - '1') * 2;      // op1 -> 32, op2 -> 34
+		if (op.size() == 3) return base;
+		if (op.size() == 5 && op[3]=='+' && op[4]=='1') return base + 1;
+		return -1;
+	}
 	if (op.compare(0, 3, "tmp") != 0) return -1;
 	if (op.size() < 4 || op[3] < '0' || op[3] > '7') return -1;
 	int slot = op[3] - '0';
@@ -1381,14 +1422,29 @@ static int TempByteIndex(const std::string& op)
 
 // mask of temp bytes referenced NON-exactly by an operand (pointer take,
 // indirection, expression): the whole pair of any base that appears
-static unsigned TempLooseMask(const std::string& op)
+static uint64_t TempLooseMask(const std::string& op)
 {
-	unsigned mask = 0;
+	uint64_t mask = 0;
 	for (size_t p = op.find("tmp"); p != std::string::npos;
 	     p = op.find("tmp", p + 1))
 	{
 		if (p + 3 < op.size() && op[p+3] >= '0' && op[p+3] <= '7')
-			mask |= 0xFu << ((op[p+3] - '0') * 4);
+			mask |= (uint64_t)0xF << ((op[p+3] - '0') * 4);
+	}
+	// op1 / op2 as a DELIMITED token (word boundaries) so we don't match the
+	// "op1" inside e.g. a label "loop1"; a loose reference marks the whole pair.
+	for (size_t p = op.find("op"); p != std::string::npos;
+	     p = op.find("op", p + 1))
+	{
+		if (p + 2 >= op.size()) break;
+		char d = op[p+2];
+		if (d != '1' && d != '2') continue;
+		char before = (p == 0) ? ' ' : op[p-1];
+		char after  = (p + 3 < op.size()) ? op[p+3] : ' ';
+		bool bOK = !(isalnum((unsigned char)before) || before == '_');
+		bool aOK = !(isalnum((unsigned char)after)  || after == '_');
+		if (bOK && aOK)
+			mask |= (uint64_t)0x3 << (32 + (d - '1') * 2);
 	}
 	return mask;
 }
@@ -1464,7 +1520,7 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 			bool isStore = (m=="sta"||m=="stx"||m=="sty");
 			if (exact >= 0)
 			{
-				unsigned bit = 1u << exact;
+				uint64_t bit = (uint64_t)1 << exact;
 				if (isStore) { if (!(b.use & bit)) b.def |= bit; }
 				else if (m=="inc"||m=="dec"||m=="asl"||m=="lsr"||m=="rol"||m=="ror")
 					b.use |= bit;                   // RMW reads first
@@ -1473,9 +1529,14 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 			}
 			else
 			{
-				unsigned loose = TempLooseMask(op);
+				uint64_t loose = TempLooseMask(op);
 				if (loose) b.use |= loose;          // pointer take / indirect
 			}
+
+			// a jsr into the long32 runtime reads op1/op2 (operand A); count it
+			// as a use of any op-byte not already defined earlier in this block
+			if (m=="jsr")
+				b.use |= OP_MASK & ~b.def;
 
 			if (m=="jmp")
 			{
@@ -1513,10 +1574,10 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 		for (size_t bi = blocks.size(); bi-- > 0; )
 		{
 			TempLiveBlock& b = blocks[bi];
-			unsigned out = b.allLive ? 0xFFFFFFFFu : 0;
+			uint64_t out = b.allLive ? ~(uint64_t)0 : 0;
 			for (int s = 0; s < 2; s++)
 				if (b.succ[s] >= 0) out |= blocks[b.succ[s]].liveIn;
-			unsigned in = b.use | (out & ~b.def);
+			uint64_t in = b.use | (out & ~b.def);
 			if (out != b.liveOut || in != b.liveIn)
 			{ b.liveOut = out; b.liveIn = in; changedFlow = true; }
 		}
@@ -1528,18 +1589,20 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 	{
 		TempLiveBlock& b = blocks[bi];
 		if (b.allLive) continue;
-		unsigned live = b.liveOut;
+		uint64_t live = b.liveOut;
 		for (size_t k = b.last + 1; k-- > b.first; )
 		{
 			Token& t = toks[order[k]];
-			if (t.type != TokenType::Instruction) { live = 0xFFFFFFFFu; continue; }
+			if (t.type != TokenType::Instruction) { live = ~(uint64_t)0; continue; }
 			const std::string& m = t.mnemonic;
 			const std::string& op = t.operand;
+			// a jsr into the long32 runtime reads op1/op2 -> they are live above it
+			if (m=="jsr") { live |= OP_MASK; continue; }
 			int exact = TempByteIndex(op);
 			bool isStore = (m=="sta"||m=="stx"||m=="sty");
 			if (exact >= 0 && isStore)
 			{
-				unsigned bit = 1u << exact;
+				uint64_t bit = (uint64_t)1 << exact;
 				if (!(live & bit) && !t.frozen)
 				{
 					bytesSaved += EstimateInstructionSize(m, op);
@@ -1551,8 +1614,8 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 				continue;
 			}
 			if (exact >= 0)
-			{ live |= 1u << exact; continue; }       // read (incl. RMW)
-			unsigned loose = TempLooseMask(op);
+			{ live |= (uint64_t)1 << exact; continue; }  // read (incl. RMW)
+			uint64_t loose = TempLooseMask(op);
 			if (loose) live |= loose;
 			if (op.empty() && b.first == k) break;
 		}
