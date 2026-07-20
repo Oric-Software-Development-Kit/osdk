@@ -21599,15 +21599,21 @@ skip :\
 #define INDIRL_YD(ptr1,y1,tmp2)\
  ldy #y1 :\
  lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ sta tmp+1 :\
+ ldy #0 :\
+ lda (tmp),y :\
  sta op1 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op1+1 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op2 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op2+1 :\
  lda op1 :\
  sta tmp2 :\
@@ -21621,15 +21627,21 @@ skip :\
 #define INDIRL_YY(ptr1,y1,ptr2,y2)\
  ldy #y1 :\
  lda ptr1,y :\
+ sta tmp :\
+ iny :\
+ lda ptr1,y :\
+ sta tmp+1 :\
+ ldy #0 :\
+ lda (tmp),y :\
  sta op1 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op1+1 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op2 :\
  iny :\
- lda ptr1,y :\
+ lda (tmp),y :\
  sta op2+1 :\
  ldy #y2 :\
  lda op1 :\
@@ -21753,14 +21765,22 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op2+1 :\
+ lda tmp2 :\
+ sta tmp :\
+ lda tmp2+1 :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta tmp2 :\
+ sta (tmp),y :\
+ iny :\
  lda op1+1 :\
- sta tmp2+1 :\
+ sta (tmp),y :\
+ iny :\
  lda op2 :\
- sta tmp2+2 :\
+ sta (tmp),y :\
+ iny :\
  lda op2+1 :\
- sta tmp2+3 :\
+ sta (tmp),y :\
 
 #define ASGNL_AY(ptr1,y1,ptr2,y2)\
  ldy #y1 :\
@@ -21776,17 +21796,23 @@ skip :\
  lda ptr1,y :\
  sta op2+1 :\
  ldy #y2 :\
+ lda ptr2,y :\
+ sta tmp :\
+ iny :\
+ lda ptr2,y :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op1+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
 
 #define ASGNL_AZ(ptr1,y1,zp2)\
  ldy #y1 :\
@@ -21863,14 +21889,22 @@ skip :\
  sta op2 :\
  lda #>((cte1)>>16) :\
  sta op2+1 :\
+ lda tmp2 :\
+ sta tmp :\
+ lda tmp2+1 :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta tmp2 :\
+ sta (tmp),y :\
+ iny :\
  lda op1+1 :\
- sta tmp2+1 :\
+ sta (tmp),y :\
+ iny :\
  lda op2 :\
- sta tmp2+2 :\
+ sta (tmp),y :\
+ iny :\
  lda op2+1 :\
- sta tmp2+3 :\
+ sta (tmp),y :\
 
 #define ASGNL_CY(cte1,ptr2,y2)\
  lda #<(cte1) :\
@@ -21882,17 +21916,23 @@ skip :\
  lda #>((cte1)>>16) :\
  sta op2+1 :\
  ldy #y2 :\
+ lda ptr2,y :\
+ sta tmp :\
+ iny :\
+ lda ptr2,y :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op1+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
 
 #define ASGNL_CZ(cte1,zp2)\
  lda #<(cte1) :\
@@ -21965,14 +22005,22 @@ skip :\
  sta op2 :\
  lda tmp1+3 :\
  sta op2+1 :\
+ lda tmp2 :\
+ sta tmp :\
+ lda tmp2+1 :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta tmp2 :\
+ sta (tmp),y :\
+ iny :\
  lda op1+1 :\
- sta tmp2+1 :\
+ sta (tmp),y :\
+ iny :\
  lda op2 :\
- sta tmp2+2 :\
+ sta (tmp),y :\
+ iny :\
  lda op2+1 :\
- sta tmp2+3 :\
+ sta (tmp),y :\
 
 #define ASGNL_DY(tmp1,ptr2,y2)\
  lda tmp1 :\
@@ -21984,17 +22032,23 @@ skip :\
  lda tmp1+3 :\
  sta op2+1 :\
  ldy #y2 :\
+ lda ptr2,y :\
+ sta tmp :\
+ iny :\
+ lda ptr2,y :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op1+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
 
 #define ASGNL_DZ(tmp1,zp2)\
  lda tmp1 :\
@@ -22079,14 +22133,22 @@ skip :\
  iny :\
  lda ptr1,y :\
  sta op2+1 :\
+ lda tmp2 :\
+ sta tmp :\
+ lda tmp2+1 :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta tmp2 :\
+ sta (tmp),y :\
+ iny :\
  lda op1+1 :\
- sta tmp2+1 :\
+ sta (tmp),y :\
+ iny :\
  lda op2 :\
- sta tmp2+2 :\
+ sta (tmp),y :\
+ iny :\
  lda op2+1 :\
- sta tmp2+3 :\
+ sta (tmp),y :\
 
 #define ASGNL_YY(ptr1,y1,ptr2,y2)\
  ldy #y1 :\
@@ -22102,17 +22164,23 @@ skip :\
  lda ptr1,y :\
  sta op2+1 :\
  ldy #y2 :\
+ lda ptr2,y :\
+ sta tmp :\
+ iny :\
+ lda ptr2,y :\
+ sta tmp+1 :\
+ ldy #0 :\
  lda op1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op1+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2 :\
- sta ptr2,y :\
+ sta (tmp),y :\
  iny :\
  lda op2+1 :\
- sta ptr2,y :\
+ sta (tmp),y :\
 
 #define ASGNL_YZ(ptr1,y1,zp2)\
  ldy #y1 :\

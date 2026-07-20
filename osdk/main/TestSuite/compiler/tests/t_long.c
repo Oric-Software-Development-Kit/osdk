@@ -8,6 +8,7 @@ static long ga, gb, gr;
 static unsigned long ua, ur;
 static int i16;
 static unsigned int u16;
+static long *gp;
 
 #define CHECK32(v, hi, lo, name) \
 	do { tk_check_eq((unsigned)((v) >> 16), (hi), name "-hi"); \
@@ -16,6 +17,16 @@ static unsigned int u16;
 static long lsum(long x, long y)
 {
 	return x + y;
+}
+
+static void store_via_ptr(long *p, long v)
+{
+	*p = v;
+}
+
+static long load_via_ptr(long *p)
+{
+	return *p;
 }
 
 void main(void)
@@ -219,6 +230,27 @@ void main(void)
 	CHECK32(gr, 0x0131, 0x2D00u, "mixmuladd");
 	gr = gr % (i16 * 2 - 1);                        /* 20000000 % 27 = 20 */
 	CHECK32(gr, 0x0000, 20u, "mixmod");
+
+	/* dereference a long through pointers held at every storage class:
+	   global ptr (D mode), param ptr (Y mode) and local ptr (Z mode).
+	   D/Y used to store/load the pointer's own slot instead of through it. */
+	{
+		long *lp;
+		gp = &ga;
+		*gp = 0x11223344;                       /* store via GLOBAL ptr (ASGNL D) */
+		CHECK32(ga, 0x1122u, 0x3344u, "derefStoreD");
+		gr = *gp;                               /* load  via GLOBAL ptr (INDIRL D) */
+		CHECK32(gr, 0x1122u, 0x3344u, "derefLoadD");
+		gb = 0;
+		store_via_ptr(&gb, (long)0x8899AABBu);  /* store via PARAM ptr (ASGNL Y) */
+		CHECK32(gb, 0x8899u, 0xAABBu, "derefStoreY");
+		gr = load_via_ptr(&gb);                 /* load  via PARAM ptr (INDIRL Y) */
+		CHECK32(gr, 0x8899u, 0xAABBu, "derefLoadY");
+		gr = 0;
+		lp = &gr;
+		*lp = 0x0F0E0D0C;                       /* store via LOCAL ptr (ASGNL Z) */
+		CHECK32(gr, 0x0F0Eu, 0x0D0Cu, "derefStoreZ");
+	}
 
 	tk_end();
 }
