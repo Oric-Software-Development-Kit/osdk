@@ -38,6 +38,7 @@ char *version="/* 16-bit code V" _COMP_XSTR(TOOL_VERSION_MAJOR) "." _COMP_XSTR(T
 #include "c.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>    // atoi()
 #include <stdbool.h>   // Not available on VS2010, but available on VS2019
 extern void exit(int);
 
