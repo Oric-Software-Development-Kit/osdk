@@ -341,6 +341,8 @@ void defconst(int ty, Value v) {
     case I: print("\tDW(%d)\n",   v.i ); break;
     case U: print("\tDW($%x)\n",  v.u ); break;
     case P: print("\tDW($%x)\n",  v.p ); break;
+    case L: print("\tDW($%x)\n",  v.u        & 0xffff);
+            print("\tDW($%x)\n", (v.u >> 16) & 0xffff); break;
     case F: printfloat(v.f); break;
     case D: printfloat(v.d); break;
     default: assert(0);

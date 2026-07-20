@@ -10,6 +10,15 @@ static int i16;
 static unsigned int u16;
 static long *gp;
 
+/* initialized long globals must occupy the full 4 bytes (regression: a
+   static long initializer used to emit a single truncated 2-byte word). */
+static long init_s   = 0x12345678;
+static long init_neg = -100000L;
+static unsigned long init_u = 0x89ABCDEFuL;
+static long init_arr[3] = { 100000L, 0x7FFFFFFFL, -1L };
+static long rng_seed = 0x55aa55aa;             /* the shuffle-benchmark LCG */
+static int rng_next(void) { rng_seed = 69069 * rng_seed + 1234567; return 0x7fff & rng_seed; }
+
 #define CHECK32(v, hi, lo, name) \
 	do { tk_check_eq((unsigned)((v) >> 16), (hi), name "-hi"); \
 	     tk_check_eq((unsigned)(v), (lo), name "-lo"); } while (0)
@@ -251,6 +260,19 @@ void main(void)
 		*lp = 0x0F0E0D0C;                       /* store via LOCAL ptr (ASGNL Z) */
 		CHECK32(gr, 0x0F0Eu, 0x0D0Cu, "derefStoreZ");
 	}
+
+	/* initialized long globals: full 4-byte value, not a truncated word */
+	CHECK32(init_s,      0x1234u, 0x5678u, "initS");
+	CHECK32(init_neg,    0xFFFEu, 0x7960u, "initNeg");
+	CHECK32(init_u,      0x89ABu, 0xCDEFu, "initU");
+	CHECK32(init_arr[0], 0x0001u, 0x86A0u, "initArr0");
+	CHECK32(init_arr[1], 0x7FFFu, 0xFFFFu, "initArr1");
+	CHECK32(init_arr[2], 0xFFFFu, 0xFFFFu, "initArr2");
+	/* LCG that mutates an initialized static long through a function */
+	tk_check_eq(rng_next(), 4521, "rng1");
+	CHECK32(rng_seed, 0x957Du, 0x11A9u, "rngSeed1");
+	tk_check_eq(rng_next(), 4060, "rng2");
+	CHECK32(rng_seed, 0x20C8u, 0x8FDCu, "rngSeed2");
 
 	tk_end();
 }

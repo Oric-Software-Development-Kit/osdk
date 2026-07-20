@@ -48,7 +48,7 @@ void doconst(p, cl) Symbol p; Generic cl; {
 		if (isarray(p->type))
 			defstring(p->type->size, p->u.c.v.p);
 		else
-			defconst(ttob(p->type), p->u.c.v);
+			defconst(isint(p->type) && p->type->size == 4 ? L : ttob(p->type), p->u.c.v);
 		p->u.c.loc->defined = 1;
 		p->u.c.loc = 0;
 	}
@@ -106,7 +106,7 @@ int genconst(Tree e, int def) {
 				continue;
 			}
 			if (def)
-				defconst(ttob(e->type), e->u.v);
+				defconst(isint(e->type) && e->type->size == 4 ? L : ttob(e->type), e->u.v);
 			return e->type->size;
 		case RIGHT:
 			assert(e->kids[0] || e->kids[1]);
