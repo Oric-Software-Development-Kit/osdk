@@ -6646,6 +6646,87 @@ skip :\
 
 ;
 ; ============================================================
+; In-place 32-bit RMW with a constant - ADDLK/SUBLK (hand-written)
+; ============================================================
+; emitted by gen.c's mark_inplace_rmw for `mem_long += const` / `-= const`
+; when the store destination is the SAME lvalue as the add/sub's load source.
+; Operate directly on the 4 destination bytes with a carry/borrow chain - no
+; op1:op2 staging, no lscratch, no jsr ladd32/lsub32. iny / lda / sta preserve
+; the carry between bytes. NOT part of the gen_lmacros.py family set.
+;
+; _A: frame/param slot  (fp),off       _C: direct/static variable
+;
+#define ADDLK_A(ptr1,y1,cte)\
+ ldy #y1 :\
+ clc :\
+ lda ptr1,y :\
+ adc #<(cte) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ adc #>(cte) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ adc #<((cte)>>16) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ adc #>((cte)>>16) :\
+ sta ptr1,y :\
+
+#define SUBLK_A(ptr1,y1,cte)\
+ ldy #y1 :\
+ sec :\
+ lda ptr1,y :\
+ sbc #<(cte) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ sbc #>(cte) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ sbc #<((cte)>>16) :\
+ sta ptr1,y :\
+ iny :\
+ lda ptr1,y :\
+ sbc #>((cte)>>16) :\
+ sta ptr1,y :\
+
+#define ADDLK_C(var,cte)\
+ clc :\
+ lda var :\
+ adc #<(cte) :\
+ sta var :\
+ lda var+1 :\
+ adc #>(cte) :\
+ sta var+1 :\
+ lda var+2 :\
+ adc #<((cte)>>16) :\
+ sta var+2 :\
+ lda var+3 :\
+ adc #>((cte)>>16) :\
+ sta var+3 :\
+
+#define SUBLK_C(var,cte)\
+ sec :\
+ lda var :\
+ sbc #<(cte) :\
+ sta var :\
+ lda var+1 :\
+ sbc #>(cte) :\
+ sta var+1 :\
+ lda var+2 :\
+ sbc #<((cte)>>16) :\
+ sta var+2 :\
+ lda var+3 :\
+ sbc #>((cte)>>16) :\
+ sta var+3 :\
+
+
+;
+; ============================================================
 ; 32-bit (long) macro families - L suffix
 ; ============================================================
 ;

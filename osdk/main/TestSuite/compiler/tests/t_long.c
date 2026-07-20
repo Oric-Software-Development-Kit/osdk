@@ -42,6 +42,26 @@ void main(void)
 	gr = gr - 1;
 	CHECK32(gr, 0x0000, 0xFFFFu, "borrow");
 
+	/* compound assignment with a constant exercises gen.c's in-place RMW
+	   (ADDLK/SUBLK: adc/sbc chain straight on the destination). Check
+	   carry/borrow through every byte boundary, on a static long (ADDLK_C)
+	   and a frame-local long (ADDLK_A). */
+	{
+		long la;                                /* frame-local -> ADDLK_A */
+		ga = 100000; ga += 6;                   CHECK32(ga, 0x0001, 0x86A6u, "pe-c");
+		ga = 0x0000FFFF; ga += 1;               CHECK32(ga, 0x0001, 0x0000u, "pe-carry16");
+		ga = 0x00FFFFFF; ga += 1;               CHECK32(ga, 0x0100, 0x0000u, "pe-carry24");
+		ga = 100006; ga -= 6;                   CHECK32(ga, 0x0001, 0x86A0u, "me-c");
+		ga = 0x00010000; ga -= 1;               CHECK32(ga, 0x0000, 0xFFFFu, "me-borrow16");
+		ga = 0x01000000; ga -= 1;               CHECK32(ga, 0x00FF, 0xFFFFu, "me-borrow24");
+		ga = 5; ga += 0;                        CHECK32(ga, 0x0000, 5u,      "pe-zero");
+		ga = -100; ga += 6;                     CHECK32(ga, 0xFFFFu, 0xFFA2u,"pe-neg"); /* -94 */
+		la = 200000; la += 70000;               CHECK32(la, 0x0004, 0x1EB0u, "pe-a");
+		la = 0x00FFFFFF; la += 1;               CHECK32(la, 0x0100, 0x0000u, "pe-a-carry24");
+		la = 270000; la -= 70000;               CHECK32(la, 0x0003, 0x0D40u, "me-a");
+		la = 0; la -= 1;                        CHECK32(la, 0xFFFFu, 0xFFFFu,"me-a-borrow");
+	}
+
 	/* logic + unary */
 	ga = 0x0F0F5AA5; gb = 0x00FF00FF;
 	gr = ga & gb; CHECK32(gr, 0x000F, 0x00A5u, "and");

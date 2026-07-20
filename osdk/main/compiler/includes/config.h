@@ -41,6 +41,11 @@ typedef struct {
 				   backend a node computes a 32-bit value. Stamped at
 				   dag construction from the tree's type; compare nodes
 				   read their KIDS' width (their own type is int). */
+	char	inplace;	/* in-place long RMW: set by mark_inplace_rmw on the
+				   ASGN/ADD-or-SUB/INDIR triple of a `mem_long op= const`
+				   so the store emits one ADDLK/SUBLK macro and the load
+				   and arithmetic nodes emit nothing. Survives tmpalloc
+				   (which only clears optimized/borrowed). */
 } Xnode;
 
 typedef struct {

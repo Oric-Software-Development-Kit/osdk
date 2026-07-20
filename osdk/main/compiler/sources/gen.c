@@ -706,6 +706,10 @@ static int is_narrowable_unary(int op) {
 static int is_int_const(Node n) {
     return n && generic(n->op)==CNST && (optype(n->op)==I || optype(n->op)==U);
 }
+/* long (width-4) add/sub and word INDIR opcode groups, for in-place RMW below */
+static int is_long_add(int op)  { return op==ADDI || op==ADDU || op==ADDP; }
+static int is_long_sub(int op)  { return op==SUBI || op==SUBU || op==SUBP; }
+static int is_indir_word(int op){ return op==INDIRI || op==INDIRP; }
 /* an integer constant whose value fits an unsigned char (0..255) - the only
  * constants a byte compare can use unchanged */
 static int is_byte_const(Node n) {
@@ -861,11 +865,59 @@ static int widen_dead_after(Node p) {
     return 1;                               /* temp never read again */
 }
 
+/* In-place long read-modify-write with a constant. `long i += k` (and -=) is
+ * lowered by the front end to asgn(i, add(indir(i), k)), and dag CSE gives the
+ * store target and the add's INDIR source the SAME address node, so the store
+ * provably aliases the load. Rather than INDIRL + ADDL (which stages the
+ * constant into lscratch and calls jsr ladd32) + ASGNL, emit one ADDLK/SUBLK
+ * macro that does an in-place adc/sbc chain straight on the memory bytes. The
+ * ASGN emits the macro; the ADD/SUB and the INDIR emit nothing. Mirrors the
+ * mark_byte_narrowing pre-pass: runs before tmpalloc so node counts are still
+ * the true source counts, and uses x.inplace (which tmpalloc does not clear). */
+static void mark_inplace_rmw(Node head) {
+    Node m;
+    for (m = head; m; m = m->x.next) m->x.inplace = 0;
+    if (optimizelevel < 2) return;
+    for (m = head; m; m = m->x.next) {
+        Node v, ind, cnst;
+        char dm;
+        int isadd;
+        if (m->op != ASGNI && m->op != ASGNP) continue;
+        if (!(m->syms[0] && m->syms[0]->u.c.v.i == 4)) continue;   /* store 4 bytes */
+        v = m->kids[1];                                            /* value = ADD/SUB */
+        if (!v || v->x.width != 4 || v->count != 1) continue;
+        isadd = is_long_add(v->op);
+        if (!isadd && !is_long_sub(v->op)) continue;
+        /* one operand is an INDIR of the SAME address as the store target
+         * (pointer identity = proven alias), the other is an int constant.
+         * ADD is commutative (const either side); SUB needs the const on the
+         * right (i - k). Require single-use so nothing else needs the load or
+         * the sum. */
+        if (v->kids[0] && is_indir_word(v->kids[0]->op)
+            && v->kids[0]->x.width == 4 && v->kids[0]->count == 1
+            && v->kids[0]->kids[0] == m->kids[0]
+            && is_int_const(v->kids[1])) {
+            ind = v->kids[0]; cnst = v->kids[1];
+        } else if (isadd
+            && v->kids[1] && is_indir_word(v->kids[1]->op)
+            && v->kids[1]->x.width == 4 && v->kids[1]->count == 1
+            && v->kids[1]->kids[0] == m->kids[0]
+            && is_int_const(v->kids[0])) {
+            ind = v->kids[1]; cnst = v->kids[0];
+        } else continue;
+        (void)cnst;
+        /* destination addressing we can render in place: frame slot / static */
+        dm = m->kids[0]->x.adrmode;
+        if (dm != 'A' && dm != 'C') continue;
+        m->x.inplace = v->x.inplace = ind->x.inplace = 1;
+    }
+}
+
 Node gen(Node p) {
     Node head, *last;
     for (last = &head; p; p = p->link)
         last = linearize(p, last, 0);
-    if (!graph_output) mark_byte_narrowing(head);
+    if (!graph_output) { mark_byte_narrowing(head); mark_inplace_rmw(head); }
     for (p = head; p; p = p->x.next) {
         if (graph_output) print_graph_node(p);
         else tmpalloc(p);
@@ -1241,7 +1293,7 @@ static void emitdag(Node p) {
                            else if (p->x.narrow) binary("XORB"); else binary("XORW");   break;
         case ADDD:  case ADDF:            binary("ADDF");   break;
         case ADDI:  case ADDP:  case ADDU:
-            if (p->x.width==4) { binary("ADDL"); break; }
+            if (p->x.width==4) { if (!p->x.inplace) binary("ADDL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1258,7 +1310,7 @@ static void emitdag(Node p) {
             break;
         case SUBD:  case SUBF:            binary("SUBF");  break;
         case SUBI:  case SUBP:  case SUBU:
-            if (p->x.width==4) { binary("SUBL"); break; }
+            if (p->x.width==4) { if (!p->x.inplace) binary("SUBL"); break; }
             if (p->x.narrow) {
                 if (strcmp(a->x.name,p->x.name)==0 && strcmp(b->x.name,"1")==0
                     && (p->x.adrmode=='Z' || p->x.adrmode=='D'))
@@ -1327,7 +1379,7 @@ static void emitdag(Node p) {
                         ,output_arg(r));
             break;
         case INDIRI: case INDIRP:
-            if (!p->x.optimized)
+            if (!p->x.optimized && !p->x.inplace)   // in-place RMW consumes the load
                 print("\tINDIR%s_%c%c(%s,%s)\n"
                         ,p->x.width==4 ? "L" : "W"
                         ,reduced_adrmode(a->x.adrmode)    // keep 'Z' adrmode different from 'D'
@@ -1491,7 +1543,16 @@ static void emitdag(Node p) {
                         ,output_arg(a));
             break;
         case ASGNI: case ASGNP:
-            if (!p->x.optimized)
+            if (p->x.inplace) {
+                /* in-place long RMW: b is the ADD/SUB, one kid the constant */
+                Node cnst = is_int_const(b->kids[0]) ? b->kids[0] : b->kids[1];
+                print("\t%sLK_%c(%s,%s)\n"
+                        ,is_long_add(b->op) ? "ADD" : "SUB"
+                        ,reduced_adrmode(a->x.adrmode)
+                        ,output_arg(a)
+                        ,output_arg(cnst));
+            }
+            else if (!p->x.optimized)
                 print("\tASGN%s_%c%c(%s,%s)\n"
                         /* the store size travels in syms[0] (the ASGN dag
                            node is never the listnodes return value, so it
