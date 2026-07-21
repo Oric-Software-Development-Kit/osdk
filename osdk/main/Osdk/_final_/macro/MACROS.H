@@ -5692,6 +5692,24 @@ skip :\
 #define SAVE(tmp,ptr,y2) ARGW_D(tmp,ptr,y2)
 #define RESTORE(ptr,y2,tmp) MOVW_YD(ptr,y2,tmp)
 
+; __fastcall register-argument loads: a single argument into A (char) or
+; A:X (int/pointer, low:high). Emitted at the CALL, after save_busy, right
+; before the jsr (see gen.c emit_fastarg_load). <am> = the value's mode:
+; C=immediate/const, D=direct/static var.
+#define ARGRB_C(cte)\
+ lda #<(cte) :\
+
+#define ARGRB_D(var)\
+ lda var :\
+
+#define ARGRW_C(cte)\
+ lda #<(cte) :\
+ ldx #>(cte) :\
+
+#define ARGRW_D(var)\
+ lda var :\
+ ldx var+1 :\
+
 #define ARGW_C(cte,ptr,y2)\
  lda #<(cte) :\
  ldy #y2 :\
@@ -5731,6 +5749,11 @@ skip :\
 
 #define CALLV_C(adr,size)\
  ldy #size :\
+ jsr adr :\
+
+; __fastcall void call: args are in registers, no stack arg frame, so skip the
+; ldy #size that CALLV_C sets up for a stack-frame callee.
+#define CALLVF_C(adr)\
  jsr adr :\
 
 #define CALLV_D(tmp,size)\

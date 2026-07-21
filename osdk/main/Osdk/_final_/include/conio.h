@@ -14,7 +14,7 @@
  trailing newline that the standard puts() adds. Implemented in lib/conio.s.
 */
 void _putc(char c);
-void _puts(const char* s);
+__fastcall void _puts(const char* s);	/* string pointer in A:X (see lib/conio.s) */
 
 /* line-ending constants used by portable console code */
 #define LF '\x0a'

@@ -651,7 +651,8 @@ static void tmpalloc(Node p) {
     switch (generic(p->op)) {
     case ARG:
         p->x.argoffset = argoffset;
-        argoffset += p->syms[0]->u.c.v.i;
+        if (!p->x.fastreg)              /* register-passed args take no stack frame */
+            argoffset += p->syms[0]->u.c.v.i;
         break;
     case CALL:
         p->x.argoffset = argoffset;
@@ -983,11 +984,43 @@ static void mark_fuse_addk(Node head) {
     }
 }
 
+/* mark_fastcall_args - for each CALL to a __fastcall function, stash its
+   argument (v1: at most one, guaranteed by the front-end) on the CALL and flag
+   the ARG so its own (sp),y emit is suppressed. The value is loaded into A/X/Y
+   at the CALL, AFTER save_busy (which uses A), so a temp live across the call
+   can't clobber the register arg. The callee is a direct ADDRG; its Symbol
+   carries the fastcall bit. */
+static void mark_fastcall_args(Node head) {
+    Node m, pendarg = 0;
+    for (m = head; m; m = m->x.next) { m->x.fastreg = 0; m->x.fastargs = 0; }
+    for (m = head; m; m = m->x.next) {
+        switch (generic(m->op)) {
+        case ARG:
+            pendarg = m;              /* v1: <=1 arg per fastcall (front-end enforced) */
+            break;
+        case CALL: {
+            Node f = m->kids[0];
+            if (f && generic(f->op) == ADDRG && f->syms[0] && f->syms[0]->fastcall) {
+                if (pendarg) {
+                    pendarg->x.fastreg = 1;   /* start at A (byte 0) */
+                    m->x.fastargs = pendarg;
+                }
+                m->x.fastreg = 1;             /* mark the CALL fastcall (even with 0 args) */
+            }
+            pendarg = 0;
+            break;
+        }
+        default:
+            break;
+        }
+    }
+}
+
 Node gen(Node p) {
     Node head, *last;
     for (last = &head; p; p = p->link)
         last = linearize(p, last, 0);
-    if (!graph_output) { mark_byte_narrowing(head); mark_inplace_rmw(head); mark_fuse_addk(head); }
+    if (!graph_output) { mark_byte_narrowing(head); mark_inplace_rmw(head); mark_fuse_addk(head); mark_fastcall_args(head); }
     for (p = head; p; p = p->x.next) {
         if (graph_output) print_graph_node(p);
         else tmpalloc(p);
@@ -1254,6 +1287,20 @@ static void restore_busy(Node p) {
     }
 }
 
+/* emit_fastarg_load - load a __fastcall CALL's single register argument into
+   A (char) or A:X (int/ptr, low:high). Called at the CALL, AFTER save_busy so
+   its A-clobbering SAVEs are already done, and right before the jsr. */
+static void emit_fastarg_load(Node p) {
+    Node fa = p->x.fastargs, av;
+    if (!fa)
+        return;
+    av = fa->kids[0];
+    if (fa->syms[0]->u.c.v.i <= 1)
+        print("\tARGRB_%c(%s)\n", simple_adrmode(av->x.adrmode), output_arg(av));
+    else
+        print("\tARGRW_%c(%s)\n", simple_adrmode(av->x.adrmode), output_arg(av));
+}
+
 static void emitdag0(Node p) {
     a = p->kids[0]; b = p->kids[1]; r=p;
     if (p->x.width==4 || (a && a->x.width==4) || (b && b->x.width==4)) {
@@ -1345,14 +1392,17 @@ static void emitdag0(Node p) {
         case ASGNF: print("\tASGNF(%s,%s)\n" ,output_arg(b) ,output_arg(a)); break;
         case ASGNI: print("\tASGNI(%s,%s)\n" ,output_arg(b) ,output_arg(a)); break;
         case ASGNP: print("\tASGNP(%s,%s)\n" ,output_arg(b) ,output_arg(a)); break;
-        case ARGB:  print("\tARGB(%s,(sp),%d,%s)\n"
+        case ARGB:  if (p->x.fastreg) break;
+                    print("\tARGB(%s,(sp),%d,%s)\n"
                     ,output_arg(a)
                     ,p->x.argoffset
                     ,output_name(p->syms[0])); break;
         case ARGD:  print("\tARGD(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
         case ARGF:  print("\tARGF(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
-        case ARGI:  print("\tARGI(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
-        case ARGP:  print("\tARGP(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
+        case ARGI:  if (p->x.fastreg) break;
+                    print("\tARGI(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
+        case ARGP:  if (p->x.fastreg) break;
+                    print("\tARGP(%s,%d)\n" ,output_arg(a) ,p->x.argoffset); break;
         case CALLB:
             save_busy(p);
             print("\tMOVW_%cD(%s,op1)\n"
@@ -1365,7 +1415,11 @@ static void emitdag0(Node p) {
             break;
         case CALLV:
             save_busy(p);
-            print("\tCALLV(%s,%d)\n" ,output_arg(a) ,p->x.argoffset);
+            emit_fastarg_load(p);
+            if (p->x.fastreg)
+                print("\tCALLVF_C(%s)\n" ,output_arg(a));
+            else
+                print("\tCALLV(%s,%d)\n" ,output_arg(a) ,p->x.argoffset);
             restore_busy(p);
             break;
         case CALLD:
@@ -1386,6 +1440,7 @@ static void emitdag0(Node p) {
             break;
         case CALLI:
             save_busy(p);
+            emit_fastarg_load(p);
             print("\tCALLI(%s,%d,%s)\n"
                     ,output_arg(a)
                     ,p->x.argoffset
@@ -1712,6 +1767,8 @@ static void emitdag(Node p) {
                         ,output_arg(a));
             break;
         case ARGB:
+            if (p->x.fastreg)              /* register-passed: loaded at the CALL */
+                break;
             print("\tARGS_%c(%s,(sp),%d,%s)\n"
                     ,simple_adrmode(a->x.adrmode)
                     ,output_arg(a)
@@ -1726,7 +1783,7 @@ static void emitdag(Node p) {
                         ,p->x.argoffset);
             break;
         case ARGI: case ARGP:
-            if (!p->x.optimized)
+            if (!p->x.optimized && !p->x.fastreg)   /* fastreg: loaded at the CALL */
                 print("\tARG%s_%c(%s,(sp),%d)\n"
                         /* the arg's byte size travels in syms[0] */
                         ,p->syms[0]->u.c.v.i==4 ? "L" : "W"
@@ -1747,10 +1804,15 @@ static void emitdag(Node p) {
             break;
         case CALLV:
             save_busy(p);
-            print("\tCALLV_%c(%s,%d)\n"
-                    ,simple_adrmode(a->x.adrmode)
-                    ,output_arg(a)
-                    ,p->x.argoffset);
+            emit_fastarg_load(p);         /* __fastcall arg into A/A:X, after the A-clobbering saves */
+            if (p->x.fastreg && simple_adrmode(a->x.adrmode)=='C')
+                print("\tCALLVF_C(%s)\n"  /* register args, no stack frame -> plain jsr */
+                        ,output_arg(a));
+            else
+                print("\tCALLV_%c(%s,%d)\n"
+                        ,simple_adrmode(a->x.adrmode)
+                        ,output_arg(a)
+                        ,p->x.argoffset);
             restore_busy(p);
             break;
         case CALLD: case CALLF:
@@ -1765,6 +1827,7 @@ static void emitdag(Node p) {
             break;
         case CALLI:
             save_busy(p);
+            emit_fastarg_load(p);         /* __fastcall arg into A/A:X, after the A-clobbering saves */
             print("\tCALL%s_%c%c(%s,%d,%s)\n"
                     ,p->x.width==4 ? "L" : "W"
                     ,simple_adrmode(a->x.adrmode)

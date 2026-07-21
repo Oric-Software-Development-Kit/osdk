@@ -65,11 +65,21 @@ instead of the `(sp),y` store. New MACROS.H macros, addressing-mode-parameterize
 (names TBD; one per target register, `<am>` = source addressing mode: immediate/direct/frame.)
 The CALL emits `jsr` as today with **no arg-frame offset** for the register args.
 
-**v1 arg-eval simplification:** only handle param lists that are **a single ≤3-byte arg OR multiple
-args whose evaluation can't clobber an already-loaded arg register**. The general multi-arg
-clobber-ordering problem (evaluating arg 2 trashes A holding arg 1) is **deferred**; the console
-routines are all single-arg so v1 sidesteps it. Guard: if a `__fastcall` call's args would need a
-clobber-safe ordering v1 doesn't do yet, fall back to stack for that call (or defer marking).
+**v1 arg-eval simplification:** front-end now restricts `__fastcall` to **≤1 parameter, ≤2 bytes**
+(char→A, int/ptr→A:X) — multi-arg A/X/Y packing + evaluation-order is deferred. Caller and callee
+stay in step because the front-end won't accept a multi-arg fastcall function at all yet.
+
+**CRITICAL FINDING (step 2 design) — `save_busy` clobbers A.** The emit order for a call is:
+ARG nodes (before the CALL in the linearized list) → CALL node, which emits `save_busy` (spills
+live temps with `SAVE`=`lda/sta`, clobbering **A**) *then* `jsr`. So loading the register arg at
+the ARG position is WRONG whenever a temp is live across the call (busy≠0): `save_busy` destroys
+the arg in A before the `jsr`. Correct design: **load the register arg in the CALL node, AFTER
+`save_busy`, right before the `jsr`.** Since ARG nodes aren't kids of the CALL, the pre-pass
+stashes the (single, v1) fastcall ARG node onto the CALL via a new `Xnode` field
+(`Node fastargs`), and the ARG node's own emit is suppressed (`Xnode.fastreg` marks it). The
+callee symbol is reached from the CALL via `kids[0]->syms[0]` when `generic(kids[0]->op)==ADDRG`
+(confirmed in dag.c). `tmpalloc` skips `argoffset` accumulation for a fastcall ARG so the CALL's
+arg frame is 0.
 
 ## Back-end: callee half (FAST-FOLLOW, not v1)
 

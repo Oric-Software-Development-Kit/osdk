@@ -11,12 +11,8 @@
 ; __putc is a zero-cost alias of _putchar (see gpchar.s)
 
 __puts
-	ldy #0
-	lda (sp),y
-	sta tmp
-	iny
-	lda (sp),y
-	sta tmp+1
+	sta tmp			; __fastcall: string pointer arrives in A:X (low:high)
+	stx tmp+1
 	ldy #0
 cputs_loop
 	lda (tmp),y
