@@ -5710,6 +5710,19 @@ skip :\
  lda var :\
  ldx var+1 :\
 
+; Y mode = indirect value at (ptr),off (e.g. a pointer/int parameter read via
+; (ap),0). The emitted operand "(ap),0" splits into ptr="(ap)", off=0.
+#define ARGRB_Y(ptr,off)\
+ ldy #off :\
+ lda ptr,y :\
+
+#define ARGRW_Y(ptr,off)\
+ ldy #off+1 :\
+ lda ptr,y :\
+ tax :\
+ ldy #off :\
+ lda ptr,y :\
+
 #define ARGW_C(cte,ptr,y2)\
  lda #<(cte) :\
  ldy #y2 :\
