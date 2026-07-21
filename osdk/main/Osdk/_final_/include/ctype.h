@@ -9,62 +9,62 @@
 
    /* Returns 1 if yes, 0 if no. */
 
-extern int isalpha(char c);
+extern __fastcall int isalpha(char c);
 
 
 /* Check if c is an upper case character. */
 
-extern int isupper(char c);
+extern __fastcall int isupper(char c);
 
 
 /* Check if c is a lower case character. */
 
-extern int islower(char c);
+extern __fastcall int islower(char c);
 
 
 /* Check if c is a decimal digit. */
 
-extern int isdigit(char c);
+extern __fastcall int isdigit(char c);
 
 
 /* Check if c is a white space character. */
 
-extern int isspace(char c);
+extern __fastcall int isspace(char c);
 
 
 /* Check if c is a character used in punctuation. */
 
-extern int ispunct(char c);
+extern __fastcall int ispunct(char c);
 
 
 /* Check if c is a printable ASCII character.*/
 
-extern int isprint(char c);
+extern __fastcall int isprint(char c);
 
 
 /* Check if c is an ASCII control character. */
 
-extern int iscntrl(char c);
+extern __fastcall int iscntrl(char c);
 
 
 /* Check if c is an ASCII character. */
 
-extern int isascii(char c);
+extern __fastcall int isascii(char c);
 
 
 /* Return c converted to upper case. */
 
-extern char toupper(char c);
+extern __fastcall char toupper(char c);
 
 
 /* Return c converted to lower case. */
 
-extern char tolower(char c);
+extern __fastcall char tolower(char c);
 
 
 /* Return c with the 8th bit stripped off. */
 
-extern char toascii(char c);
+extern __fastcall char toascii(char c);
 
 
 #endif /* _CTYPE_

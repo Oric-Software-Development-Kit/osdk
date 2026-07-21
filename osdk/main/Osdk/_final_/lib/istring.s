@@ -4,8 +4,6 @@
 ; isalpha(c)
 ;
 _isalpha
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$03	;_U | _L
@@ -18,8 +16,6 @@ isalpha1
 ; isupper(c)
 ;
 _isupper
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$01	;_U
@@ -34,8 +30,6 @@ isupper1
 ; islower(c)
 ;
 _islower
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$02	;_L
@@ -47,8 +41,6 @@ islower1
 ; isdigit(c)
 ;
 _isdigit
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$04	;_N
@@ -60,8 +52,6 @@ isdigit1
 ; isxdigit(c)
 ;
 _isxdigi
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$44	;_N | _X
@@ -73,8 +63,6 @@ isxdigit1
 ; isspace(c)
 ;
 _isspace
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$08	;_S
@@ -86,8 +74,6 @@ isspace1
 ; ispunct(c)
 ;
 _ispunct
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$10	;_P
@@ -99,8 +85,6 @@ ispunct1
 ; isalnum(c)
 ;
 _isalnum
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$07	;_U | _L | _N
@@ -112,8 +96,6 @@ isalnum1
 ; isprint(c)
 ;
 _isprint
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$17	;_P | _U | _L | _N
@@ -125,8 +107,6 @@ isprint1
 ; iscntrl(c)
 ;
 _iscntrl
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$20	;_C
@@ -138,8 +118,6 @@ iscntrl1
 ; isascii(c)
 ;
 _isascii
-	ldy #0
-	lda (sp),y	;low byte of c
 	and #$80	;0 if <= 127
 	eor #$80	;invert
 	beq isascii1

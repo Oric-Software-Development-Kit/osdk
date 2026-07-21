@@ -2,8 +2,6 @@
 ; toupper(c)
 ;
 _toupper
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 _touppermc	
 	lda ctype,x
@@ -21,8 +19,6 @@ toupper1
 ; tolower(c)
 ;
 _tolower
-	ldy #0
-	lda (sp),y	;low byte of c
 	tax
 	lda ctype,x
 	and #$01	;_U
@@ -39,8 +35,6 @@ tolower1
 ; toascii(c)
 ;
 _toascii
-	ldy #0
-	lda (sp),y	;low byte of c
 	and #$7f
 	tax
 	lda #0
