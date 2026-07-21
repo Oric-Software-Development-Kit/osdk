@@ -27,7 +27,7 @@ zz(ENUM,	13,	0,	0,	0,	CHAR,	"enum")
 zz(LONG,	14,	0,	0,	0,	CHAR,	"long")
 zz(CONST,	15,	0,	0,	0,	CHAR,	"const")
 zz(VOLATILE,	16,	0,	0,	0,	CHAR,	"volatile")
-yy(0,		17,	0,	0,	0,	0,	0)
+zz(FASTCALL,	17,	0,	0,	0,	CHAR,	"__fastcall")
 yy(0,		18,	0,	0,	0,	0,	0)
 yy(0,		19,	0,	0,	0,	0,	0)
 yy(0,		20,	0,	0,	0,	0,	0)
@@ -158,9 +158,10 @@ xx(EOI,		127,	0,	0,	0,	EOI,	"end of input")
 #define ARRAY	12 
 #define ENUM	13 
 #define LONG	14 
-#define CONST	15 
-#define VOLATILE	16 
-#define ID	32 
+#define CONST	15
+#define VOLATILE	16
+#define FASTCALL	17
+#define ID	32
 #define FCON	34 
 #define ICON	35 
 #define SCON	36 

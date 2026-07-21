@@ -163,6 +163,7 @@ struct symbol {		/* symbol structures: */
 	unsigned addressed:1;	/* 1 if its address is taken */
 	unsigned initialized:1;	/* 1 if local is initialized */
 	unsigned structarg:1;	/* 1 if parameter is a struct */
+	unsigned fastcall:1;	/* 1 if __fastcall (register-passed params) */
 	int ref;		/* weighted # of references */
 	Type type;		/* data type */
 	Coordinate src;		/* definition coordinate */

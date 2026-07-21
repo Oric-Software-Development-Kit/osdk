@@ -8,12 +8,14 @@ Symbol retv;			/* return value location for structs */
 
 static List autos;		/* auto locals for current block */
 static int funcdclr;		/* declarator has parameters */
+static int fastcall_pending;	/* set by type() when __fastcall seen; consumed by decl() */
 static int nglobals;		/* number of external ids */
 static int regcount;		/* number of explicit register declarations */
 static List registers;		/* register locals for current block */
 
 dclproto(static void checklab,(Symbol, Generic));
 dclproto(static void checkparam,(Symbol, Generic));
+dclproto(static void apply_fastcall,(Symbol, Type));
 dclproto(static void checkref,(Symbol, Generic));
 dclproto(static Symbol dclglobal,(int, char *, Type, Coordinate *));
 dclproto(static Symbol dcllocal,(int, char *, Type, Coordinate *));
@@ -406,6 +408,7 @@ dclproto(Symbol (*dcl),(int, char *, Type, Coordinate *));
 int eflag;
 {
 	int sclass;
+	int is_fastcall;
 	char *id = 0;
 	Type ty, ty1;
 	Coordinate pt;
@@ -413,6 +416,8 @@ int eflag;
 
 	pt = src;
 	ty = type(level, &sclass);
+	is_fastcall = fastcall_pending;	/* captured now; type() below (params) mustn't leak into it */
+	fastcall_pending = 0;
 	if (t == ID || t == '*' || t == '(' || t == '[') {
 		Coordinate pos;
 		pos = src;
@@ -427,8 +432,11 @@ int eflag;
 					error("invalid use of `typedef'\n");
 					sclass = EXTERN;
 				}
+				if (is_fastcall)
+					error("`__fastcall' on a function definition is not supported yet; declare a prototype\n");
 				funcdecl(sclass, fname = id, ty1, pt);
 				fname = 0;
+				fastcall_pending = 0;
 				return;
 			} else if (funcdclr)
 				{ foreach(identifiers, level, checkparam, (Generic)0); exitscope(); }
@@ -441,8 +449,11 @@ int eflag;
 				error("missing identifier\n");
 			else if (sclass == TYPEDEF)
 				deftype(id, ty1, &pos);
-			else
-				(*dcl)(sclass, id, ty1, &pos);
+			else {
+				Symbol dsym = (*dcl)(sclass, id, ty1, &pos);
+				if (is_fastcall)
+					apply_fastcall(dsym, ty1);
+			}
 			if (level == GLOBAL)
 				tfree();
 			if (t != ',')
@@ -457,6 +468,7 @@ int eflag;
 	else if (ty && (sclass || !isstruct(ty) && !isenum(ty)))
 		warning("empty declaration\n");
 	test(';', follow);
+	fastcall_pending = 0;	/* guard against an exotic __fastcall param leaking to the next decl */
 }
 
 /* doextern - import external declared in a block, if necessary, propagate flags */
@@ -1032,14 +1044,14 @@ static Type tnode(int op, Type type) {
 
 /* type - parse basic storage class and type specification */
 static Type type(int lev, int *sclass) {
-	int cls, cons, *p, sign, size, tt, type, vol;
+	int cls, cons, *p, sign, size, tt, type, vol, fcall;
 	Type ty = 0;
 
 	if (sclass == 0)
 		cls = AUTO;
 	else
 		*sclass = 0;
-	for (vol = cons = sign = size = type = 0;;) {
+	for (vol = cons = sign = size = type = fcall = 0;;) {
 		p = &type;
 		tt = t;
 		switch (t) {
@@ -1052,6 +1064,9 @@ static Type type(int lev, int *sclass) {
 			break;
 		case VOLATILE:
 			p = &vol;
+			break;
+		case FASTCALL:
+			p = &fcall;
 			break;
 		case SIGNED: case UNSIGNED:
 			p = &sign;
@@ -1115,7 +1130,51 @@ static Type type(int lev, int *sclass) {
 		ty = qual(CONST, ty);
 	if (vol == VOLATILE)
 		ty = qual(VOLATILE, ty);
+	if (fcall)
+		fastcall_pending = 1;	/* applies to the function type this declaration builds */
 	return ty;
+}
+
+/* apply_fastcall - validate that ty can be register-passed, then mark p __fastcall.
+   v1 packs the parameter list little-endian into A,X,Y (<=3 bytes); >3 bytes,
+   variadic, or a missing prototype is a hard error (the marker is explicit). */
+static void apply_fastcall(Symbol p, Type ty) {
+	Type *proto;
+	int i, bytes = 0;
+
+	if (!isfunc(ty)) {
+		error("`__fastcall' may be applied only to a function\n");
+		return;
+	}
+	if (ty->u.proto == 0) {
+		error("`__fastcall' requires a prototype\n");
+		return;
+	}
+	if (variadic(ty)) {
+		error("`__fastcall' function may not be variadic\n");
+		return;
+	}
+	{
+		int nparam = 0;
+		for (proto = ty->u.proto, i = 0; proto[i]; i++)
+			if (proto[i] != voidtype) {
+				nparam++;
+				bytes += proto[i]->size;
+			}
+		/* v1: a single register-sized argument (char->A, int/ptr->A:X).
+		   Multi-argument packing (A/X/Y ordering, evaluation-clobber) is a
+		   later step; restrict here so caller and callee stay in step. */
+		if (nparam > 1) {
+			error("`__fastcall' currently supports at most one parameter\n");
+			return;
+		}
+		if (bytes > 2) {
+			error("`__fastcall' parameter does not fit in a register pair (max 2 bytes)\n");
+			return;
+		}
+	}
+	if (p)
+		p->fastcall = 1;
 }
 
 /* typename - type dclr */

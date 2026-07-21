@@ -435,10 +435,16 @@ suite green and unmarked code byte-identical.
 
 **Grammar (canonical; both implementations cite this block):**
 ```
-REGION_START = /^\s*(?:;|\/\/)\s*@function\b\s+([A-Za-z_]\w*)\s*(@keep\b)?\s*$/
+REGION_START = /^\s*(?:;|\/\/)\s*@function\b\s+([A-Za-z_]\w*(?:\s+[A-Za-z_]\w*)*)\s*(@keep\b)?\s*$/
 REGION_END   = /^\s*(?:;|\/\/)\s*@endfunction\b\s*$/
 KEEP_POINT   = /@keep\b/      ; trailing on a label-defining line = that symbol is a root
 ```
+> `@function` group1 is a space-separated NAME LIST — first = canonical, rest = aliases (co-equal
+> entry labels at the same address), all membership-validated in-span. A single name is the
+> one-element degenerate case (backward-compatible with the original single-name form). Widened
+> 2026-07-21 for the register-param feature's collapsed multi-entry routines
+> (see register-param-passing-brief.md §alias ruling). `#FUNC` debug export carries the list:
+> `#FUNC <canonical> [<alias>…] <startHex> <endHex>` — last two whitespace tokens are the hex range.
 - Tag keywords **lowercase, case-sensitive**; identifiers `[A-Za-z_]\w*`. Comment intro `//`
   everywhere, `;` also in `.s`/`.asm`; first intro wins.
 - Region tags are a **standalone-line production, matched BEFORE the value-tag scanner** — never

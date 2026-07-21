@@ -340,3 +340,16 @@ case 'X':
 case 'Y':
 case 'Z':
 case '_':
+	if (rcp[0] == '_'
+	&&  rcp[1] == 'f'
+	&&  rcp[2] == 'a'
+	&&  rcp[3] == 's'
+	&&  rcp[4] == 't'
+	&&  rcp[5] == 'c'
+	&&  rcp[6] == 'a'
+	&&  rcp[7] == 'l'
+	&&  rcp[8] == 'l'
+	&& !(map[rcp[9]]&(DIGIT|LETTER))) {
+		cp = rcp + 9;
+		return FASTCALL;
+	}
