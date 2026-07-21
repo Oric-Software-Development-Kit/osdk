@@ -19,10 +19,8 @@ _getchar
 ;
 __putc
 _putchar
-	ldy #0
-	lda (sp),y
 putchar
-    cmp #$0A
+    cmp #$0A		; __fastcall: char arrives in A (all 3 entries collapse here)
     bne putchar2
     pha
     ldx #$0D

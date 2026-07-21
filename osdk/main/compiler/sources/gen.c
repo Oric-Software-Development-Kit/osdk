@@ -1002,7 +1002,13 @@ static void mark_fastcall_args(Node head) {
             Node f = m->kids[0];
             if (f && generic(f->op) == ADDRG && f->syms[0] && f->syms[0]->fastcall) {
                 if (pendarg) {
-                    pendarg->x.fastreg = 1;   /* start at A (byte 0) */
+                    /* Register width comes from the callee's PROTOTYPE, not the
+                       (promoted) argument: a char param -> A only, avoiding a
+                       wasted high byte. fastreg: 1 = word (A:X), 2 = byte (A). */
+                    Type ft = f->syms[0]->type;
+                    Type p0 = (ft && ft->u.proto) ? ft->u.proto[0] : (Type)0;
+                    int bytes = (p0 && p0 != voidtype) ? p0->size : 2;
+                    pendarg->x.fastreg = (bytes <= 1) ? 2 : 1;
                     m->x.fastargs = pendarg;
                 }
                 m->x.fastreg = 1;             /* mark the CALL fastcall (even with 0 args) */
@@ -1295,9 +1301,9 @@ static void emit_fastarg_load(Node p) {
     if (!fa)
         return;
     av = fa->kids[0];
-    if (fa->syms[0]->u.c.v.i <= 1)
+    if (fa->x.fastreg == 2)      /* byte param -> A only (per the callee prototype) */
         print("\tARGRB_%c(%s)\n", simple_adrmode(av->x.adrmode), output_arg(av));
-    else
+    else                          /* word param -> A:X */
         print("\tARGRW_%c(%s)\n", simple_adrmode(av->x.adrmode), output_arg(av));
 }
 

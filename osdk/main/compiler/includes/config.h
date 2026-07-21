@@ -52,12 +52,13 @@ typedef struct {
 				   reads the source memory and writes the result temp
 				   directly (its INDIR operand is marked inplace to
 				   suppress its load). Survives tmpalloc. */
-	char	fastreg;	/* __fastcall register arg. On an ARG node: nonzero =
-				   this arg is register-passed (1 + start byte index:
-				   1=A, 2=X, 3=Y); its own emit is suppressed and the
-				   value is loaded at the CALL after save_busy. On a
-				   CALL node: nonzero = calls a __fastcall function.
-				   Set by mark_fastcall_args; survives tmpalloc. */
+	char	fastreg;	/* __fastcall register arg. On an ARG node: 1 = word
+				   arg (A:X low:high), 2 = byte arg (A only) - width
+				   taken from the callee prototype, not the promoted
+				   arg. Its own emit is suppressed; the value is loaded
+				   at the CALL after save_busy. On a CALL node: nonzero
+				   = calls a __fastcall function. Set by
+				   mark_fastcall_args; survives tmpalloc. */
 	Node	fastargs;	/* __fastcall CALL: the (v1 single) fastcall ARG node
 				   whose value is loaded into A/X/Y just before the
 				   jsr, or 0 for a 0-argument fastcall. */

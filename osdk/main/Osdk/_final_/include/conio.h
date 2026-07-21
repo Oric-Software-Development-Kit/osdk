@@ -13,7 +13,7 @@
  (e.g. the ISS MOS6502 compiler benchmark). _puts does NOT append the
  trailing newline that the standard puts() adds. Implemented in lib/conio.s.
 */
-void _putc(char c);
+__fastcall void _putc(char c);		/* char in A (see lib/gpchar.s) */
 __fastcall void _puts(const char* s);	/* string pointer in A:X (see lib/conio.s) */
 
 /* line-ending constants used by portable console code */

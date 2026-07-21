@@ -9,7 +9,7 @@
 
 /* Print a character on the screen */
 
-extern void putchar(char c);
+extern __fastcall void putchar(char c);
 
 /* Get a character from the keyboard (and echo it) */
 /* Note: there's no keyboard buffer for this routine, it waits until the

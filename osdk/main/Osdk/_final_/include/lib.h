@@ -4,7 +4,7 @@ void exit(int retval);
 
 #ifndef _STDIO_
 int getchar(void);
-int putchar(char c);
+__fastcall int putchar(char c);
 int printf(const char *format,...);
 #endif
 char *itoa(int n);
