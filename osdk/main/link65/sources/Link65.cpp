@@ -76,6 +76,23 @@ public:
   int			    m_SortPriority = 0;  ///< 1 for file given in command line or 0 for files given from lib file index, 2 for tail. It's used for sort...
 };
 
+// A removable code span delimited by ";@function NAME" ... ";@endfunction"
+// (annotation-driven dead-code stripping; see
+// docs/linker-deadcode-annotations-brief.md §12). Only marked spans are ever
+// strip candidates; unmarked text is always kept and always a reachability root.
+struct Span
+{
+  std::string           m_Name;                  ///< NAME from @function (canonical entry label)
+  std::string           m_File;                  ///< file the span lives in (as linked/emitted)
+  int                   m_StartLine = 0;         ///< 1-based line of the @function marker
+  int                   m_EndLine   = 0;         ///< 1-based line of the @endfunction marker (0 = unclosed -> never stripped)
+  bool                  m_Keep      = false;     ///< @keep on the @function line -> always live
+  bool                  m_Live      = false;     ///< set by the mark-sweep
+  std::set<std::string> m_DefinedLabels;
+  std::set<std::string> m_ReferencedLabels;
+  std::string           m_LastMnemonic;          ///< last instruction seen in the span (terminator lint)
+};
+
 
 
 const char* gLabelPattern=" *+-&;:\\\n/\t,()";
@@ -93,8 +110,14 @@ public:
 
   int Main();
 
-  bool ParseFile(const std::string& filename, const std::vector<std::string>& searchPaths);
+  bool ParseFile(const std::string& filename, const std::vector<std::string>& searchPaths, bool trackSpans = false);
   LabelState Parseline(char* inpline, bool parseIncludeFiles);
+
+  // Annotation-driven dead-code stripping (see the design brief).
+  int  DetectRegionMarker(const std::string& rawLine, std::string& outName, bool& outKeep) const; // 0=none 1=@function 2=@endfunction
+  static bool CommentHasKeep(const std::string& rawLine);
+  void AnalyzeDeadCode();
+  bool IsLineStripped(const std::string& file, int lineNo) const;
 
   bool LoadLibrary(const std::string& path_library_files);
   void LoadLibraries();
@@ -140,6 +163,14 @@ public:
   std::vector<LabelEntry>			m_LibraryReferencesList;
   std::vector<ReferencedLabelEntry>	m_ReferencedLabelsList;
   std::set<std::string>			m_DefinedLabelsList;
+
+  // Dead-code stripping state (annotation-driven; see the design brief).
+  bool                            m_FlagNoStrip = false;      ///< -k disables the pass (belt-and-suspenders)
+  std::vector<Span>               m_Spans;                    ///< every @function span across all emitted files
+  int                             m_CurrentSpanIndex = -1;    ///< span being parsed, or -1 = unmarked
+  std::set<std::string>           m_UnmarkedRefs;             ///< labels referenced from unmarked code (roots)
+  std::set<std::string>           m_KeepSymbols;              ///< labels tagged @keep on their definition line (roots)
+  std::map<std::string, int>      m_LabelToSpan;              ///< label defined inside a span -> span index
 };
 
 
@@ -505,7 +536,133 @@ LabelState Linker::Parseline(char* inpline,bool parseIncludeFiles)
 
 
 
-bool Linker::ParseFile(const std::string& filename, const std::vector<std::string>& searchPaths)
+// Detect a region marker on a RAW source line (markers live in comments, so
+// this must run before FilterLine strips them). Implements REGION_START /
+// REGION_END from the design brief §12:
+//   REGION_START = /^\s*(?:;|\/\/)\s*@function\b\s+([A-Za-z_]\w*)\s*(@keep\b)?\s*$/
+//   REGION_END   = /^\s*(?:;|\/\/)\s*@endfunction\b\s*$/
+// Returns 0 = none, 1 = @function (fills outName/outKeep), 2 = @endfunction.
+int Linker::DetectRegionMarker(const std::string& rawLine, std::string& outName, bool& outKeep) const
+{
+  const char* p = rawLine.c_str();
+  while (*p == ' ' || *p == '\t') p++;
+  if      (*p == ';')                 p += 1;   // asm comment
+  else if (p[0] == '/' && p[1] == '/') p += 2;  // C++ comment
+  else return 0;
+  while (*p == ' ' || *p == '\t') p++;
+  if (*p != '@') return 0;
+  p++;
+  const char* kw = p;
+  while (isalpha((unsigned char)*p)) p++;
+  std::string keyword(kw, p - kw);
+
+  if (keyword == "endfunction")
+  {
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    return (*p == '\0') ? 2 : 0;   // must stand alone on its line
+  }
+  if (keyword == "function")
+  {
+    while (*p == ' ' || *p == '\t') p++;
+    if (!(isalpha((unsigned char)*p) || *p == '_')) return 0;   // NAME required
+    const char* n = p;
+    p++;
+    while (isalnum((unsigned char)*p) || *p == '_') p++;
+    outName.assign(n, p - n);
+    while (*p == ' ' || *p == '\t') p++;
+    outKeep = false;
+    if (p[0] == '@' && !strncmp(p + 1, "keep", 4) &&
+        !(isalnum((unsigned char)p[5]) || p[5] == '_'))         // the only blessed 2-tags case
+    {
+      outKeep = true;
+      p += 5;
+    }
+    while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+    return (*p == '\0') ? 1 : 0;   // trailing junk -> not a valid marker
+  }
+  return 0;
+}
+
+// KEEP_POINT: a label-defining line carrying "@keep" (word-bounded) in its
+// comment marks that symbol as a reachability root.
+bool Linker::CommentHasKeep(const std::string& rawLine)
+{
+  size_t pos = rawLine.find("@keep");
+  while (pos != std::string::npos)
+  {
+    char after = (pos + 5 < rawLine.size()) ? rawLine[pos + 5] : '\0';
+    if (!(isalnum((unsigned char)after) || after == '_'))
+      return true;
+    pos = rawLine.find("@keep", pos + 5);
+  }
+  return false;
+}
+
+// Mark-sweep reachability over the annotated spans. Roots = every @keep span,
+// every span defining a label referenced by unmarked code, and every span
+// defining a @keep symbol. Unmarked code is always live (its refs are roots).
+void Linker::AnalyzeDeadCode()
+{
+  if (m_FlagNoStrip || m_Spans.empty())
+    return;
+
+  std::vector<int> work;
+  auto markLive = [&](int idx)
+  {
+    if (idx >= 0 && !m_Spans[idx].m_Live)
+    {
+      m_Spans[idx].m_Live = true;
+      work.push_back(idx);
+    }
+  };
+
+  for (size_t i = 0; i < m_Spans.size(); i++)
+    if (m_Spans[i].m_Keep)
+      markLive((int)i);
+  for (const auto& r : m_UnmarkedRefs)
+  {
+    auto it = m_LabelToSpan.find(r);
+    if (it != m_LabelToSpan.end()) markLive(it->second);
+  }
+  for (const auto& s : m_KeepSymbols)
+  {
+    auto it = m_LabelToSpan.find(s);
+    if (it != m_LabelToSpan.end()) markLive(it->second);
+  }
+  while (!work.empty())
+  {
+    int s = work.back();
+    work.pop_back();
+    for (const auto& r : m_Spans[s].m_ReferencedLabels)
+    {
+      auto it = m_LabelToSpan.find(r);
+      if (it != m_LabelToSpan.end()) markLive(it->second);
+    }
+  }
+
+  if (!m_FlagQuiet)
+  {
+    int dead = 0;
+    for (const auto& sp : m_Spans)
+      if (!sp.m_Live && sp.m_EndLine > 0) dead++;
+    if (dead)
+      printf("Link65: dead-code stripping removed %d of %d annotated function(s)\n", dead, (int)m_Spans.size());
+  }
+}
+
+// Is this (file,line) inside a dead, properly-closed span?
+bool Linker::IsLineStripped(const std::string& file, int lineNo) const
+{
+  if (m_FlagNoStrip)
+    return false;
+  for (const auto& sp : m_Spans)
+    if (!sp.m_Live && sp.m_EndLine > 0 && sp.m_File == file &&
+        lineNo >= sp.m_StartLine && lineNo <= sp.m_EndLine)
+      return true;
+  return false;
+}
+
+bool Linker::ParseFile(const std::string& filename, const std::vector<std::string>& searchPaths, bool trackSpans)
 {
   std::vector<std::string> textData;
   for (const auto& path : searchPaths)
@@ -538,12 +695,55 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
   int conditionalNestingLevel = 0;  // Track #ifdef/#ifndef/#if nesting depth
   bool insideDefineBody = false;    // Track multi-line #define continuation
   int line_number = 0;
+  int savedSpanIndex = m_CurrentSpanIndex;
+  if (trackSpans)
+    m_CurrentSpanIndex = -1;          // each emitted file starts outside any span
   for (const std::string& currentLine : textData)
   {
     //  Get line file and parse it
     ++line_number;
     m_CurrentFileName = filename;       // Reset every iteration: recursive ParseFile calls from #include overwrite these
     m_CurrentLineNumber = line_number;
+
+    // Region markers (@function/@endfunction) live in comments, so they must be
+    // detected on the RAW line before FilterLine strips the comment. Only for
+    // emitted files (trackSpans); #include recursion leaves span state untouched.
+    if (trackSpans)
+    {
+      std::string spanName; bool spanKeep = false;
+      int marker = DetectRegionMarker(currentLine, spanName, spanKeep);
+      if (marker == 1)   // @function NAME
+      {
+        if (m_CurrentSpanIndex >= 0)
+          printf("Warning: nested @function in %s(%d)\n", filename.c_str(), line_number);
+        Span sp;
+        sp.m_Name = spanName; sp.m_File = filename;
+        sp.m_StartLine = line_number; sp.m_Keep = spanKeep;
+        m_Spans.push_back(sp);
+        m_CurrentSpanIndex = (int)m_Spans.size() - 1;
+        continue;
+      }
+      if (marker == 2)   // @endfunction
+      {
+        if (m_CurrentSpanIndex >= 0)
+        {
+          Span& sp = m_Spans[m_CurrentSpanIndex];
+          sp.m_EndLine = line_number;
+          if (!sp.m_Name.empty() && !sp.m_DefinedLabels.count(sp.m_Name))
+            printf("Warning: @function %s (%s:%d) defines no label '%s' inside the span\n",
+                   sp.m_Name.c_str(), filename.c_str(), sp.m_StartLine, sp.m_Name.c_str());
+          if (sp.m_LastMnemonic != "rts" && sp.m_LastMnemonic != "rti" &&
+              sp.m_LastMnemonic != "jmp" && sp.m_LastMnemonic != "bra")
+            printf("Warning: @function %s (%s:%d) does not end in a terminator (last: '%s') - possible fall-through\n",
+                   sp.m_Name.c_str(), filename.c_str(), sp.m_StartLine,
+                   sp.m_LastMnemonic.empty() ? "?" : sp.m_LastMnemonic.c_str());
+          m_CurrentSpanIndex = -1;
+        }
+        else
+          printf("Warning: stray @endfunction in %s(%d)\n", filename.c_str(), line_number);
+        continue;
+      }
+    }
 
     // test
 #if 0
@@ -555,6 +755,23 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
 
     FilterLine(currentLine, true/*false*/);  // removing quoted strings unfortunately fails on #include...
     std::string filteredLine = m_FilteredLine;
+
+    // Terminator lint: remember the last instruction mnemonic seen in the span
+    // (an indented alphabetic token). Checked at @endfunction.
+    if (trackSpans && m_CurrentSpanIndex >= 0)
+    {
+      const char* q = filteredLine.c_str();
+      bool startedWithWs = (*q == ' ' || *q == '\t');
+      while (*q == ' ' || *q == '\t') q++;
+      if (startedWithWs && isalpha((unsigned char)*q))
+      {
+        const char* mn = q;
+        while (isalpha((unsigned char)*q)) q++;
+        std::string mnem(mn, q - mn);
+        for (auto& c : mnem) c = (char)tolower((unsigned char)c);
+        m_Spans[m_CurrentSpanIndex].m_LastMnemonic = mnem;
+      }
+    }
 
     // Handle #define body continuation lines: skip entirely (they contain macro body
     // text with instruction mnemonics that would cause false label references)
@@ -678,10 +895,42 @@ bool Linker::ParseFile(const std::string& filename, const std::vector<std::strin
           AddReferencedLabel(foundLabel, filename, line_number);
       }
 
+      // Attribute the label to the current span for the dead-code analysis.
+      // Deliberately independent of conditionalNestingLevel: keeping a span
+      // alive on an uncertain reference is safe; stripping a needed one is not.
+      if (trackSpans && !foundLabel.empty())
+      {
+        if (state == e_NewLabel)
+        {
+          if (m_CurrentSpanIndex >= 0)
+          {
+            m_Spans[m_CurrentSpanIndex].m_DefinedLabels.insert(foundLabel);
+            m_LabelToSpan[foundLabel] = m_CurrentSpanIndex;
+          }
+          if (CommentHasKeep(currentLine))
+            m_KeepSymbols.insert(foundLabel);
+        }
+        else if (state == e_LabelReference)
+        {
+          if (m_CurrentSpanIndex >= 0)
+            m_Spans[m_CurrentSpanIndex].m_ReferencedLabels.insert(foundLabel);
+          else
+            m_UnmarkedRefs.insert(foundLabel);
+        }
+      }
+
       if (isDefineLine)
         break;  // Don't parse the macro body (after the colon) as code
     }
 
+  }
+
+  if (trackSpans)
+  {
+    if (m_CurrentSpanIndex >= 0)
+      printf("Warning: unclosed @function %s in %s (missing @endfunction) - span not strippable\n",
+             m_Spans[m_CurrentSpanIndex].m_Name.c_str(), filename.c_str());
+    m_CurrentSpanIndex = savedSpanIndex;
   }
 
   return true;
@@ -1007,6 +1256,12 @@ int Linker::Main()
       m_FlagEnableFileDirective=true;
     }
     else
+    if (IsSwitch("-k") || IsSwitch("-K"))
+    {
+      // Disable annotation-driven dead-code stripping (keep every span).
+      m_FlagNoStrip=true;
+    }
+    else
     if (IsParameter())
     {
       // Not a switch
@@ -1108,7 +1363,7 @@ int Linker::Main()
       k=1;
     }
 
-    ParseFile(m_InputFileList[k].m_FileName, {""});
+    ParseFile(m_InputFileList[k].m_FileName, {""}, true);
 
     //
     // Check if used labels are defined inside the files
@@ -1209,6 +1464,8 @@ int Linker::Main()
     ShowError("Errors durink link.\n");
   }
 
+  // Reachability analysis: decide which annotated @function spans are dead.
+  AnalyzeDeadCode();
 
   // Combine all files in list in a nice big juicy go.s or file selected
   FILE *gofile=fopen(m_OutputFileName.c_str(),"wb");
@@ -1284,9 +1541,18 @@ int Linker::Main()
     }
 
     m_FlagInCommentBloc = false;
+    int emitLineNo = 0;
     for (const std::string& currentLine : textData)
     {
       //  Get line file and parse it
+      ++emitLineNo;
+
+      // Dead-code stripping: drop lines that fall inside a dead @function span
+      // (the marker comments and everything between them). Line numbering
+      // matches the parse pass (same file, same LoadText).
+      if (IsLineStripped(inputFile.m_FileName, emitLineNo))
+        continue;
+
       if (m_FlagKeepComments)
       {
         fprintf(gofile,"%s\r\n",currentLine.c_str());
@@ -1340,6 +1606,7 @@ int main(int argc, char* argv[])
       "  -q : Quiet mode.\r\n"
       "  -b : Bare linking (don't include header and tail).\r\n"
       "  -f : Insert #file directives (require expanded XA assembler).\r\n"
+      "  -k : Disable dead-code stripping (keep every @function span).\r\n"
       "  -cn: Defines if comments should be kept (-c1) or removed (-c0) [Default]. \r\n"
       "  -r : Language replacement tag: only #pragma osdk replace_characters_if matching\r\n"
       "       this tag will be applied. e.g : link65 -r LANGUAGE_FR intro_text.s\r\n"

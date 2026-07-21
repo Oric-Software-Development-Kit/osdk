@@ -1,3 +1,4 @@
+; @function _getchar
 ;
 ; input char from keyboard
 ;
@@ -8,7 +9,9 @@ _getchar
 	jsr $0238	; echo char
 	lda #0
 	rts
+; @endfunction
 
+; @function _putchar
 ;
 ; putchar(c) - also the conio _putc(c): identical (both output one char with
 ; the same LF handling), so __putc is a zero-cost alias here rather than a
@@ -28,8 +31,10 @@ putchar
 putchar2
     tax
 	jmp $0238
+; @endfunction
 
 
+; @function _puts
 ;
 ; puts(char *string)
 ;
@@ -52,7 +57,9 @@ putsloop
 endputs
 	lda #$0A
 	jmp putchar
+; @endfunction
 
+; @function _gets
 ;
 ; gets(char buf[])
 ;
@@ -95,3 +102,4 @@ endgets
 	ldx tmp
 	lda tmp+1
 	rts
+; @endfunction
