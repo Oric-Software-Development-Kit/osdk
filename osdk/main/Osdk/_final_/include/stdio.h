@@ -15,7 +15,7 @@ extern void putchar(char c);
 /* Note: there's no keyboard buffer for this routine, it waits until the
         user emits an ascii char */
 
-extern int getchar(void);
+extern __fastcall int getchar(void);
 
 /* Print a string on the screen */
 /* This is the prefered way for outputting a message to the screen, the

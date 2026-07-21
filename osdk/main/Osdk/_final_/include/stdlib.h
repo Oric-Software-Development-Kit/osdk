@@ -47,8 +47,8 @@ extern int atoi(const char *s);
 
 #define RAND_MAX 32767
 
-int rand(void);
-int random(void);    /* rand and random are the same function */
+__fastcall int rand(void);
+__fastcall int random(void);    /* rand and random are the same function */
 
 int srandom(int seed); /* initialize the random generator */
 

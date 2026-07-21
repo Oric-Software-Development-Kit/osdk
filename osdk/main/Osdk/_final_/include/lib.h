@@ -55,19 +55,19 @@ int play(int soundchanels,int noisechanels,int envelop,int volume);
 int music(int chanel,int octave,int key,int volume);
 int sound(int chanel,int period,int volume);
 void w8912(unsigned char reg,unsigned char value);
-char key(void);
+__fastcall char key(void);
 char is_overlay_enabled();
 
 
 /* Stuff added by Alexios Chouchoulas */
 
-void cls();
-void lores0(void);
-void lores1(void);
+__fastcall void cls(void);
+__fastcall void lores0(void);
+__fastcall void lores1(void);
 void gotoxy(int x, int y); /* move the cursor: broken for the moment */
-int  get(void);			   /* get character without echoing */
+__fastcall int  get(void);			   /* get character without echoing */
 void cwrite(char c);			  /* write a byte to 'tape' */
-int  cread();				 /* read a byte from 'tape' */
+__fastcall int  cread(void);				 /* read a byte from 'tape' */
 void cwritehdr();		     /* write a file header to tape */
 void call(int addr);		     /* call a machine code routine */
 

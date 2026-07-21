@@ -1441,10 +1441,13 @@ static void emitdag0(Node p) {
         case CALLI:
             save_busy(p);
             emit_fastarg_load(p);
-            print("\tCALLI(%s,%d,%s)\n"
-                    ,output_arg(a)
-                    ,p->x.argoffset
-                    ,output_arg(p));
+            if (p->x.fastreg)
+                print("\tCALLWF_CD(%s,%s)\n" ,output_arg(a) ,output_arg(p));
+            else
+                print("\tCALLI(%s,%d,%s)\n"
+                        ,output_arg(a)
+                        ,p->x.argoffset
+                        ,output_arg(p));
             restore_busy(p);
             break;
         case EQD:     compare("EQD" ); break;
@@ -1828,13 +1831,19 @@ static void emitdag(Node p) {
         case CALLI:
             save_busy(p);
             emit_fastarg_load(p);         /* __fastcall arg into A/A:X, after the A-clobbering saves */
-            print("\tCALL%s_%c%c(%s,%d,%s)\n"
-                    ,p->x.width==4 ? "L" : "W"
-                    ,simple_adrmode(a->x.adrmode)
-                    ,simple_adrmode(p->x.adrmode)
-                    ,output_arg(a)
-                    ,p->x.argoffset
-                    ,output_arg(p));
+            if (p->x.fastreg && p->x.width!=4 && simple_adrmode(a->x.adrmode)=='C')
+                print("\tCALLWF_C%c(%s,%s)\n"   /* register args -> plain jsr, no ldy #size */
+                        ,simple_adrmode(p->x.adrmode)
+                        ,output_arg(a)
+                        ,output_arg(p));
+            else
+                print("\tCALL%s_%c%c(%s,%d,%s)\n"
+                        ,p->x.width==4 ? "L" : "W"
+                        ,simple_adrmode(a->x.adrmode)
+                        ,simple_adrmode(p->x.adrmode)
+                        ,output_arg(a)
+                        ,p->x.argoffset
+                        ,output_arg(p));
             restore_busy(p);
             break;
         case EQD:   case EQF:             compare("EQF" ); break;

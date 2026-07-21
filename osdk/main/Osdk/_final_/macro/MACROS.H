@@ -5786,6 +5786,20 @@ call :\
  stx tmp :\
  sta tmp+1 :\
 
+; __fastcall word-returning call: register args, no stack frame -> no ldy #size.
+#define CALLWF_CD(adr,tmp)\
+ jsr adr :\
+ stx tmp :\
+ sta tmp+1 :\
+
+#define CALLWF_CY(adr,ptr,y2)\
+ jsr adr :\
+ ldy #y2+1 :\
+ sta ptr,y :\
+ dey :\
+ txa :\
+ sta ptr,y :\
+
 #define CALLW_DD(tmp1,size,tmp)\
  CALLV_D(tmp1,size) \
  stx tmp :\

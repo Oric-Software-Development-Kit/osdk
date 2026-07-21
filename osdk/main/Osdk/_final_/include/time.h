@@ -24,5 +24,5 @@ typedef unsigned clock_t;
 		printf("duration : %fs\n", (double)( TIME1-TIME0 ) / CLOCKS_PER_SEC);
 */
 
-clock_t clock();
+__fastcall clock_t clock(void);
 #endif /* _TIME_ */
