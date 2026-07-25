@@ -4,8 +4,8 @@ __fastcall void exit(int retval);
 
 #ifndef _STDIO_
 __fastcall int getchar(void);
-__fastcall int putchar(char c);
-int printf(const char *format,...);
+__fastcall void putchar(char c);	/* impl tail-calls ROM; returns nothing */
+void printf(const char *format,...);	/* impl returns no count -> void */
 #endif
 char *itoa(int n);
 
