@@ -150,6 +150,124 @@ static void fixup(Node p) {
 		}
 }
 
+/* ---- dead-local elimination ---------------------------------------------
+   A source auto local that is written but never read still forces a stack
+   slot (and, if it is the only such thing, a whole ENTER/LEAVE frame) for
+   nothing. This single pass over the just-built function code list finds such
+   a local, drops its statement-root stores while keeping any side effects of
+   the right-hand side (a call, etc.), and marks it so gencode's local() gate
+   never gives it a frame slot. See docs/dead-local-elimination-brief.md. */
+
+extern int codegen_optlevel(void);
+
+/* dl_candidate - is s a local we may consider for elimination? Integer /
+   pointer / enum scalars only: no aggregates or address-taken locals (their
+   address escapes), no floats (special temp/frame allocation), no volatile
+   (observable), no compiler temporaries, no parameters. */
+static int dl_candidate(Symbol s) {
+	Type ty;
+	if (s == 0 || s->sclass != AUTO || s->temporary || s->addressed)
+		return 0;
+	ty = s->type;
+	if (ty == 0 || !isscalar(ty) || isfloat(ty) || isvolatile(ty))
+		return 0;
+	return 1;
+}
+
+/* dl_scan - walk a dag, disqualifying any candidate local used as anything
+   other than the target of a droppable root store. ADDRL is hash-consed, so
+   one ADDRL(L) object is shared by every read and write of L; classify by the
+   parent context. Dedup via x.visited (cleared afterwards by dl_clear). */
+static void dl_scan(Node n) {
+	int i;
+	if (n == 0 || n->x.visited)
+		return;
+	n->x.visited = 1;
+	for (i = 0; i < 2; i++) {
+		Node k = n->kids[i];
+		if (k && generic(k->op) == ADDRL && k->syms[0] && k->syms[0]->deadlocal
+		&&  !(generic(n->op) == ASGN && i == 0 && n->count == 0))
+			k->syms[0]->deadlocal = 0;	/* a read or any other live use */
+	}
+	dl_scan(n->kids[0]);
+	dl_scan(n->kids[1]);
+}
+
+/* dl_clear - undo dl_scan's x.visited marks (fixup/linearize reuse the bit) */
+static void dl_clear(Node n) {
+	if (n == 0 || !n->x.visited)
+		return;
+	n->x.visited = 0;
+	dl_clear(n->kids[0]);
+	dl_clear(n->kids[1]);
+}
+
+/* dl_store_target - the dead local written by a droppable root store, or 0.
+   Droppable = a statement-root ASGN whose own result is unused (count==0)
+   storing into a still-dead candidate local. */
+static Symbol dl_store_target(Node r) {
+	Node t;
+	if (r && generic(r->op) == ASGN && r->count == 0
+	&&  (t = r->kids[0]) != 0 && generic(t->op) == ADDRL
+	&&  t->syms[0] && t->syms[0]->deadlocal)
+		return t->syms[0];
+	return 0;
+}
+
+static void eliminate_dead_locals(void) {
+	Code cp, next;
+	Symbol *sp;
+	Node r;
+
+	if (codegen_optlevel() < 1 || glevel)
+		return;	/* leave O0 and debug (-g) builds byte-for-byte unchanged */
+
+	/* 1. mark every source auto scalar local as a dead candidate */
+	for (cp = codehead.next; cp; cp = cp->next)
+		if (cp->kind == Blockbeg) {
+			for (sp = cp->u.block.locals; *sp; sp++)
+				if (dl_candidate(*sp))
+					(*sp)->deadlocal = 1;
+		} else if (cp->kind == Local && dl_candidate(cp->u.var))
+			cp->u.var->deadlocal = 1;
+
+	/* 2. any read/address use of a candidate clears its flag. A local used
+	   as the base of a computed address (its offset arithmetic reads its
+	   frame name) must keep its slot even though no ADDRL(L) appears. */
+	for (cp = codehead.next; cp; cp = cp->next)
+		if (cp->kind == Gen || cp->kind == Jump || cp->kind == Label) {
+			for (r = cp->u.node; r; r = r->link)
+				dl_scan(r);
+			for (r = cp->u.node; r; r = r->link)
+				dl_clear(r);
+		} else if (cp->kind == Address && cp->u.addr.base)
+			cp->u.addr.base->deadlocal = 0;
+
+	/* 3. drop the (root) stores of the survivors, keeping RHS side effects */
+	for (cp = codehead.next; cp; cp = next) {
+		next = cp->next;
+		if (cp->kind == Gen) {
+			Node *pp = &cp->u.node;
+			while (*pp) {
+				r = *pp;
+				if (dl_store_target(r)) {
+					if (r->kids[1])
+						r->kids[1]->count--;	/* rhs loses its ASGN
+							parent; a lone CALL now needtmp()s to CALLV */
+					*pp = r->link;			/* unlink the store */
+				} else
+					pp = &r->link;
+			}
+			/* gen()/emit() are not null-safe: splice an emptied code node */
+			if (cp->u.node == 0) {
+				cp->prev->next = cp->next;
+				if (cp->next)
+					cp->next->prev = cp->prev;
+			}
+		}
+	}
+}
+
 /* gencode - generate code for the current function */
 void gencode(Symbol caller[], Symbol callee[]) {
 	int i;
@@ -174,6 +292,7 @@ void gencode(Symbol caller[], Symbol callee[]) {
 		}
 	codelist->next = cp;
 	cp->prev = codelist;
+	eliminate_dead_locals();
 	for (bp = 0, cp = &codehead; errcnt <= 0 && cp; cp = cp->next)
 		switch (cp->kind) {
 		case Start: case Asm: case Switch:
@@ -187,7 +306,8 @@ void gencode(Symbol caller[], Symbol callee[]) {
 			bp = cp;
 			blockbeg(&bp->u.block.x);
 			for ( ; *p; p++)
-				if ((*p)->ref > 0 || (*p)->initialized || glevel)
+				if (((*p)->ref > 0 || (*p)->initialized || glevel)
+				&&  !(*p)->deadlocal)
 					local(*p);
 			break;
 			}
@@ -197,7 +317,8 @@ void gencode(Symbol caller[], Symbol callee[]) {
 			break;
 		case Local:
 			assert(cp->u.var->scope == bp->u.block.level);
-			local(cp->u.var);
+			if (!cp->u.var->deadlocal)
+				local(cp->u.var);
 			break;
 		case Address:
 			address(cp->u.addr.sym, cp->u.addr.base, cp->u.addr.offset);

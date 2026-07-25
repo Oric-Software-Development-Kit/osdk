@@ -1,7 +1,10 @@
 # Dead-Local Elimination — Design Brief
 
-**Status:** COMPLETE & READY TO IMPLEMENT — grounded in a front/back-end feasibility map (2026-07-21).
-Verdict: tractable, one new pass in gencode(), no dataflow framework needed.
+**Status:** SHIPPED (2026-07-25) — implemented as `eliminate_dead_locals()` in `dag.c`, one
+pass at the top of `gencode()`, gated on `optimizelevel>0 && !glevel`. Test: `t_deadlocal.c`
+(8 checks, green O1/O2/O3). Byte-identical output verified for functions with no eliminable
+dead local. Grounded in a front/back-end feasibility map (2026-07-21); one new pass, no
+dataflow framework needed.
 **Author:** OSDK-Claude · **Date:** 2026-07-21
 **Motivation:** the biggest remaining *size* lever for real programs — the `enter`/`leave` frame
 overhead Mike flagged repeatedly (the `char a = getchar()` case).

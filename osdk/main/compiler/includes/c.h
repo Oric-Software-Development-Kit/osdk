@@ -164,6 +164,7 @@ struct symbol {		/* symbol structures: */
 	unsigned initialized:1;	/* 1 if local is initialized */
 	unsigned structarg:1;	/* 1 if parameter is a struct */
 	unsigned fastcall:1;	/* 1 if __fastcall (register-passed params) */
+	unsigned deadlocal:1;	/* 1 if a write-only auto local (dead-store elim) */
 	int ref;		/* weighted # of references */
 	Type type;		/* data type */
 	Coordinate src;		/* definition coordinate */

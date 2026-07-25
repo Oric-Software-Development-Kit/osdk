@@ -442,6 +442,9 @@ void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     if (graph_output) printf("}\n");
 }
 
+/* codegen_optlevel - current -On level, for dead-local elimination (dag.c) */
+int codegen_optlevel(void) { return optimizelevel; }
+
 void local(Symbol p) {
     if (optimizelevel>1 && p->sclass==REGISTER && allocreg(p))
         return; /* allocreg ok */
