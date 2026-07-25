@@ -27,6 +27,14 @@ void defglobal(Symbol p, int seg) {
 	if (glevel && level == GLOBAL) {
 		stabsym(p);
 		swtoseg(p->u.seg);
+		/* Attribute this global to its C source location so the extended
+		   symbol export maps it to the .c file, not the throw-away %OSDKT%
+		   intermediate the assembler physically read. Functions register
+		   their source via .csource in the prologue; a data-only translation
+		   unit emits no code, so without this its globals carry no source at
+		   all and the exporter falls back to the temp file name. */
+		if (p->src.file)
+			print(".csource \"%s\" %d\n", p->src.file, p->src.y);
 	}
 	global(p);
 }
