@@ -120,7 +120,10 @@ SET TEMP=%OSDKT%
 SET OCC=%OSDK%
 SET LCC65=%OSDK%
 SET LCC65DIR=%OSDK%
-SET OSDKVERSION=1.24
+:: Read the OSDK version from version.txt at the OSDK root (major.minor). Falls back to
+:: "unknown" on a very old layout that predates the file. SET /P reads the first line.
+SET OSDKVERSION=unknown
+IF EXIST "%OSDK%\version.txt" SET /P OSDKVERSION=<"%OSDK%\version.txt"
 
 ::
 :: Create a build directory if it does not exist
