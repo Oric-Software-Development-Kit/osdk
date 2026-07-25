@@ -501,14 +501,14 @@ bool Floppy::WriteSector(const char *fileName)
         compute_crc((unsigned char*)m_Buffer+sectorOffset-4,4+256);           // Compute the CRC of [A1 A1 A1|FB|TRACK DATA...]
       }
       MarkCurrentSectorUsed();
-      printf("Boot sector '%s' installed, %u free bytes remaining in this sector.\n",filteredFileName.c_str(),(unsigned int)(256-bufferSize));
+      printf("Sector '%s' written, %u free bytes remaining in this sector.\n",filteredFileName.c_str(),(unsigned int)(256-bufferSize));
 
       isOk=MoveToNextSector();
       free(buffer);
     }
     else
     {
-      ShowError("Boot Sector file '%s' not found",filteredFileName.c_str());
+      ShowError("Sector file '%s' not found",filteredFileName.c_str());
     }
   }
   return isOk;
@@ -880,7 +880,9 @@ void Floppy::MarkCurrentSectorUsed()
   int magicValue=(m_SectorCount*m_CurrentTrack)+m_CurrentSector;
   if (m_SectorUsageMap.find(magicValue)!=m_SectorUsageMap.end())
   {
-    ShowError("Sector %d was already allocated",magicValue);
+#if 1 // TEST SEDORIC COMPATIBLE
+    ShowError("Sector %d (track %d, sector %d) was already allocated",magicValue, m_CurrentTrack, m_CurrentSector);
+#endif
   }
   m_SectorUsageMap.insert(magicValue);
 }
