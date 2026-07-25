@@ -3,11 +3,6 @@
 
  .text
 
-; TODO: the sentinel should only exist in a debug configuration, but the
-; OSDK has no debug/release management yet.
-osdk_check
-	.asc "Dbug"
-
 osdk_text_end
 
 ;
@@ -36,6 +31,5 @@ osdk_end
  .text
 
 osdk_end
-;.byt $FF
 
 #endif OSDK_CUSTOM_STACK
