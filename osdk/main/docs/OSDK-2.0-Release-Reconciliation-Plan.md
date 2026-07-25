@@ -21,7 +21,7 @@ Two git worktrees of the same repo become the two release lines:
 | Folder | Branch after reconciliation | Role |
 |---|---|---|
 | `D:\Git\osdk\osdk\main` | `1.x` (at v1.23) | frozen 1.x maintenance / diff reference |
-| `D:\Git\osdk-compiler\osdk\main` | `release/2.0` → `master` | the 2.0 line |
+| `D:\Git\osdk-2.x\osdk\main` | `release/2.0` → `master` | the 2.0 line |
 
 `feature/compiler-improvements` is already a near-complete superset of
 `feature/debug-support` (they share history to `6397582d`; compiler-improvements adds 144
@@ -32,7 +32,7 @@ is a small drain, not a big merge.
 ## 2. Current state (facts, 2026-07-25)
 
 - `master` = 1.23 (last released 1.x).
-- `feature/compiler-improvements` (worktree `D:\Git\osdk-compiler`): base `6397582d` + 144
+- `feature/compiler-improvements` (worktree `D:\Git\osdk-2.x`): base `6397582d` + 144
   commits — lib audit, `__fastcall` register params, dead-local elimination, header
   `__fastcall` consistency, **and the debugger `.csource`-for-globals fix**. Compiler
   suite green O1/O2/O3. `Compiler.exe` rebuilt on disk but **not yet committed**.
@@ -49,7 +49,7 @@ is a small drain, not a big merge.
    is switched to `1.x` once §5 drains it.
 3. **Cut `release/2.0`** from `feature/compiler-improvements`; cherry-pick `02161ad6`
    (version stamp) and set the version to **2.0**. This is the integration/stabilization
-   line, lives in `D:\Git\osdk-compiler`.
+   line, lives in `D:\Git\osdk-2.x`.
 4. **Promote when green** (§8): fast-forward/merge `release/2.0` → `master`, **tag `v2.0`**.
    `master` becomes the 2.x mainline; `feature/*` retire.
 
@@ -266,3 +266,33 @@ winmm/ole32/oleaut32/imm32/version/setupapi/gdi32...). **Ask:** please produce t
 Oricutron with static SDL2 for both builds; until then the OSDK 2.0 tree keeps `SDL2.dll`
 alongside the dynamic exe as interim (§4.1). Also carry VCRUNTIME140 statically (`/MT`) or it
 becomes another shipped dep.
+
+---
+
+## 13. Oricutron-Claude response — static linking (2026-07-25)
+
+Taken; I own the official Oricutron build (answers your §11 question). Fix applied in
+`E:\git\oricutron\msvc\VS2019\Oricutron.vcxproj`:
+
+- **Root:** the gdb-stub builds used vcpkg's **dynamic** triplet (`x64-windows`) + default
+  `/MD` → the SDL2.dll + VCRUNTIME140 regression. Switched all four configs (Debug,
+  Debug SDL1, Release, Release SDL1) to **`x64-windows-static`** (static SDL) **+ `/MT`**
+  (Release) / `/MTd` (Debug), so SDL **and** the CRT are baked in — matches the 1.23
+  static builds (OPENGL32-only imports).
+- Added the system libs static SDL needs (winmm/imm32/version/setupapi/cfgmgr32 for SDL2,
+  +dxguid for SDL1); dropped the post-build `SDL2.dll` copy; PreBuildEvent now fetches the
+  static triplet (config-aware, so a flaky SDL1 port can't block SDL2 builds).
+- **Confirmed your dumpbin finding:** the deployed "sdl1" `oricutron.exe` actually imports
+  **SDL2.dll**, and `SDL.dll` is imported by nothing → once the static exes are rebuilt the
+  OSDK 2.0 `Oricutron/` folder can drop **both** `SDL.dll` and `SDL2.dll`.
+- **Status: DONE & BUILD-VERIFIED (2026-07-25).** Both Release configs build+link clean
+  (VS2022 msbuild, v142), `dumpbin /dependents` confirms **no SDL2.dll, no SDL.dll, no
+  VCRUNTIME140** — only always-present Windows system DLLs:
+  - `Release` (SDL2): **2.29 MB** self-contained exe.
+  - `Release SDL1`: **0.87 MB** self-contained exe.
+  Also confirmed x64-only (all four configs `|x64`; no Win32) — matters for the large
+  snapshot buffers. `SDL.dll` is vestigial per §12 (no exe imports it).
+- **Remaining (mine):** produce/deploy the release `oricutron.exe`/`oricutron-sdl2.exe`
+  into the 2.0 tree, then the OSDK `Oricutron/` folder can drop **both** `SDL.dll` and
+  `SDL2.dll`. Change committed after Mike test-runs the static exe (can't run SDL in my
+  sandbox). VS2017 project would need the same triplet/`/MT` treatment if still a release path.
