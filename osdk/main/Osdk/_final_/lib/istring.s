@@ -3,6 +3,7 @@
 ;
 ; isalpha(c)
 ;
+; @function _isalpha
 _isalpha
 	tax
 	lda ctype,x
@@ -11,10 +12,12 @@ _isalpha
 	jmp true
 isalpha1
 	jmp false
+; @endfunction
 
 ;
 ; isupper(c)
 ;
+; @function _isupper
 _isupper
 	tax
 	lda ctype,x
@@ -23,12 +26,14 @@ _isupper
 	jmp true
 isupper1
 	jmp false
+; @endfunction
 
 
 
 ;
 ; islower(c)
 ;
+; @function _islower
 _islower
 	tax
 	lda ctype,x
@@ -37,9 +42,11 @@ _islower
 	jmp true
 islower1
 	jmp false
+; @endfunction
 ;
 ; isdigit(c)
 ;
+; @function _isdigit
 _isdigit
 	tax
 	lda ctype,x
@@ -48,9 +55,11 @@ _isdigit
 	jmp true
 isdigit1
 	jmp false
+; @endfunction
 ;
 ; isxdigit(c)
 ;
+; @function _isxdigi
 _isxdigi
 	tax
 	lda ctype,x
@@ -59,9 +68,11 @@ _isxdigi
 	jmp true
 isxdigit1
 	jmp false
+; @endfunction
 ;
 ; isspace(c)
 ;
+; @function _isspace
 _isspace
 	tax
 	lda ctype,x
@@ -70,9 +81,11 @@ _isspace
 	jmp true
 isspace1
 	jmp false
+; @endfunction
 ;
 ; ispunct(c)
 ;
+; @function _ispunct
 _ispunct
 	tax
 	lda ctype,x
@@ -81,9 +94,11 @@ _ispunct
 	jmp true
 ispunct1
 	jmp false
+; @endfunction
 ;
 ; isalnum(c)
 ;
+; @function _isalnum
 _isalnum
 	tax
 	lda ctype,x
@@ -92,9 +107,11 @@ _isalnum
 	jmp true
 isalnum1
 	jmp false
+; @endfunction
 ;
 ; isprint(c)
 ;
+; @function _isprint
 _isprint
 	tax
 	lda ctype,x
@@ -103,9 +120,11 @@ _isprint
 	jmp true
 isprint1
 	jmp false
+; @endfunction
 ;
 ; iscntrl(c)
 ;
+; @function _iscntrl
 _iscntrl
 	tax
 	lda ctype,x
@@ -114,9 +133,11 @@ _iscntrl
 	jmp true
 iscntrl1
 	jmp false
+; @endfunction
 ;
 ; isascii(c)
 ;
+; @function _isascii
 _isascii
 	and #$80	;0 if <= 127
 	eor #$80	;invert
@@ -124,3 +145,4 @@ _isascii
 	jmp true
 isascii1
 	jmp false
+; @endfunction

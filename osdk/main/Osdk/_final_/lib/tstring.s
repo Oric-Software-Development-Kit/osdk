@@ -1,6 +1,7 @@
 ;
 ; toupper(c)
 ;
+; @function _toupper
 _toupper
 	tax
 _touppermc	
@@ -14,10 +15,12 @@ _touppermc
 toupper1
 	lda #0
 	rts
+; @endfunction
 
 ;
 ; tolower(c)
 ;
+; @function _tolower
 _tolower
 	tax
 	lda ctype,x
@@ -30,13 +33,16 @@ _tolower
 tolower1
 	lda #0
 	rts
+; @endfunction
 
 ;
 ; toascii(c)
 ;
+; @function _toascii
 _toascii
 	and #$7f
 	tax
 	lda #0
 	rts
+; @endfunction
 	
