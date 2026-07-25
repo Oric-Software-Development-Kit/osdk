@@ -5723,6 +5723,19 @@ skip :\
  ldy #off :\
  lda ptr,y :\
 
+; A mode = ADDRESS of a frame local (fp+off), e.g. passing a local array to a
+; pointer-taking __fastcall. Operand "(fp),6" splits into ptr1="(fp)", y1=6;
+; 0+ptr1 / 1+ptr1 are fp's low/high bytes (as in ARGW_A).
+#define ARGRW_A(ptr1,y1)\
+ clc :\
+ lda 0+ptr1 :\
+ adc #y1 :\
+ pha :\
+ lda 1+ptr1 :\
+ adc #0 :\
+ tax :\
+ pla :\
+
 #define ARGW_C(cte,ptr,y2)\
  lda #<(cte) :\
  ldy #y2 :\
