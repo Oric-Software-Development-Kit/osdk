@@ -15,7 +15,7 @@
 //
 char *strcpy(char *s1,const char * s2);
 int strcmp(const char *s1,const char * s2);
-int strlen(const char *s);
+__fastcall int strlen(const char *s);
 
 //
 // Memory manipulation

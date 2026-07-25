@@ -3,24 +3,16 @@
 __fastcall void exit(int retval);
 
 #ifndef _STDIO_
-int getchar(void);
+__fastcall int getchar(void);
 __fastcall int putchar(char c);
 int printf(const char *format,...);
 #endif
 char *itoa(int n);
 
-int isalpha(char c);
-int isupper(char c);
-int islower(char c);
-int isdigit(char c);
-int isspace(char c);
-int ispunct(char c);
-int isprint(char c);
-int iscntrl(char c);
-int isascii(char c);
-char toupper(char c);
-char tolower(char c);
-char toascii(char c);
+/* The character classification / conversion functions are __fastcall (arg in
+   A); pull in their single canonical declaration rather than duplicating it
+   here, so lib.h and ctype.h can never disagree on the calling convention. */
+#include <ctype.h>
 
 char* sbrk();
 char* brk();

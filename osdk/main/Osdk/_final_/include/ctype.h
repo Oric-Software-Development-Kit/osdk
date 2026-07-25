@@ -67,7 +67,7 @@ extern __fastcall char tolower(char c);
 extern __fastcall char toascii(char c);
 
 
-#endif /* _CTYPE_
+#endif /* _CTYPE_ */
 
 /* end of file ctype.h */
 
