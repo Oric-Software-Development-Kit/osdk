@@ -242,3 +242,27 @@ doc so users reading disassembly aren't surprised.
 **Net:** no code changes required on either side from this review. Remaining work is pure
 execution (§3–§5) + the joint runtime matrix (§8). I'll hold all git branch surgery until
 Mike gives the go; the low-risk independent first step is `tag v1.23` + cut `1.x`.
+
+---
+
+## 12. Oricutron static-linking — HANDOFF to the Oricutron/extension Claude
+
+**Owner:** Oricutron/extension Claude (source at `E:\git\oricutron`). **Decision (Mike):**
+both 2.0 Oricutron builds must be **statically linked** (no shipped DLLs).
+
+**Diagnosis (toolchain-Claude, `dumpbin /dependents`, 2026-07-25):**
+| binary | size | imports | self-contained? |
+|---|---|---|---|
+| 1.23 `oricutron.exe` | 802 KB | OPENGL32 only | **yes (static)** |
+| 1.23 `oricutron-sdl2.exe` | 2.6 MB | OPENGL32 only | **yes (static SDL2)** |
+| gdb-stub `oricutron.exe` | 420 KB | **SDL2.dll** + OpenGL + VCRUNTIME140 | no (dynamic) |
+| gdb-stub `oricutron-sdl2.exe` | 370 KB | **SDL2.dll** + OpenGL + VCRUNTIME140 | no (dynamic) |
+
+So the 1.23 `SDL.dll` was vestigial (neither 1.23 exe imports any SDL DLL — that's why
+"both worked without it"). The gdb-stub builds regressed to **dynamic SDL2**, hence the
+"missing DLL" complaint and the need to ship `SDL2.dll`. Static is proven achievable — the
+1.23 2.6 MB `-sdl2.exe` did it (likely MinGW linking libSDL2.a + SDL2's system libs:
+winmm/ole32/oleaut32/imm32/version/setupapi/gdi32...). **Ask:** please produce the 2.0
+Oricutron with static SDL2 for both builds; until then the OSDK 2.0 tree keeps `SDL2.dll`
+alongside the dynamic exe as interim (§4.1). Also carry VCRUNTIME140 statically (`/MT`) or it
+becomes another shipped dep.
