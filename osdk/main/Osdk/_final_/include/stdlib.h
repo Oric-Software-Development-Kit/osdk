@@ -28,7 +28,7 @@
    /* retval is currently ignored on the Oric. The */
    /* operating system has no need for it.         */
 
-extern void exit(int retval);
+extern __fastcall void exit(int retval);
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1

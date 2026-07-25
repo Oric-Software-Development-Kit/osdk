@@ -1,11 +1,7 @@
 ; int strlen(char *s)
 _strlen
-	ldy #1
-	lda (sp),y
-	sta tmp+1
-	dey
-	lda (sp),y
-	sta tmp
+	sta tmp			; __fastcall: string pointer in A:X (low:high)
+	stx tmp+1
 	ldx #0
 	
 looplen

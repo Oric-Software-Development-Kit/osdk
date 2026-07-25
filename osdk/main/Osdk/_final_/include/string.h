@@ -31,7 +31,7 @@ extern int strcmp(const char *s1,const char *s2);
 
    /* The terminating null does not count. */
 
-extern int strlen(const char *s);
+extern __fastcall int strlen(const char *s);
 
 
 /* Copy s2 to s1, return s1+strlen(s2) */

@@ -1,6 +1,6 @@
 #ifndef __LIB_H_
 #define __LIB_H_
-void exit(int retval);
+__fastcall void exit(int retval);
 
 #ifndef _STDIO_
 int getchar(void);
@@ -27,7 +27,7 @@ char* brk();
 
 char *strcpy(char *s1,const char * s2);
 int strcmp(const char *s1,const char * s2);
-int strlen(const char *s);
+__fastcall int strlen(const char *s);
 
 int memcpy(void *dst, void *src, int n);
 

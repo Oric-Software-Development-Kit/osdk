@@ -1,6 +1,13 @@
 ; char *strdup (char *s)
 
 _strdup
+        ldy #0          ; strlen is __fastcall now: pass s (at (sp),0-1) in A:X
+        lda (sp),y
+        pha
+        iny
+        lda (sp),y
+        tax
+        pla
         jsr _strlen     ; call strlen(s)
 
         inx             ; we'll allocate strlen(s)+1 bytes
