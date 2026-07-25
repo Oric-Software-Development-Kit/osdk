@@ -214,6 +214,29 @@ static Symbol dl_store_target(Node r) {
 	return 0;
 }
 
+/* dl_has_volatile - does subtree n contain a volatile read? Such a read is
+   observable and must survive, so a dead store whose RHS reads volatile is
+   NOT droppable (the local is kept). */
+static int dl_has_volatile(Node n) {
+	if (n == 0)
+		return 0;
+	if (n->x.volatil)
+		return 1;
+	return dl_has_volatile(n->kids[0]) || dl_has_volatile(n->kids[1]);
+}
+
+/* dl_is_conv - a value-only integer/pointer conversion (no side effect). Peeled
+   off a discarded store's RHS so "char a = getchar();" collapses to a bare void
+   CALL instead of materialising the narrowed result into a dead temp. Float
+   conversions are left alone (special handling). */
+static int dl_is_conv(int op) {
+	switch (generic(op)) {
+	case CVC: case CVI: case CVL: case CVP: case CVS: case CVU:
+		return 1;
+	}
+	return 0;
+}
+
 static void eliminate_dead_locals(void) {
 	Code cp, next;
 	Symbol *sp;
@@ -236,8 +259,15 @@ static void eliminate_dead_locals(void) {
 	   frame name) must keep its slot even though no ADDRL(L) appears. */
 	for (cp = codehead.next; cp; cp = cp->next)
 		if (cp->kind == Gen || cp->kind == Jump || cp->kind == Label) {
-			for (r = cp->u.node; r; r = r->link)
+			for (r = cp->u.node; r; r = r->link) {
+				/* a store whose RHS reads volatile can't be dropped -
+				   keep the local so the observable read survives */
+				if (generic(r->op) == ASGN && r->kids[0]
+				&&  generic(r->kids[0]->op) == ADDRL && r->kids[0]->syms[0]
+				&&  dl_has_volatile(r->kids[1]))
+					r->kids[0]->syms[0]->deadlocal = 0;
 				dl_scan(r);
+			}
 			for (r = cp->u.node; r; r = r->link)
 				dl_clear(r);
 		} else if (cp->kind == Address && cp->u.addr.base)
@@ -251,9 +281,19 @@ static void eliminate_dead_locals(void) {
 			while (*pp) {
 				r = *pp;
 				if (dl_store_target(r)) {
-					if (r->kids[1])
-						r->kids[1]->count--;	/* rhs loses its ASGN
-							parent; a lone CALL now needtmp()s to CALLV */
+					/* Peel value-only conversions off the RHS so a discarded
+					   narrowed call collapses to a bare void CALL, then release
+					   the underlying value's use: a lone CALL now needtmp()s to
+					   CALLV, a pure expression vanishes. Stop at shared (CSE)
+					   nodes so we never over-decrement. */
+					Node v = r->kids[1];
+					while (v && dl_is_conv(v->op) && v->count <= 1) {
+						Node k = v->kids[0];
+						v->count--;
+						v = k;
+					}
+					if (v)
+						v->count--;
 					*pp = r->link;			/* unlink the store */
 				} else
 					pp = &r->link;
@@ -650,9 +690,10 @@ Node listnodes(Tree tp, int tlab, int flab) {
 		assert(tlab == 0 && flab == 0);
 		l = listnodes(tp->kids[0], 0, 0);
 		cur_width = tp->type->size==4 ? 4 : 0;
-		if (isvolatile(ty) || (isstruct(ty) && unqual(ty)->u.sym->u.s.vfields))
+		if (isvolatile(ty) || (isstruct(ty) && unqual(ty)->u.sym->u.s.vfields)) {
 			p = newnode(tp->op, l, 0, 0);
-		else
+			p->x.volatil = 1;	/* observable read - never discard */
+		} else
 			p = node(tp->op, l, 0, 0);
 		break;
 		}

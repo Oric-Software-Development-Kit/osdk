@@ -51,6 +51,15 @@ static int addr_taken(void)
 	return *p;
 }
 
+/* volatile read into a dead local: the read is observable and must not be
+ * discarded, so the store is kept (function must still compile and run). */
+static volatile unsigned char vport;
+static int vol_dead(void)
+{
+	char dead = vport;      /* volatile read - never dropped */
+	return 42;
+}
+
 void main(void)
 {
 	tk_begin("deadlocal");
@@ -75,6 +84,9 @@ void main(void)
 	counter = 0;
 	tk_check_eq(addr_taken(), 55, "addr-taken-through-ptr");
 	tk_check_eq(counter, 1, "addr-taken-side-effect");
+
+	vport = 9;
+	tk_check_eq(vol_dead(), 42, "vol-dead-compiles");
 
 	tk_end();
 }

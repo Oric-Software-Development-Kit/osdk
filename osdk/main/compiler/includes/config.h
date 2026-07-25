@@ -31,6 +31,9 @@ typedef struct {
 	Node	next;		/* next node on linearized list */
 	char	optimized;
 	char	visited;
+	char	volatil;	/* set on a volatile INDIR: its read is observable
+				   and must not be discarded (dead-local elim
+				   checks this before dropping a dead store). */
 	char	borrowed;	/* folded INDIR owns (reserved) the temp holding its address */
 	char	narrow;		/* 8-bit narrowing: on an arith node -> emit the byte (B)
 				   family; on a CVCU/CVSU widen -> skip it (the result is
