@@ -31,10 +31,18 @@ osdk/main/Build/
 osdk/main/Osdk/_final_/Oricutron/*.gif
 osdk/main/Osdk/_final_/Oricutron/*.avi
 osdk/main/Osdk/_final_/Oricutron/*.dsk
+osdk/main/Osdk/_final_/Oricutron/*.imd
+osdk/main/Osdk/_final_/Oricutron/*.hfe
+osdk/main/Osdk/_final_/Oricutron/*.zip
 *copy.*
 *- Copy*
 osdk/main/Osdk/_final_/TMP/
+osdk/main/Osdk/_final_/sample/**/build/
 
 [Dd]ebug/
 [Rr]elease/
 
+osdk/main/Osdk/_final_/Oricutron/videos/
+osdk/OldVersions/
+osdk/main/Osdk/_final_/sample/assembly/known_issues/
+osdk/main/osdk_issues.md
