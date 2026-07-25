@@ -8,12 +8,8 @@
 ; Uses op1 as the accumulator and op2 as scratch for the multiply by ten.
 ;
 _atoi
-	ldy #0
-	lda (sp),y
-	sta tmp
-	iny
-	lda (sp),y
-	sta tmp+1
+	sta tmp			; __fastcall: string pointer in A:X (low:high)
+	stx tmp+1
 	lda #0
 	sta op1
 	sta op1+1

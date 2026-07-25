@@ -41,7 +41,7 @@ extern char *itoa(int i);
 /* Convert the initial portion of a string to an int: skips leading
    whitespace, accepts an optional sign, stops at the first non-digit. */
 
-extern int atoi(const char *s);
+extern __fastcall int atoi(const char *s);
 
 /* random generator */
 
