@@ -74,6 +74,7 @@ class FileEntry
 public:
   std::string	m_FileName;
   int			    m_SortPriority = 0;  ///< 1 for file given in command line or 0 for files given from lib file index, 2 for tail. It's used for sort...
+  bool          m_IsLibrary = false;   ///< pulled from the library index -> emitted in-layout inside .text at output time (not at the tail)
 };
 
 // A removable code span delimited by ";@function NAME" ... ";@endfunction"
@@ -1344,9 +1345,10 @@ int Linker::Main()
 
   // Library resolution is deferred until every user file has been parsed:
   // a symbol referenced by an early file but defined by a LATER user file
-  // must not pull (and then collide with) a library implementation. The
-  // pull point is the last command-line (priority 1) file, so pulled
-  // library files are inserted between the user files and tail.s.
+  // must not pull (and then collide with) a library implementation. The pull
+  // point is the last command-line (priority 1) file. Pulled files are marked
+  // m_IsLibrary; the EMIT stage (below) places them in-layout inside .text
+  // rather than at the tail (see the emit comment for why).
   unsigned int lastUserFile = 0;
   for (unsigned int k=0;k<m_InputFileList.size();k++)
   {
@@ -1417,6 +1419,7 @@ int Linker::Main()
                 FileEntry& fileEntry      = m_InputFileList[k+1];
                 fileEntry.m_FileName      = labelEntry.file_name;
                 fileEntry.m_SortPriority  = 1;
+                fileEntry.m_IsLibrary     = true;   // emit in-layout inside .text (see output stage), not at the tail
               }
               else
               {
@@ -1501,13 +1504,20 @@ int Linker::Main()
     fprintf(gofile, ".text\r\n* = %s\r\n\r\n", m_TextAddressSymbol.c_str());
   }
 
-  // Get lines from all files and put them in go.s
-  for (const auto& inputFile : m_InputFileList)
+  // === Emit the linked source ============================================
+  // On-demand library modules are code and assume .text is active. They are
+  // appended after the user files, each prefixed with an explicit .text so a
+  // library can never inherit whatever segment the previous module left active
+  // (e.g. .bss -> "Label not defined"). Position inside .text is irrelevant: XA
+  // auto-chains .bss/.data after the whole .text, so segment sizes and the stack
+  // land correctly regardless of link order. Resolution stays deferred until all
+  // user files are parsed; this only controls emission.
+
+  // Emit one file: its #file directive + content, honouring dead-code stripping.
+  auto emitFile = [&](const FileEntry& inputFile)
   {
     if (m_FlagVerbose)
-    {
       printf("Linking %s\n", inputFile.m_FileName.c_str());
-    }
 
     //
     // Then insert the name of the included file
@@ -1516,7 +1526,7 @@ int Linker::Main()
     {
       // Emit the ACTUAL absolute path of the file being linked. The previous code
       // stamped getcwd()+basename, which mislabeled library sources (e.g. the OSDK
-      // lib's printf.s or header.s) as living in the project directory — breaking
+      // lib's printf.s or header.s) as living in the project directory - breaking
       // the debugger's go-to-definition for library symbols. m_FileName is the very
       // path LoadText opens below, so resolving it gives the true location.
       char absolute_path[_MAX_PATH+1];
@@ -1563,7 +1573,52 @@ int Linker::Main()
         fprintf(gofile,"%s\r\n", m_FilteredLine.c_str());
       }
     }
+  };
+
+  // Emit order matters. A project whose LAST user module publishes an end-of-code
+  // marker - Encounter's kernel_last_module.s defines _KernelEndText, and every
+  // other module is placed there via link65 -t - needs the pulled libraries to sit
+  // BEFORE that marker. Emitting them at the tail leaves library code beyond it, so
+  // whatever is loaded at the marker overwrites live code at runtime. Order is
+  // therefore: user files, the libraries, then the final user module and tail.s.
+  // Each library is prefixed with .text so it can't inherit a previous module's
+  // segment; XA's auto-chaining places .bss/.data after the whole .text.
+  size_t emitLastUserFile = 0;
+  bool   haveUserFile = false;
+  for (size_t k=0;k<m_InputFileList.size();k++)
+  {
+    if (m_InputFileList[k].m_IsLibrary)        continue;
+    if (m_InputFileList[k].m_SortPriority==2)  continue;   // tail.s stays last
+    emitLastUserFile = k;
+    haveUserFile = true;
   }
+
+  auto emitLibraries = [&]()
+  {
+    for (const auto& inputFile : m_InputFileList)
+    {
+      if (!inputFile.m_IsLibrary)
+        continue;
+      fprintf(gofile,".text\r\n");
+      emitFile(inputFile);
+    }
+  };
+
+  bool librariesEmitted = false;
+  for (size_t k=0;k<m_InputFileList.size();k++)
+  {
+    if (m_InputFileList[k].m_IsLibrary)
+      continue;
+    if (haveUserFile && k==emitLastUserFile)
+    {
+      emitLibraries();
+      librariesEmitted = true;
+    }
+    emitFile(m_InputFileList[k]);
+  }
+  if (!librariesEmitted)
+    emitLibraries();
+
   return 0;
 }
 
