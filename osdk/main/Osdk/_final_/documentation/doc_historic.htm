@@ -18,16 +18,18 @@
 		<h1>Version history</h1>
 
 <p id=dateentry>Version 2.0</p>
+	<p>This release changed enough that it got <A href="https://osdk.org/index.php?page=articles&amp;showarticle=22">its own article</A>. What follows is only a summary, the details are on each tool's own page.</p>
 	<ul>
-		<li>Upgraded <A href="doc_oricutron.htm">Oricutron</A> to version X.X.X: added a GDB-compatible debug stub, so an external debugger can connect over TCP to set breakpoints, single-step, and read or write memory and registers; and a bidirectional visualization stream that exposes the screen buffer and accepts keyboard input</li>
-		<li>Upgraded <A href="doc_assembler.htm">XA</A> to version X.X.X: extended symbol export now also emits a source file/line table, per-symbol source locations, and struct/type information alongside the symbol values, so tools can map addresses back to their source line and present data with its type</li>
-		<li>Upgraded <A href="doc_compiler.htm">Compiler</A> to version X.XX:
-		<ul>
-			<li>Emits the additional source-line and type information consumed by the extended symbol export</li>
-			<li>New #pragma optimize(push, n) / #pragma optimize(pop) / #pragma optimize(n) to override the optimization level (0-3) for selected functions: a function under debug can keep its locals addressable on the stack frame (level 1) while the rest of the project stays fully optimized, or a known-safe function can be raised to level 3</li>
-		</ul>
-		</li>
-		<li>The OSDK C runtime (lib/header.s) stamps a module-id byte at program entry when OSDK_MODULE_ID is defined at build time (a no-op otherwise), letting external tools identify which run-time-loaded overlay module is currently active</li>
+		<li>This version is <b>not fully backward compatible</b>. If you have your own build system, call library functions from assembler, or rely on where the linker places things, read the compatibility section of the article before upgrading</li>
+		<li><b>Behaviour change:</b> <b>sprintf</b> now writes the terminating NUL, which it never did before. A program that reused a buffer used to see the tail of the previous contents after the new text, and could look correct while depending on it. Strings produced by sprintf may therefore be shorter than they were in 1.23. See the <A href="doc_library.htm">library</A> page</li>
+		<li>Upgraded <A href="doc_compiler.htm">Compiler</A> to version 2.0: arguments can be passed in registers with <b>__fastcall</b>, <b>long</b> is finally a real 32 bit type, <b>char</b> arithmetic stays in 8 bits, uninitialized statics are reserved in <b>.bss</b> instead of being written into the file as zeros, the optimization level can be changed per function, and <b>-g1</b> emits the source line and type information needed to debug C code</li>
+		<li>Upgraded <A href="doc_assembler.htm">XA</A> to version 2.4.0: sections are chained automatically, so <b>.data</b> follows <b>.text</b> and <b>.bss</b> follows <b>.data</b> with no manual origin; section boundary labels are published for use in code; the extended symbol export also emits source locations and type information; and an unbalanced <b>#if</b> or a section running past the end of memory are now errors instead of silence</li>
+		<li>Upgraded <A href="doc_linker.htm">Link65</A> to version 1.5: libraries can be stripped at function granularity instead of whole files, the library search path can be repeated so a project can override a default function with its own, and library resolution is deferred until every command line file has been read</li>
+		<li>Upgraded <A href="doc_macrosplitter.htm">MacroSplitter</A> to version 1.0, no longer an experiment: it expands the <b>MACROS.H</b> macros itself instead of needing a second preprocessor pass, and its 6502 peephole optimizer gained liveness based dead store elimination and several new folds</li>
+		<li>Upgraded <A href="doc_oricutron.htm">Oricutron</A>: added a GDB compatible debug stub, so an external debugger can connect over TCP to set breakpoints, single step, and read or write memory and registers, plus a bidirectional visualization stream that exposes the screen buffer and accepts keyboard input</li>
+		<li><b>mcpp 2.7.2</b> is now the default C preprocessor: C99 conforming, reports problems as file:line, and treats a missing include file as a hard error instead of carrying on. The previous preprocessor is still shipped and can be selected with <b>OSDKCPP</b></li>
+		<li><A href="doc_library.htm">Library</A>: the dynamic allocator was repaired, several string functions were fixed or added, the floating point support was corrected, the common portable C headers now work out of the box, and the C runtime startup is nearly 400 bytes smaller</li>
+		<li>The C runtime stamps a module id byte at program entry when <b>OSDK_MODULE_ID</b> is defined at build time (a no-op otherwise), letting external tools identify which run time loaded overlay module is currently active</li>
 	</ul>
 
 <p id=dateentry>Version 1.23 - April 20th 2026</p>

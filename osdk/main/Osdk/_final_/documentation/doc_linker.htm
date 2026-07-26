@@ -144,6 +144,18 @@ Symbols listed after the pragma (space, tab, or comma separated) are treated as 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.5</p>
+<li>Fixed the statement scanner corrupting lines that hold several colon separated statements. It poked string terminators into the shared line buffer, which hid every statement after the first and produced errors such as "Label 'mul16i' not defined" on -O3 struct code. Each statement is now parsed in its own copy, and preprocessor lines are kept whole so a drive letter colon in an #include path still works</li>
+<ul>
+<li>Annotation driven dead code stripping: a library module can mark its routines with <b>@function</b> and <b>@endfunction</b> comments, and only the routines actually referenced get linked. Previously, referencing one function pulled in the whole file it lived in. <b>@keep</b> marks a routine that must survive even when nothing appears to reference it, such as an interrupt handler</li>
+<li>The <b>-d</b> option can now be repeated. The library directories are searched in command line order, each with its own library.ndx, and when several define the same symbol the first directory wins. This lets a project override a default library function with its own without modifying the OSDK library. header.s and tail.s are likewise taken from the first directory providing them</li>
+<li>Library resolution is deferred until every command line file has been parsed. Previously a symbol referenced by an early file but defined by a later user file already pulled in the library implementation, and the two definitions then collided at assembly time</li>
+<li>The pulled library modules are emitted before the last user file. A project whose final module publishes an "end of my code" label, and loads its other modules at that address, needs the libraries to sit before it. Emitting them at the very end left library code beyond the marker, where the next module loaded would overwrite it at run time</li>
+<li>Each emitted library module is prefixed with an explicit <b>.text</b>, so it can never inherit whatever segment the previous module happened to leave active</li>
+<li>Writes <b>#define OSDK_HAS_BSS</b> at the top of the linked file when any module reserves .bss, so the C runtime can decide whether to emit a startup clear at all. The linker is the only stage that sees the whole program before the runtime is assembled</li>
+<li>Handles label definitions inside conditionals, which lets the C runtime carry a debugger module id stamp guarded by #ifdef without breaking programs that never define it</li>
+</ul>
+
 <p id=dateentry>Version 1.4</p>
 <ul>
 <li>Added "-S" option to import symbols from an XA symbol file (-l output)</li>

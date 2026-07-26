@@ -1,6 +1,6 @@
 # Teaching an old 8-bit C compiler new tricks
 
-### How the OSDK C toolchain was overhauled for version 1.24 — the optimisations, the philosophy, and the bugs found along the way
+### How the OSDK C toolchain was overhauled for version 2.0 — the optimisations, the philosophy, and the bugs found along the way
 
 ---
 
@@ -12,7 +12,7 @@ exercised hard — most real Oric programs allocate memory statically, avoid flo
 point, and lean on hand-written assembler for the hot paths, so entire corners of the
 toolchain had quietly rotted without anyone noticing.
 
-Version 1.24 is the result of a long push to change that: to make the compiler generate
+Version 2.0 is the result of a long push to change that: to make the compiler generate
 genuinely tight 6502 code, to repair library functions that had been subtly broken for
 years, and — crucially — to do all of it *without ever shipping a program that computes
 the wrong answer*. This article walks through what changed and, just as importantly, the
@@ -566,6 +566,6 @@ every time.
 
 ---
 
-*This document accompanies the OSDK 1.24 patch notes. The full commit-by-commit fix list,
+*This document accompanies the OSDK 2.0 patch notes. The full commit-by-commit fix list,
 with the "Found / Problem / Fix" breakdown for each item, lives in
-`PATCHNOTES-1.24-draft.md`.*
+the version history in `Osdk/_final_/documentation/doc_historic.htm` and each tool's own documentation page.*

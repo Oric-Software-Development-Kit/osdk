@@ -4,7 +4,7 @@
 ::
 :: Compares the installed OSDK version (read from %OSDK%\version.txt) against the
 :: <minimum-version> passed by the caller. OSDK versions are major.minor (e.g. 2.0);
-:: the comparison is NUMERIC per component, so 2.0 > 1.24 and 12.0 > 2.0 (no string
+:: the comparison is NUMERIC per component, so 2.0 > 1.23 and 12.0 > 2.0 (no string
 :: pitfalls). A project's osdk_build.bat calls this to require a minimum OSDK.
 ::
 :: Exit codes:

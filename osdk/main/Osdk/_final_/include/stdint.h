@@ -6,7 +6,7 @@
 
  char/short are 8/16-bit, int is 16-bit and long is 32-bit, so these map
  cleanly onto the native types. (long became a true 32-bit type in OSDK
- 1.24; before that int32_t/uint32_t were silently only 16 bits.)
+ 2.0; before that int32_t/uint32_t were silently only 16 bits.)
 */
 
 typedef signed char    int8_t;

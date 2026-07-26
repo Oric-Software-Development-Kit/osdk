@@ -67,6 +67,25 @@ accessible from C source code.
 <img src="pics/osdk_logo_small.png">
 <hr>
 
+
+<p id=chapter>Historic</p>
+
+<p>Here is the list of all releases with a short description of things that changed:
+</p>
+
+<p id=dateentry>OSDK 2.0</p>
+<ul>
+<li>The dynamic allocator was repaired. <b>malloc</b> overwrote its own length limit in the "no next block" case, so the heap end bound was never enforced, which fired on the very first allocation. <b>free</b> null checked the C stack instead of the pointer it was given, and its 16 bit descriptor decrement corrupted the high byte once there were 129 or more live blocks. <b>realloc</b> was broken in every path: mis-routed shrinks, a wrong descriptor offset, and no actual resize</li>
+<li>Several string functions were fixed. <b>strchr(s,0)</b> returned NULL although C89 counts the terminator as part of the string. <b>strstr</b> never rewound the haystack after a partial match, so it missed overlapping candidates, and returned garbage for an empty needle. <b>strcspn</b> and <b>strspn</b> jumped into their inner loop on a page boundary, skipping the first character of every 256 byte page. <b>strrchr</b> returned an address too high by the number of pages crossed. <b>strtok</b> produced empty tokens on consecutive delimiters. <b>memccpy</b> patched a byte that had become an opcode and jumped to a deleted label, so any program using it failed to link, and its prototype was missing from string.h</li>
+<li><b>sprintf</b> never wrote the terminating NUL. <b>This is a visible behaviour change</b>: in 1.23 and earlier, reusing a buffer left the tail of the previous, longer contents readable after the new text, so a program could appear to work while relying on that. It now terminates the string properly, which means any string it produces may be shorter than it used to be. If your code cleared the buffer or poked its own terminator to compensate, that is now redundant but harmless. Only sprintf is affected; printf to the screen behaves as before</li>
+<li><b>file_unpack_raw</b> added the unpacked size to the destination with the carry in whatever state the caller had left it, writing one byte past the end when it was set. It now clears the carry first, like its sibling file_unpack</li>
+<li>The runtime int to float conversion called the wrong ROM entry point</li>
+<li><b>sedoric()</b> corrupted the C runtime by clobbering TXTPTR</li>
+<li>Added the <b>ctype</b> family, and converted the small hot functions to <b>__fastcall</b> so they take their argument in a register</li>
+<li>The C runtime startup was slimmed down by nearly 400 bytes, and uninitialized statics are now reserved in <b>.bss</b> rather than stored in the executable as zeros, which the runtime clears at startup only when a module actually reserves any</li>
+<li>Ships the common portable C headers (<b>stdint.h</b>, <b>types.h</b>, <b>compat.h</b>) so third party C code has a better chance of compiling unmodified</li>
+</ul>
+
 	</BODY>
 </HTML>
 

@@ -1,6 +1,6 @@
 # Design notes: static local allocation & a `__fastcall`-style calling convention
 
-**Status: DEFERRED — post-1.24.** Do not start until the OSDK 1.24 compiler is released and
+**Status: PARTLY DONE — __fastcall shipped in OSDK 2.0; the static allocation half is still deferred.** Do not start until the OSDK 2.0 compiler is released and
 field-tested. This is an ABI-touching feature; it must not destabilise a freshly-shipped
 compiler. This doc captures the design discussion (2026-07-18) so it can be picked up cleanly.
 

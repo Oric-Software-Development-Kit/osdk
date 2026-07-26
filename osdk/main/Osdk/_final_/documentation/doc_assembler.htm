@@ -414,6 +414,22 @@ concatenated to it.
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>2.4.0</p>
+<ul>
+<li>Automatic segment chaining in absolute mode: <b>.data</b> now starts right after the end of <b>.text</b>, and <b>.bss</b> right after <b>.data</b>, computed from the measured segment sizes. Sources no longer need the old "capture an end of text label, then force *= that label at the top of .bss" pattern to place uninitialised data or the stack above the code</li>
+<li>Only labels sitting at the natural segment PC are moved by chaining. As soon as a source pins the PC with a <b>*=</b> directive, that label and every later one in the segment keeps its explicit address, so screen, overlay and hardware placements are left alone. The <b>.text</b> and <b>.zero</b> bases are never moved</li>
+<li>Twelve section boundary labels are published for use in emitted code: <b>__text_start</b>, <b>__text_end</b>, <b>__text_size</b> and the same for <b>__data_</b>, <b>__bss_</b> and <b>__zero_</b>. They are pass 2 values, so they cannot be used in pass 1 constructs (#if, #print, #error, or a .dsb count), and they are excluded from <b>-E</b> export since they describe one single assembly unit</li>
+<li>Added <b>__bss_clear_start</b>, <b>__bss_clear_end</b> and <b>__bss_clear_size</b>, covering the auto chained .bss run only. That is the range a C runtime may safely zero at startup. <b>__bss_end</b> is start plus total length and therefore spans <b>*=</b> pinned blocks, so it must never be used for that</li>
+<li>The auto chained .bss base is rounded up to a page boundary. This costs no file bytes, since .bss is reserved and never emitted, and it lets a startup clear walk whole pages while giving whatever lands first in .bss an indexed access that cannot cross a page</li>
+<li>An unbalanced <b>#if</b> / <b>#ifdef</b> / <b>#endif</b> is now a fatal error pointing at the exact directive. A missing #endif used to silently swallow everything after it, which is an efficient way to lose a whole library without noticing</li>
+<li>A segment whose contents would run past the end of the 64K address space is now an error instead of quietly wrapping around. A zero length segment landing at $10000 stays silent, since a unit whose code ends at the top of memory places nothing there</li>
+<li>Added debug symbol output for the VS Code and GDB debuggers (<b>-S</b>): an extended "#SYM V2" symbol file listing each symbol with its source file and line, a #FILES index, a #LINES address to (file,line) map, and a #TYPES section</li>
+<li>Added <b>.csource</b> directive support for C source line mapping, and C <b>enum</b> support in the preprocessor</li>
+<li>Fixed <b>.align</b> segment base warnings firing in absolute mode where they are irrelevant, and made alignment tracking per segment rather than global</li>
+<li>Fixed comparison operators between labels causing "Illegal pointer arithmetic" errors</li>
+<li>Improved <b>.assert</b> and <b>.asserteq</b> error reporting: the message is now on the same line as the file, line and address</li>
+</ul>
+
 <p id=dateentry>2.3.1</p>
 <ul>
 <li>Fixed the defined() operator not working in #if directives (only worked in #elif)</li>

@@ -210,6 +210,17 @@ MacroSplitter: Optimizer removed 25 redundant instructions
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
 
+<p id=dateentry>Version 1.0</p>
+<ul>
+<li>First version considered production rather than experimental, which is why it is 1.0 and not 0.3</li>
+<li>Peephole: liveness based dead temporary store elimination. A store to a compiler temporary whose value is not read on any path out of the block is removed outright</li>
+<li>Peephole: dead immediate and constant register staging is eliminated, and a byte select of a known zero is folded to a plain immediate</li>
+<li>Peephole: commutative staging fold, so "lda X : sta T : lda Y : eor T" becomes "lda Y : eor X" for the commutative operations</li>
+<li>Peephole: a transfer followed by a store becomes a direct store, and the temporary liveness test was hardened for register pairs</li>
+<li>Peephole: dead long load staging is sunk to the destination temporary</li>
+<li>Blank lines are no longer left where instructions were removed, so the generated assembly stays readable when inspecting what the optimizer did</li>
+</ul>
+
 <p id=dateentry>Version 0.2</p>
 <ul>
 <li>Added -O flag for optional 6502 peephole optimization</li>

@@ -1,8 +1,8 @@
 # Design notes: byte-granular zero-page slot allocator & 32-bit `long` support
 
-**Status: DEFERRED — post-1.24.** Companion to `future-static-alloc-and-fastcall-design.md`;
+**Status: DEFERRED — post-2.0.** (32-bit long itself shipped in 2.0.) Companion to `future-static-alloc-and-fastcall-design.md`;
 this allocator is the foundation piece that document's param-bank/leaf-locals ideas also want.
-Do not start until OSDK 1.24 is released and field-tested. Captures the design discussion of
+Do not start until OSDK 2.0 is released and field-tested. Captures the design discussion of
 2026-07-19 (Mike + Claude) so it can be picked up cleanly.
 
 ---
@@ -14,7 +14,7 @@ Two forces meet in the same zero-page bytes:
 1. **OSDK has no 32-bit integer type.** `long` is 16-bit (`compiler/sources/types.c:44` maps
    `longtype` to `INT_METRICS`; there are no L-macro families in MACROS.H and no 32-bit lib
    routines). Exposed publicly by the ISS MOS6502 benchmark v2: the pi and mandelbrot samples
-   compute garbage on OSDK (identical garbage on 1.23 — a long-standing limitation, not a 1.24
+   compute garbage on OSDK (identical garbage on 1.23 — a long-standing limitation, not a 2.0
    regression), confirmed FAIL by the known-answer host-reference gate
    (`TestSuite/compiler/benchtable-1.24.md`, 19/22 PASS, both FAILs are 16-bit-`long` victims).
 2. **Zero page is scarce and must not grow.** Hard requirement from Mike: no new zp addresses.
@@ -22,7 +22,7 @@ Two forces meet in the same zero-page bytes:
    (4) + `tmp` (2) + `reg0-7` (16).
 
 Today's allocator hands out whole 2-byte slots regardless of width: a `char` temp burns 2
-bytes (and the 1.24 8-bit codegen made char temps *common*), and a 32-bit value has no home at
+bytes (and the 2.0 8-bit codegen made char temps *common*), and a 32-bit value has no home at
 all. Meanwhile user assembler already hand-packs the same bytes (see below). The answer to
 both: keep the same 32 bytes, allocate them at **byte granularity**.
 
@@ -125,7 +125,7 @@ else is consequences:
      contiguous bytes already), operand B *by pointer* in `tmp`, result in `op1:op2`.
 3. **Conversions:** CVIL/CVLI etc. = zero/sign-extend and truncate (trivial; truncate becomes
    a rename once sub-slot aliasing lands).
-4. **Constant handling:** the 1.24 "fold to 16-bit target width" fix becomes width-aware
+4. **Constant handling:** the 2.0 "fold to 16-bit target width" fix becomes width-aware
    (longs fold at 32); lexer already carries 32-bit values on the host; define a macro-arg
    convention for 32-bit immediates (lo16/hi16 pair).
 5. **Library:** `printf %ld/%lu` (uses `udiv32`); long↔float is the nasty corner — the ROM
