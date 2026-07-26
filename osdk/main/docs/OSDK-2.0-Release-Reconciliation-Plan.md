@@ -130,7 +130,11 @@ without both sides agreeing. Contract surfaces:
 - [ ] **Extension end-to-end** against the 2.0 toolchain: breakpoints, single-step, symbol
       navigation (incl. data-only-TU globals → `.c` source), `.ctype` type rendering,
       watch/inspect, `--gdb_port` session.
-- [ ] `debug_type_zoo` specifically: `g_entities` etc. resolve to `world.c:<line>`.
+- [x] `debug_type_zoo` specifically: `g_entities` etc. resolve to `world.c:<line>`.
+      **VERIFIED 2026-07-25 (extension side, Mike):** rebuilt under osdk-2.x (= new %OSDK%),
+      `g_entities` in the Oric Symbols panel is now clickable → opens `world.c:10`. The
+      `.csource`-for-globals fix works end-to-end; no extension change was needed (nav is
+      addr→`#LINES`→`#FILES`, per §10/§11).
 - [ ] Clean checkout builds out-of-box (no stale TMP), on Windows; compiler still
       Linux-buildable (ISS).
 
