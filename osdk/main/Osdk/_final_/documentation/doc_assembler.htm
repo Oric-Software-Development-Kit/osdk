@@ -236,6 +236,43 @@ BigBuffer	.dsb 256</pre>
 		<li>The zero segment allows allocation of zeropage space using .dsb only (no code or data). Use .text with *= for executable zero-page code. BSS is normal address space.</li>
 		</ul>
 		These opcodes can be used in relative and absolute mode.
+		<p>In absolute mode the segments are <b>chained automatically</b>: <b>.data</b> starts right after the
+		end of <b>.text</b>, and <b>.bss</b> right after <b>.data</b>, worked out from the measured sizes once
+		everything has been assembled. You no longer need the old pattern of capturing an end of text label and
+		then forcing <b>*=</b> that label at the top of .bss just to put your buffers and the stack above the
+		code. Simply declaring them is enough:</p>
+		<pre>
+    .bss
+my_buffer   .dsb 256
+		</pre>
+		<p>Only labels sitting at the <b>natural</b> segment position move. The moment a source line pins the
+		address with a <b>*=</b> directive, that label and every later one in the segment keeps the address you
+		gave it, so deliberate screen, overlay and hardware placements are left exactly where you put them. The
+		<b>.text</b> and <b>.zero</b> bases are never moved.</p>
+	</li>
+
+	<li>
+		<b>section boundary labels</b> are published automatically, so code can refer to its own layout
+		instead of hard coding addresses:
+		<ul>
+		<li><b>__text_start</b>, <b>__text_end</b>, <b>__text_size</b></li>
+		<li><b>__data_start</b>, <b>__data_end</b>, <b>__data_size</b></li>
+		<li><b>__bss_start</b>, <b>__bss_end</b>, <b>__bss_size</b></li>
+		<li><b>__zero_start</b>, <b>__zero_end</b>, <b>__zero_size</b></li>
+		<li><b>__bss_clear_start</b>, <b>__bss_clear_end</b>, <b>__bss_clear_size</b></li>
+		</ul>
+		<p>Two things to know about them. First, they are <b>pass 2</b> values: the layout is only final after
+		the whole source has been measured, so they can be used as operands in code but <b>not</b> in a pass 1
+		construct such as <b>#if</b>, <b>#print</b>, <b>#error</b> or a <b>.dsb</b> count, where you will get a
+		"Label not defined" error. Second, they are not exported by <b>-E</b>, because they describe the layout
+		of one assembly unit and would otherwise collide with the boundaries of every unit including the
+		generated header. They are present in the <b>-l</b> and <b>-S</b> symbol files, which are per unit anyway.</p>
+		<p>The <b>__bss_clear_</b> trio is the one a C runtime wants: it covers the auto chained .bss run only,
+		meaning the reservations made before any <b>*=</b> pinned the address, which is the region that can
+		safely be zeroed at startup. Do <b>not</b> use __bss_end for that: it is start plus total length, so it
+		spans the pinned blocks as well, and clearing that range would wipe your screen or overlay data. The
+		auto chained .bss base is also rounded up to a page boundary, which costs nothing in the file since .bss
+		is never written out, and lets a clear loop walk whole pages.</p>
 	</li>
 
 	<li>
