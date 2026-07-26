@@ -427,13 +427,16 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 						TablePcSegment[eSEGMENT_ABS] = tmp;
 						r_mode(RMODE_ABS);
 					} 
-					else 
+					else
 					{
-						if (!relmode) 
+						if (!relmode)
 						{
 							TablePcSegment[gCurrentSegment] = tmp;
-						} 
-						else 
+							// From here on this segment's PC is pinned by source;
+							// its later labels must not be moved by auto-chaining.
+							gSegmentPcOverridden[gCurrentSegment] = 1;
+						}
+						else
 						{
 							er = E_ILLSEGMENT;
 						}
@@ -1892,7 +1895,7 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 				er=afile->m_cSymbolData.DefineLabel_Unnamed((char*)s+p,&ll,&n);
 				if (er) break;
 				SymbolEntry& symbol_entry=afile->m_cSymbolData.GetSymbolEntry(n);
-				symbol_entry.Set(pc,gCurrentSegment);
+				symbol_entry.Set(pc,gCurrentSegment,!gSegmentPcOverridden[gCurrentSegment]);
 				p+=ll;
 				while (s[p]==' ') p++;
 				n=0;
@@ -1935,7 +1938,7 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 			else
 			{
 				SymbolEntry& symbol_entry=afile->m_cSymbolData.GetSymbolEntry(n);
-				symbol_entry.Set(pc,gCurrentSegment);	// set as address value
+				symbol_entry.Set(pc,gCurrentSegment,!gSegmentPcOverridden[gCurrentSegment]);	// set as address value
 				n=0;
 			}
 		}

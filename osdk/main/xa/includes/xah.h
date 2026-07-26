@@ -194,7 +194,7 @@ class SymbolEntry
 	friend class SymbolData;
 
 public:
-	void Set(int v,SEGMENT_e afl);
+	void Set(int v,SEGMENT_e afl,bool relocatable=false);
 	ErrorCode Get(int *v,int *afl);
 
 	void SetBlockLevel(int block_level)	{ m_block_level=block_level; }
@@ -219,6 +219,8 @@ private:
 	int				value;
 	SYMBOLSTATUS_e	symbol_status;   	// 0 = label value not valid/known, 1 = label value known
 	SEGMENT_e		program_section;	// 0 = no address (no relocation), 1 = address label, 5=ZERO
+	bool			m_relocatable;		// label sits at the natural segment PC (no `*=` yet) -> auto-chaining may move it
+	bool			m_exportable;		// false for synthetic per-assembly labels that must not cross into another unit via -E
 	int				nextindex;
 	char			*ptr_label_name;
 	int				label_name_lenght;
@@ -277,6 +279,12 @@ public:
 	ErrorCode SearchSymbol(char *ptr_src,int *label_index,LabelType_e label_type);
 	ErrorCode DefineLabel_Unnamed(char *ptr_src,int *size_read,int *x);
 	int ResolveUnnamed(int label_index);
+
+	// Automatic segment chaining support (see FileData assembly driver):
+	// shift every resolved label of a segment by a base delta, and publish a
+	// named absolute label (defining it if a forward reference already created it).
+	void RelocateSegment(SEGMENT_e segment,int delta);
+	int  DefineValueLabel(const char *name,int value,SEGMENT_e segment);
 
 	SymbolEntry& GetSymbolEntry(int index)
 	{

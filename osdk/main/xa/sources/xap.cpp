@@ -105,24 +105,30 @@ ErrorCode Preprocessor::HandleCommand(char *ptr_preprocessor_directive)
 				break;
 			case e_command_ifdef:	// 7
 				er=command_ifdef(ptr_preprocessor_directive+directive_lenght);
+				PushConditional();
 				break;
 			case e_command_ifndef:	// 7
 				er=command_ifndef(ptr_preprocessor_directive+directive_lenght);
+				PushConditional();
 				break;
 			case e_command_else:	// 8
 				er=command_else(ptr_preprocessor_directive+directive_lenght);
 				break;
 			case e_command_endif:	// 9
 				er=command_endif(ptr_preprocessor_directive+directive_lenght);
+				PopConditional();
 				break;
 			case e_command_ifldef:	// 10
 				er=command_ifldef(ptr_preprocessor_directive+directive_lenght);
+				PushConditional();
 				break;
 			case e_command_iflused:	// 11
 				er=command_iflused(ptr_preprocessor_directive+directive_lenght);
+				PushConditional();
 				break;
 			case e_command_if:		// 12
 				er=command_if(ptr_preprocessor_directive+directive_lenght);
+				PushConditional();
 				break;
 			case e_command_file:	// 13
 				er=command_file(ptr_preprocessor_directive+directive_lenght);
@@ -322,6 +328,31 @@ ErrorCode Preprocessor::command_endif(char *t)
 	m_LogicalOpcodesStack >>= 1;
 	m_BranchTakenStack >>= 1;
 	return E_OK;
+}
+
+// Track #if/#endif nesting with source locations so an unterminated (or stray)
+// directive can be reported at the exact line that opened it.
+void Preprocessor::PushConditional()
+{
+	m_OpenConditionals.push_back(std::make_pair(m_CurrentFile->GetCurrentFileName(),(int)m_CurrentFile->GetCurrentLine()));
+}
+
+void Preprocessor::PopConditional()
+{
+	if (!m_OpenConditionals.empty())
+	{
+		m_OpenConditionals.pop_back();
+	}
+	else
+	{
+		// #endif with nothing open: the file has one too many.
+		m_UnmatchedEndifCount++;
+		if (m_FirstStrayEndifFile.empty())
+		{
+			m_FirstStrayEndifFile = m_CurrentFile->GetCurrentFileName();
+			m_FirstStrayEndifLine = (int)m_CurrentFile->GetCurrentLine();
+		}
+	}
 }
 
 ErrorCode Preprocessor::command_elif(char *t)
@@ -1247,6 +1278,10 @@ int Preprocessor::Init(void)
 	m_CurrentListIndex=0;
 	m_LogicalOpcodesStack=0;
 	m_BranchTakenStack=0;
+	m_OpenConditionals.clear();
+	m_UnmatchedEndifCount=0;
+	m_FirstStrayEndifFile.clear();
+	m_FirstStrayEndifLine=0;
 	m_FlagNewLineFound=true;
 	m_FlagNewFileFound=true;
 	if (!er) 

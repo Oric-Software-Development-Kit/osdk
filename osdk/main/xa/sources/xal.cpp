@@ -552,11 +552,12 @@ static int b_ltest(int a, int b)    /* testet ob bt^-1(b) in intervall [0,bt^-1(
 // -----------------------------------------------------------------------------
 
 
-void SymbolEntry::Set(int v,SEGMENT_e afl)
+void SymbolEntry::Set(int v,SEGMENT_e afl,bool relocatable)
 {
 	value			= v;
 	symbol_status	=eSYMBOLSTATUS_VALID;
 	program_section	=afl;
+	m_relocatable	=relocatable;
 	// Re-stamp the source location: the entry was created (and stamped) at the
 	// name's FIRST occurrence, which for a forward-referenced label is a mere
 	// jmp/lda reference. Set() runs where the label actually gets its value —
@@ -618,6 +619,8 @@ int SymbolEntry::DefineSymbol(char *ptr_src,int block_level)
 	m_block_level		=block_level;
 	symbol_status		=eSYMBOLSTATUS_UNKNOWN;
 	program_section		=eSEGMENT_ABS;
+	m_relocatable		=false;
+	m_exportable		=true;
 	m_label_type		=eLABELTYPE_STANDARD;
 	m_blknext			=-1;
 	m_blkprev			=-1;

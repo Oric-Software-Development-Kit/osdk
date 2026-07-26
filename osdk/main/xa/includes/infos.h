@@ -171,6 +171,22 @@ Change history for XA
   label or '=' assignment); symbols never defined in the unit (imports) keep
   the first-occurrence location as the best available. Pass 2 has no
   preprocessor context and leaves the pass-1 stamp untouched.
+- Automatic segment chaining in absolute mode (Devpac-style). The .data segment
+  now starts right after the end of .text, and .bss right after .data, computed
+  from the measured segment sizes - so sources no longer need the manual "capture
+  an end-of-text label, then force *= that label at the top of .bss" pattern to
+  place uninitialised data / the stack above the code. Once every user file is
+  assembled, each following segment's base is set to the previous segment's end
+  and its labels are shifted to match; pass 2 re-evaluates operands and emits the
+  new addresses. Only labels sitting at the NATURAL segment PC move: as soon as a
+  source line pins the PC with a "*=" directive, that label and every later one in
+  the segment keep their explicit address (screen / overlay / hardware placements
+  are left untouched). .text and .zero bases are never moved. Twelve boundary
+  labels are published for use in emitted code: __text_start/__text_end/__text_size
+  and the same for __data_/__bss_/__zero_. NOTE: these boundary labels, like the
+  chained .data/.bss addresses, are only final AFTER pass 1, so they must not be
+  used in pass-1 constructs (#if / #print / #error / .dsb count); a #print of "*"
+  or a label in .text is unaffected (the text base never moves).
 
 */
 

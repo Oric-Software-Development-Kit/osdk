@@ -93,6 +93,7 @@ int fmode=0;
 int relmode=0;
 
 int TablePcSegment[_eSEGMENT_MAX_];	/* segments */
+int gSegmentPcOverridden[_eSEGMENT_MAX_];	/* per-segment: has a `*=` pinned the PC? */
 
 
 
@@ -490,6 +491,26 @@ int main(int argc,char *argv[])
 		 logout(out);
 	 }
 
+	 // Unbalanced #if/#ifdef/#endif silently swallows the code inside the never
+	 // closed (or over-closed) branch - exactly the kind of failure that hides a
+	 // whole library behind a stray directive and miscompiles the wrong code. Fail
+	 // the assembly and point at the exact directive so it can be fixed.
+	 for (size_t oc=0; oc<gPreprocessor.m_OpenConditionals.size(); oc++)
+	 {
+		 sprintf(out,"%s(%d): unterminated #if/#ifdef (missing #endif) - everything after it was skipped\n",
+			 gPreprocessor.m_OpenConditionals[oc].first.c_str(), gPreprocessor.m_OpenConditionals[oc].second);
+		 logout(out);
+		 ner++;
+	 }
+	 if (gPreprocessor.m_UnmatchedEndifCount)
+	 {
+		 sprintf(out,"%s(%d): unmatched #endif (no corresponding #if)%s\n",
+			 gPreprocessor.m_FirstStrayEndifFile.c_str(), gPreprocessor.m_FirstStrayEndifLine,
+			 gPreprocessor.m_UnmatchedEndifCount>1 ? " - and further stray #endif follow" : "");
+		 logout(out);
+		 ner += gPreprocessor.m_UnmatchedEndifCount;
+	 }
+
 	 if (gFlag_n65816>0)
 		 fmode |= 0x8000;
 
@@ -541,6 +562,70 @@ int main(int argc,char *argv[])
 		 {
 			 afile->WriteRelocatableHeader(gOutputFileHandle, fmode,SectionTextLenght,SectionDataLenght,SectionBssLenght,SectionZeroLenght, 0);
 		 }
+	 }
+
+
+	 // Automatic segment chaining (absolute output only): place .data right after
+	 // .text and .bss right after .data, Devpac-style. Pass 1 has measured every
+	 // segment, so each following segment's base is recomputed and its labels are
+	 // relocated to match; pass 2 re-evaluates operands and emits the new addresses.
+	 // Sources no longer need the "end-of-text label + *= into .bss" marker. A manual
+	 // *= inside .bss opts that segment out (its chained labels are then meaningless).
+	 if (!relmode)
+	 {
+		 // Chain from the ACTUAL end-of-text address, not SectionTextBase+length:
+		 // a source that relocates the origin with `*=` (e.g. an overlay pinned to
+		 // `* = _KernelEndText`) runs at an address unrelated to the -bt base, and
+		 // that override lives in the ABS pc. Take the furthest text/abs pc reached
+		 // so .data/.bss land immediately after the real code, wherever it ended up.
+		 int textEnd = TablePcSegment[eSEGMENT_ABS];
+		 if (TablePcSegment[eSEGMENT_TEXT] > textEnd) textEnd = TablePcSegment[eSEGMENT_TEXT];
+
+		 int newDataBase = textEnd;
+		 int newBssBase  = newDataBase + SectionDataLenght;
+
+		 // A unit whose code runs to the very top of memory yields an end address of
+		 // $10000. That is honest for an empty following segment (nothing is placed
+		 // there), but if the segment has content it cannot fit in the 6502 address
+		 // space and every label in it would wrap - fail loudly instead.
+		 if (SectionDataLenght && newDataBase + SectionDataLenght > 0x10000)
+		 {
+			 sprintf(out,"auto-chain: .data (%d bytes at $%04x) runs past the top of memory\n",
+				 SectionDataLenght, newDataBase);
+			 logout(out);
+			 ner++;
+		 }
+		 if (SectionBssLenght && newBssBase + SectionBssLenght > 0x10000)
+		 {
+			 sprintf(out,"auto-chain: .bss (%d bytes at $%04x) runs past the top of memory\n",
+				 SectionBssLenght, newBssBase);
+			 logout(out);
+			 ner++;
+		 }
+
+		 afile->m_cSymbolData.RelocateSegment(eSEGMENT_DATA, newDataBase - SectionDataBase);
+		 afile->m_cSymbolData.RelocateSegment(eSEGMENT_BSS,  newBssBase  - SectionBssBase);
+
+		 SectionDataBase = newDataBase;
+		 SectionBssBase  = newBssBase;
+		 afile->SetSegmentBase(eSEGMENT_DATA, newDataBase);
+		 afile->SetSegmentBase(eSEGMENT_BSS,  newBssBase);
+
+		 // Publish section boundary/size labels reflecting this auto-chained layout.
+		 // __text_start is derived as end-minus-size so it honours a `*=` origin too.
+		 SymbolData& syms = afile->m_cSymbolData;
+		 syms.DefineValueLabel("__text_start", textEnd - SectionTextLenght,          eSEGMENT_ABS);
+		 syms.DefineValueLabel("__text_end",   textEnd,                              eSEGMENT_ABS);
+		 syms.DefineValueLabel("__text_size",  SectionTextLenght,                   eSEGMENT_ABS);
+		 syms.DefineValueLabel("__data_start", SectionDataBase,                     eSEGMENT_ABS);
+		 syms.DefineValueLabel("__data_end",   SectionDataBase + SectionDataLenght, eSEGMENT_ABS);
+		 syms.DefineValueLabel("__data_size",  SectionDataLenght,                   eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_start",  SectionBssBase,                      eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_end",    SectionBssBase + SectionBssLenght,   eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_size",   SectionBssLenght,                    eSEGMENT_ABS);
+		 syms.DefineValueLabel("__zero_start", SectionZeroBase,                     eSEGMENT_ABS);
+		 syms.DefineValueLabel("__zero_end",   SectionZeroBase + SectionZeroLenght, eSEGMENT_ABS);
+		 syms.DefineValueLabel("__zero_size",  SectionZeroLenght,                   eSEGMENT_ABS);
 	 }
 
 

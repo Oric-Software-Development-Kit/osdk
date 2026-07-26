@@ -63,6 +63,9 @@ public:
 	void Close(void);
 	void Terminate(void);
 
+	void PushConditional();		//!< record an opened #if/#ifdef (its source location)
+	void PopConditional();		//!< close the innermost #if, or note a stray #endif
+
 	ErrorCode GetLine(char *t);
 
 	int suchdef(char *t);
@@ -125,6 +128,10 @@ public:
 	bool				m_FlagNewFileFound;
 	int       			m_LogicalOpcodesStack;	//!< Contains one bit for each level of #if / #ifdef ...encountered during preprocessing
 	int       			m_BranchTakenStack;		//!< Tracks if a true branch was already taken at each level (for #elif support)
+	std::vector<std::pair<std::string,int> > m_OpenConditionals;	//!< file+line of each still-open #if/#ifdef (for unterminated-directive diagnostics)
+	int       			m_UnmatchedEndifCount = 0;	//!< #endif seen with no matching open #if
+	std::string 		m_FirstStrayEndifFile;		//!< source location of the first such stray #endif
+	int       			m_FirstStrayEndifLine = 0;
 	char      			m_BufferLine[MAXLINE];
 };
 

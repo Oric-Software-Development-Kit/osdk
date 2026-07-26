@@ -34,6 +34,12 @@ extern int xmode;
 extern SEGMENT_e gCurrentSegment;
 extern int TablePcSegment[_eSEGMENT_MAX_];
 
+// Set (per segment) the moment source overrides the PC with a `*=` directive.
+// Labels defined after that point are pinned to an explicit address and must NOT
+// be moved by automatic segment chaining; only the natural run before the first
+// `*=` follows the auto-computed base.
+extern int gSegmentPcOverridden[_eSEGMENT_MAX_];
+
 extern void set_align(int align_value);
 extern int b_test(int n);
 

@@ -269,6 +269,9 @@ void FileData::StartSegment(int fmode,int t_base,int d_base,int b_base,int z_bas
 	TablePcSegment[eSEGMENT_BSS]  = m_base[eSEGMENT_BSS]  = b_base;
 	TablePcSegment[eSEGMENT_ZERO] = m_base[eSEGMENT_ZERO] = z_base;
 
+	for (int s=0;s<_eSEGMENT_MAX_;s++)
+		gSegmentPcOverridden[s] = 0;
+
 	m_old_abspc = TablePcSegment[eSEGMENT_ABS];
 	TablePcSegment[eSEGMENT_ABS]  = TablePcSegment[eSEGMENT_TEXT];
 }
@@ -608,7 +611,7 @@ ErrorCode SymbolData::DefineGlobalLabel(char *s )
 	}
 	else 
 	{
-		if (!(er=DefineSymbol(s,&n,0))) 
+		if (!(er=DefineSymbol(s,&n,0)))
 		{
 			SymbolEntry& symbol_entry=GetSymbolEntry(n);
 			symbol_entry.symbol_status		=eSYMBOLSTATUS_GLOBAL;
@@ -616,6 +619,52 @@ ErrorCode SymbolData::DefineGlobalLabel(char *s )
 		}
 	}
 	return er;
+}
+
+
+// Shift every resolved label belonging to 'segment' by 'delta'. Used by the
+// automatic segment chaining pass: once the true size of the preceding segments
+// is known, a segment's base moves and all of its labels move with it. Labels of
+// other segments (and unresolved/global entries) are left untouched.
+void SymbolData::RelocateSegment(SEGMENT_e segment,int delta)
+{
+	if (!delta) return;
+	for (int i=0;i<m_nb_labels;i++)
+	{
+		SymbolEntry& e=GetSymbolEntry(i);
+		// Only labels sitting at the natural segment PC follow the auto-computed
+		// base. Once source pins the PC with `*=`, later labels hold explicit
+		// addresses (screen/overlay/hardware) and must stay put.
+		if (e.symbol_status==eSYMBOLSTATUS_VALID && e.program_section==segment && e.m_relocatable)
+			e.value+=delta;
+	}
+}
+
+
+// Publish (or finalize) a named absolute label with a known value. If a forward
+// reference already created the entry it is reused, so source can reference the
+// label before this runs; the value is set here and picked up when pass 2
+// re-evaluates operands. Returns the label index, or -1 on allocation failure.
+int SymbolData::DefineValueLabel(const char *name,int value,SEGMENT_e segment)
+{
+	int n;
+	char buffer[256];
+	strncpy(buffer,name,sizeof(buffer)-1);
+	buffer[sizeof(buffer)-1]=0;
+
+	if (SearchSymbol(buffer,&n)!=E_OK)
+	{
+		if (DefineSymbol(buffer,&n,0)) return -1;
+	}
+	SymbolEntry& e=GetSymbolEntry(n);
+	e.value			=value;
+	e.symbol_status	=eSYMBOLSTATUS_VALID;
+	e.program_section=segment;
+	// These describe the layout of THIS assembly unit only. Exporting them via -E
+	// would inject one unit's boundaries into every unit that includes the header,
+	// where they are meaningless and silently collide with that unit's own set.
+	e.m_exportable	=false;
+	return n;
 }
 
 
@@ -686,6 +735,7 @@ void SymbolData::ExportEquates(FILE *fp, const char* prefix_filter, const char* 
 		if (ptr_symbol_entry->m_label_type == eLABELTYPE_UNNAMED
 		 || ptr_symbol_entry->m_label_type == eLABELTYPE_UNNAMED_REF)   continue;
 		if (ptr_symbol_entry->m_label_type == eLABELTYPE_CHEAP)         continue;
+		if (!ptr_symbol_entry->m_exportable)                            continue;
 		if (prefix_filter && prefix_filter[0]
 		 && strncmp(ptr_symbol_entry->ptr_label_name, prefix_filter, strlen(prefix_filter)) != 0)
 			continue;
