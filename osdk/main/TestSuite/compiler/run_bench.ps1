@@ -138,11 +138,15 @@ SET OSDKCPPFLAGS=-I .
     }
 
     # -------------------------------------------------- run
-    # The sandbox emulator intermittently fails to autoload the tape and sits
-    # idle (looks like a jam) or exits early. Distinguish a real hang from a
-    # working-but-slow run by CPU activity: a genuine run keeps the core pegged,
-    # a failed autoload is idle. Detect idle in ~3s and retry (up to 3 attempts)
-    # instead of burning the full timeout.
+    # The sandbox emulator can fail to autoload the tape and sit idle (looks like
+    # a jam) or exit early, so we retry rather than burn the whole timeout. Care
+    # is needed with the idle heuristic though: TotalProcessorTime stays LOW for
+    # tens of seconds during tape loading even under --turbo, so "no CPU" alone
+    # does NOT mean a failed autoload. A ~3s CPU threshold killed every sample
+    # long before it finished (06-sieve needs ~25s to reach @END and then reports
+    # @CYCLES normally) - that was the phantom "22/23 idle" result. Idle is now
+    # only declared after IDLE_LIMIT polls with neither CPU activity NOR any
+    # growth of printer_out.txt, so a slow-but-working run is never cut short.
     $emuDir = "$sandbox\Oricutron"
     Copy-Item $tap "$emuDir\OSDK.TAP" -Force
     $printer = "$emuDir\printer_out.txt"
@@ -153,14 +157,17 @@ SET OSDKCPPFLAGS=-I .
         Start-Sleep -Seconds 2   # startup grace before sampling CPU
         $status = 'timeout'; $deadline = (Get-Date).AddSeconds($effTimeout)
         $prevCpu = try { $proc.TotalProcessorTime } catch { [TimeSpan]::Zero }; $idle = 0
+        $prevOut = 0
+        $IDLE_LIMIT = 120        # 120 x 500ms = 60s of no CPU AND no output
         while ((Get-Date) -lt $deadline) {
             Start-Sleep -Milliseconds 500
             if ((Test-Path $printer) -and (Select-String -Path $printer -Pattern '@END' -Quiet -ErrorAction SilentlyContinue)) { $status = 'ok'; break }
             if ($proc.HasExited) { $status = 'emudied'; break }
             try { $proc.Refresh(); $nowCpu = $proc.TotalProcessorTime } catch { $nowCpu = $prevCpu }
-            if (($nowCpu - $prevCpu).TotalMilliseconds -lt 20) { $idle++ } else { $idle = 0 }
-            $prevCpu = $nowCpu
-            if ($idle -ge 6) { $status = 'idle'; break }   # ~3s no CPU = failed autoload
+            $nowOut = if (Test-Path $printer) { (Get-Item $printer).Length } else { 0 }
+            if ((($nowCpu - $prevCpu).TotalMilliseconds -lt 20) -and ($nowOut -eq $prevOut)) { $idle++ } else { $idle = 0 }
+            $prevCpu = $nowCpu; $prevOut = $nowOut
+            if ($idle -ge $IDLE_LIMIT) { $status = 'idle'; break }
         }
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue; $proc.WaitForExit() | Out-Null }
         if ($status -eq 'ok') { break }

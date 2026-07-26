@@ -22,8 +22,47 @@ osdk_start
 	;*=$800
 
 	;
-	; Needs to clear the BSS section
+	; Clear the BSS section.
 	;
+	; C guarantees that statics start at zero. They used to get that for free:
+	; uninitialised statics were reserved with .dsb inside .text, and .dsb in an
+	; emitted segment writes zero bytes, so the zeroes arrived with the file - at
+	; the cost of carrying (and loading) them from tape or disk. They now live in
+	; .bss, which reserves without emitting, so the runtime has to do the zeroing.
+	;
+	; Only the AUTO-CHAINED run is cleared: __bss_clear_start/__bss_clear_end cover
+	; the reservations made before any "* = $XXXX" pinned the .bss PC. A pinned
+	; block is a deliberate placement (screen, overlay, hardware) and is none of
+	; the CRT's business - which is also why __bss_end must NOT be used here, since
+	; it is start+total-length and so spans those pinned blocks.
+	;
+	; Define OSDK_NO_BSS_CLEAR if your project manages .bss itself.
+	;
+	; The range cleared is __bss_clear_start up to osdk_stack: everything the
+	; compiler reserved, but NOT the stack, which is the last thing in the natural
+	; run and never needs zeroing. XA page-aligns __bss_clear_start, so this walks
+	; whole pages with "iny" and needs no pointer arithmetic - the only self
+	; modification is the high byte of the store, one patch per page. Rounding the
+	; count up to a whole page can only ever spill into the stack, which is safe.
+#ifdef OSDK_HAS_BSS		; hoisted by link65 only when a module reserves .bss
+#ifndef OSDK_NO_BSS_CLEAR
+#ifndef OSDK_CUSTOM_STACK
+	ldx #>(osdk_stack - __bss_clear_start + 255)	; pages to clear (0 = nothing)
+	beq osdk_bss_done
+	lda #0
+osdk_bss_page
+	ldy #0
+osdk_bss_store
+	sta __bss_clear_start,y
+	iny
+	bne osdk_bss_store
+	inc osdk_bss_store+2
+	dex
+	bne osdk_bss_page
+osdk_bss_done
+#endif
+#endif
+#endif
 
 
 

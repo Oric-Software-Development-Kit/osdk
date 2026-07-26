@@ -304,7 +304,45 @@ void defsymbol(Symbol p) {
 
 void export(Symbol p) {}
 void import(Symbol p) {}
-void segment(int s) {}
+/*
+    Emit the assembler segment directive for the logical segment the front end has
+    switched to (via swtoseg/defglobal). This used to be a no-op, which meant that
+    UNINITIALIZED statics - routed here as BSS by decl.c, then reserved with
+    ZERO(n) i.e. ".dsb n" - landed in .text and were written into the executable as
+    a block of zeros. A "static int primes[4097]" cost 8194 bytes of file and load
+    time for nothing. Reserving them in .bss instead costs nothing in the file, but
+    .dsb in .bss is NOT zero filled, so the C guarantee that statics start at zero
+    now has to come from the CRT clearing __bss_clear_start..__bss_clear_end.
+
+    DATA and LIT deliberately stay in .text: in absolute (non-relmode) output XA
+    only writes segments below eSEGMENT_DATA to the file, so routing initialized
+    data to .data would silently drop it from the binary.
+*/
+static int bss_marker_emitted = 0;
+
+void segment(int s) {
+    if (graph_output) return;
+    switch (s) {
+    case BSS:
+        if (!bss_marker_emitted) {
+            /*
+                Stamp a marker the linker can hoist. The CRT has to decide whether to
+                emit a .bss clear loop at all, and that decision has to be a pass-1
+                preprocessor test - the assembler's __bss_clear_* labels are pass-2
+                values, so "#if __bss_clear_size>0" is a hard error. link65 scans for
+                this marker and writes "#define OSDK_HAS_BSS" ahead of header.s, so a
+                program with no uninitialized statics carries no clear loop.
+            */
+            print(";#OSDK_HAS_BSS\n");
+            bss_marker_emitted = 1;
+        }
+        print("\t.bss\n");
+        break;
+    default:            /* CODE, DATA, LIT */
+        print("\t.text\n");
+        break;
+    }
+}
 void global(Symbol p) { if (!graph_output) print("%s\n", p->x.name); }
 
 void printfloat(double val)

@@ -84,6 +84,7 @@ int SectionTextBase=0x1000;
 int SectionDataLenght=0;
 int SectionDataBase=0x0400;
 int SectionBssLenght=0;
+int SectionBssNaturalLenght=0;	/* .bss reserved BEFORE any `*=` pinned the PC (the auto-chained run) */
 int SectionBssBase=0x4000;
 int SectionZeroLenght=0;
 int SectionZeroBase=4;
@@ -584,6 +585,14 @@ int main(int argc,char *argv[])
 		 int newDataBase = textEnd;
 		 int newBssBase  = newDataBase + SectionDataLenght;
 
+		 // Page-align the auto-chained .bss base. It costs NO file bytes (.bss is
+		 // reserved, never emitted) - only up to 255 bytes of address space - and
+		 // buys two things: a startup clear loop that can walk whole pages with a
+		 // plain "iny" instead of patching a pointer per byte, and an indexed
+		 // access to whatever lands first in .bss that can never cross a page
+		 // boundary (no +1 cycle penalty on "lda base,y").
+		 newBssBase = (newBssBase + 0xff) & ~0xff;
+
 		 // A unit whose code runs to the very top of memory yields an end address of
 		 // $10000. That is honest for an empty following segment (nothing is placed
 		 // there), but if the segment has content it cannot fit in the 6502 address
@@ -623,6 +632,13 @@ int main(int argc,char *argv[])
 		 syms.DefineValueLabel("__bss_start",  SectionBssBase,                      eSEGMENT_ABS);
 		 syms.DefineValueLabel("__bss_end",    SectionBssBase + SectionBssLenght,   eSEGMENT_ABS);
 		 syms.DefineValueLabel("__bss_size",   SectionBssLenght,                    eSEGMENT_ABS);
+		 // Range a C runtime may safely zero at startup. This is the AUTO-CHAINED run
+		 // only: reservations made before any `*=` pinned the .bss PC. __bss_end is
+		 // start+total-length and therefore spans pinned blocks too (screen, overlay,
+		 // hardware placements), so it is NOT a valid thing to clear. These two are.
+		 syms.DefineValueLabel("__bss_clear_start", SectionBssBase,                              eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_clear_end",   SectionBssBase + SectionBssNaturalLenght,    eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_clear_size",  SectionBssNaturalLenght,                     eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_start", SectionZeroBase,                     eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_end",   SectionZeroBase + SectionZeroLenght, eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_size",  SectionZeroLenght,                   eSEGMENT_ABS);
@@ -955,6 +971,13 @@ static int pass1(void)
 			break;
 		case eSEGMENT_BSS :
 			SectionBssLenght += outlen;
+			// Track the NATURAL run separately: reservations made before any `*=`
+			// pins the .bss PC. That run is what auto-chaining places, and it is
+			// the only part a CRT may safely zero - a `* = $XXXX` block is a
+			// deliberate placement (screen, overlay, hardware) whose contents are
+			// not the CRT's business.
+			if (!gSegmentPcOverridden[eSEGMENT_BSS])
+				SectionBssNaturalLenght += outlen;
 			break;
 		case eSEGMENT_ZERO:
 			SectionZeroLenght+= outlen;

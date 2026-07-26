@@ -20,6 +20,7 @@ extern int relmode;
 extern int SectionTextLenght;
 extern int SectionTextBase;
 extern int SectionBssLenght;
+extern int SectionBssNaturalLenght;
 extern int SectionBssBase;
 extern int SectionDataLenght;
 extern int SectionDataBase;

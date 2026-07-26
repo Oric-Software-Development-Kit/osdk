@@ -1487,6 +1487,37 @@ int Linker::Main()
     "//\r\n"
     ,TOOL_VERSION_MAJOR,TOOL_VERSION_MINOR);
 
+  // === "only pay for what you use": does anything in this program reserve .bss? ===
+  // The compiler stamps ";#OSDK_HAS_BSS" into its output the first time it switches
+  // to the BSS segment. The CRT needs that answer as a PASS-1 preprocessor test, and
+  // it cannot use the assembler's __bss_clear_* labels to get it: those are pass-2
+  // values (auto-chaining computes them only after pass 1 has measured every
+  // segment), so "#if __bss_clear_size>0" fails outright with "Label not defined".
+  // The linker is the only stage that sees every module BEFORE the CRT is assembled,
+  // so it hoists the answer to the very top of the linked file - ahead of header.s -
+  // where a plain #ifdef can act on it. Programs with no uninitialized statics then
+  // emit no clear loop at all.
+  {
+    bool anyBss = false;
+    for (const auto& inputFile : m_InputFileList)
+    {
+      FILE* f = fopen(inputFile.m_FileName.c_str(), "rb");
+      if (!f) continue;
+      char line[1024];
+      while (fgets(line, sizeof(line), f))
+      {
+        if (strstr(line, ";#OSDK_HAS_BSS")) { anyBss = true; break; }
+      }
+      fclose(f);
+      if (anyBss) break;
+    }
+    if (anyBss)
+    {
+      fprintf(gofile, ";\r\n; At least one module reserves .bss, so the CRT must zero it\r\n;\r\n");
+      fprintf(gofile, "#define OSDK_HAS_BSS\r\n\r\n");
+    }
+  }
+
   // Write imported symbols as equates
   if (!m_ImportedSymbols.empty())
   {
