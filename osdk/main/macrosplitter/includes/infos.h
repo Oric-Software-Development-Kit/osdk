@@ -23,6 +23,12 @@ Change history for MacroSplitter
 
 1.0
 - First version considered production rather than experimental, hence 1.0 rather than 0.3.
+- The -g1 debug directives (.csource / .ctype) are now transparent to the optimizer. They were
+  treated as ordinary directives, and a directive is a barrier, so with a .csource sitting
+  between almost every pair of generated instructions most peephole patterns never matched:
+  a debug build could be several percent larger than the same source without -g1 (aes256 lost
+  591 bytes). They carry no code and no size, so they are classified as comments now, which
+  every "skip transparent tokens" scan already understands.
 - Peephole: CFG-liveness dead temp-store elimination. A store to a compiler temporary whose
   value is not read on any path out of the block is removed outright.
 - Peephole: dead immediate and constant register staging is eliminated, and a byte-select of
