@@ -51,7 +51,10 @@ void SetApplicationParameters(const char* pcApplicationName,int versionMajor,int
   g_nVersionMajor=versionMajor;
   g_nVersionMinor=versionMinor;
   char cTempBuffer[256];
-  sprintf(cTempBuffer,"%d.%03d",versionMajor,versionMinor);
+  // Two-part X.Y, not zero padded: the documentation and the release notes all
+  // write 1.3 / 0.4, so printing 1.003 / 0.004 here just made the tools disagree
+  // with their own docs.
+  sprintf(cTempBuffer,"%d.%d",versionMajor,versionMinor);
   g_cVersionString=cTempBuffer;
 
   g_cUsageMessage=pcUsageMessage;

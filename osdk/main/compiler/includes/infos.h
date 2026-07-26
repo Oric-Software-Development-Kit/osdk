@@ -24,7 +24,7 @@ Change history for the Compiler (6502 backend)
   and runs out of temporary registers (max 8), instead of silently emitting
   invalid assembly code (****** placeholders)
 
-1.41
+2.0
 - Fixed a regression introduced by the 1.40 temporary-register change: all 32
   floating point temporaries were marked permanently busy, so ANY float
   expression failed with "expression too complex". Float temporaries are

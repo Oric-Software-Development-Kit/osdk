@@ -21,8 +21,22 @@ Change history for MacroSplitter
 - Parenthesis-balanced argument parsing for args like (ap), (fp), (sp)
 - New OSDKMACROEXPAND=1 environment variable in osdk_config.bat enables the new pipeline
 
+1.0
+- First version considered production rather than experimental, hence 1.0 rather than 0.3.
+- Peephole: CFG-liveness dead temp-store elimination. A store to a compiler temporary whose
+  value is not read on any path out of the block is removed outright.
+- Peephole: dead immediate and constant register staging is eliminated, and a byte-select of
+  a known zero (#<(0) / #>(0)) is folded to a plain immediate.
+- Peephole: commutative staging fold, so "lda X : sta T : lda Y : eor T" becomes
+  "lda Y : eor X" for the commutative operations.
+- Peephole: transfer followed by store becomes a direct store, and the temp-dead-after test
+  was hardened for register pairs.
+- Peephole: dead op1:op2 long-load staging is sunk to the destination temporary.
+- Removed the blank lines left behind where instructions were deleted, so the generated
+  assembly stays readable when inspecting what the optimizer did.
+
 */
 
-#define TOOL_VERSION_MAJOR	0
-#define TOOL_VERSION_MINOR	2
+#define TOOL_VERSION_MAJOR	1
+#define TOOL_VERSION_MINOR	0
 

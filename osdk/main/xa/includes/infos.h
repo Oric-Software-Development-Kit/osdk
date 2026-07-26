@@ -120,7 +120,24 @@ Change history for XA
   instead of the generic "Overflow", making it clear the address exceeds the $00-$FF range.
 - Improved error message formatting: consistent "file(line):addr: message" layout.
 
-2.3.2
+2.4.0
+- The twelve section boundary labels are excluded from -E symbol export. They describe the
+  layout of one assembly unit, so exporting them injected one unit's boundaries into every
+  unit that included the generated header, where they silently collided with that unit's
+  own set. They remain in the -l and -S symbol files, which are per-unit anyway.
+- Added __bss_clear_start / __bss_clear_end / __bss_clear_size, covering the auto-chained
+  .bss run only (the reservations made before any *= pinned the .bss PC). This is the range
+  a C runtime may safely zero at startup; __bss_end is start+total-length and therefore
+  spans *=-pinned blocks, so it must never be used for that.
+- The auto-chained .bss base is rounded up to a page boundary. It costs no file bytes, since
+  .bss is reserved and never emitted, and it lets a startup clear walk whole pages while
+  giving whatever lands first in .bss an indexed access that cannot cross a page.
+- Unbalanced #if / #ifdef / #endif is now a fatal error pointing at the exact directive.
+  A missing #endif used to silently swallow everything after it, which is an efficient way
+  to lose an entire library without noticing.
+- A segment whose contents would run past the end of the 64K address space is now an error
+  instead of quietly wrapping around. A zero-length segment landing at $10000 stays silent,
+  since a unit whose code ends at the top of memory places nothing there.
 - Fixed .align segment base address warnings firing in absolute mode where they are irrelevant.
   The warnings (and o65 header alignment flags) now only apply in relocatable mode (-R).
   Also changed alignment tracking from global to per-segment, so a .align in one segment
@@ -192,8 +209,8 @@ Change history for XA
 
 
 #define TOOL_VERSION_MAJOR	2
-#define TOOL_VERSION_MINOR	3
-#define TOOL_VERSION_PATCH	2
+#define TOOL_VERSION_MINOR	4
+#define TOOL_VERSION_PATCH	0
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s
