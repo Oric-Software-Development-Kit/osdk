@@ -175,6 +175,23 @@ static Token ParseToken(const std::string& raw, int lineIndex)
 		return tok;
 	}
 
+	// Debug metadata emitted by the compiler under -g1. These carry no code and no
+	// side effects, so they must NOT act as optimizer barriers: classifying them as
+	// ordinary directives silently cost optimization on every -g1 build, because a
+	// .csource marker sits between almost every pair of generated instructions.
+	if (trimmed.compare(0, 8, ".csource") == 0 || trimmed.compare(0, 6, ".ctype") == 0)
+	{
+		// Deliberately typed as a Comment rather than a Directive. These carry no code,
+		// no side effects and no size, so they must be TRANSPARENT to every pass: a
+		// Directive is a barrier, and since -g1 puts a .csource between almost every
+		// pair of generated instructions, classifying them as directives silently
+		// disabled most of the peephole on every debug build. Comment is exactly the
+		// behaviour wanted here: all the "skip transparent tokens" scans already look
+		// past it, nothing ever eliminates it, and reassembly emits it verbatim.
+		tok.type = TokenType::Comment;
+		return tok;
+	}
+
 	// Directives: starts with . or #
 	if (trimmed[0] == '.' || trimmed[0] == '#')
 	{
@@ -235,7 +252,12 @@ static std::vector<Token> TokenizeLine(const std::string& line, int lineIndex)
 		|| trimmedLine.compare(0, 6, ".ctype") == 0)
 	{
 		Token tok = ParseToken(trimmedLine, lineIndex);
-		tok.type = TokenType::Directive;
+		// Comment, NOT Directive: a Directive is an optimizer barrier, and -g1 puts a
+		// .csource between almost every pair of generated instructions, so typing these
+		// as directives silently disabled most of the peephole on every debug build.
+		// They carry no code and no side effects, so they must be transparent; Comment
+		// gives exactly that, and is never eliminated nor rewritten.
+		tok.type = TokenType::Comment;
 		tokens.push_back(tok);
 		return tokens;
 	}
