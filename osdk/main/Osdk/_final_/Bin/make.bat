@@ -8,6 +8,11 @@
 :: - OSDKNAME - Name of the program (defaults to "OSDK" if not defined)
 :: - OSDKADDR - Start address of the program (defaults to $600 if not defined)
 :: - OSDKCOMP - Can be used to override compiler flags such as optimization level (default to "-O2" if not defined)
+:: - OSDKDEBUG - Debug information level passed to the compiler (defaults to "-g1"). -g1 makes the
+::               compiler emit .csource line markers and .ctype type information, which is what lets
+::               a debugger map generated code back to the C source and show typed variables. It does
+::               not change the generated code, so it is on by default. Set OSDKDEBUG=-g0 to turn it off
+::               (note: "SET OSDKDEBUG=" does NOT work, an empty value is undefined in cmd).
 :: - OSDKCPPFLAGS - To pass additional data to the C preprocessor (Currently LCC65)
 :: - OSDKXAPARAMS - To pass additional data to the 6502 assembler (Currently XA and defaults to "-C -W" if not defined)
 :: - OSDKTAPNAME - Name of the TAP file (defaults to "OSDK" if not defined)
@@ -76,6 +81,16 @@ SET OSDKADDR=$600
 IF NOT "%OSDKCOMP%"=="" GOTO Comp
 SET OSDKCOMP=-O2
 :Comp
+
+::
+:: Debug information. Kept separate from OSDKCOMP on purpose: a project that sets its
+:: own optimization flags should not silently lose the debug output, and -g1 costs
+:: nothing in the generated binary. Set OSDKDEBUG=-g0 to disable it (an empty value
+:: would simply read as undefined and get the default back).
+::
+IF DEFINED OSDKDEBUG GOTO Debg
+SET OSDKDEBUG=-g1
+:Debg
 
 ::
 :: Set XA to disable 65C02 and 65816 instructions by default
@@ -266,7 +281,7 @@ SET CPLUS_INCLUDE_PATH=
 endlocal
 
 IF "%OSDKBRIEF%"=="" ECHO   - compile
-%OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKT%\%1.c >%OSDKT%\%1.c2
+%OSDKB%\compiler.exe -N%1 %OSDKCOMP% %OSDKDEBUG% %OSDKT%\%1.c >%OSDKT%\%1.c2
 IF ERRORLEVEL 1 GOTO ErFailure
 
 IF "%OSDKMACROEXPAND%"=="1" (
