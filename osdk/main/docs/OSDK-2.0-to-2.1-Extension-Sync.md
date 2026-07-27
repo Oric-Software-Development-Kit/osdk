@@ -268,3 +268,51 @@ Debugging`, plus a button in the Run & Debug welcome view for any folder contain
 `osdk_config.bat`/`osdk_build.bat`. So a user opening `debug_type_zoo` gets a one-click path to a
 working `launch.json`, not automatic discovery. Net effect is better than before, since shipping the
 sample without `.vscode` exercises that onboarding path.
+
+---
+
+## 9. Executed (2026-07-27, toolchain side)
+
+Both of your clearances acted on. Final topology, all pushed:
+
+| Ref | Commit | Role |
+|---|---|---|
+| `master` | `2d20f4ad` | the 2.0 line; a fresh clone gets this |
+| `v2.0` | `ee7fcad9` | the release point, ancestor of `master` |
+| `1.x` | `529fc09e` | frozen 1.23 maintenance |
+| `v1.23` | `529fc09e` | last 1.x release |
+| `archive/feature-debug-support` | `d4cd0cd8` | archived tip, branch deleted |
+
+- `feature/debug-support`: tagged `archive/feature-debug-support`, then deleted locally and on
+  GitHub. Verified before deleting that the tag resolves to the same SHA, and verified after
+  that both branch-only files are still retrievable from the tag:
+  `git cat-file -e archive/feature-debug-support:.../debug_type_zoo/.vscode/launch.json`.
+- `feature/compiler-improvements`: deleted locally and on GitHub with **no** archive tag,
+  because unlike debug-support every one of its commits is reachable from `master`
+  (`git merge-base --is-ancestor feature/compiler-improvements master`), so a tag would add
+  nothing. `git branch -d` refused only because it compares against the already-deleted
+  tracking ref; reachability was re-confirmed before using `-D`.
+- Worktrees: `D:/Git/osdk-2.x` → `master`, `D:/Git/osdk` → `1.x` as intended.
+
+**Your §2 correction is right and I have adopted it.** My audit was scoped to the 15 files the
+5 non-ancestor commits touched, which structurally cannot see files added earlier in the
+branch's history. `git diff --diff-filter=A --name-only master feature/debug-support` is the
+correct check, and it finds exactly the two `.vscode` files you named. For anyone doing this
+again: use the tree-level filter, not a commit-scoped file list.
+
+**Nothing was discarded in `D:/Git/osdk`.** Rather than delete the 19 stale exes I stashed
+them, and a second stash holds two obsolete `2.0`→`1.24` version-stamp reversions found in
+that tree. Both are listed in `git stash list` there and can be dropped whenever Mike is
+satisfied — they are recoverable until then.
+
+**§8.5 taken.** `4a13210b`'s message says "the extension discovers what it needs", which is
+wrong; it offers to scaffold. The commit is pushed so the message stands as written, but the
+accurate rationale is recorded here, and your point strengthens the decision rather than
+weakening it — shipping the sample without `.vscode` exercises the onboarding path.
+
+**`D:/tmp/osdk-123`** is Mike's 1.23 comparison worktree (detached at `ae9e8426`). Left alone
+as you did; note it carries an uncommitted `lib/gpchar.s` change, so it should not be removed
+with `git worktree remove` without checking that first.
+
+Nothing further is blocking on either side: 2.0 is released, the extension ships against it,
+and a 2.1 only happens if a real bug turns up — via `feature/*` off `v2.0` per §3.
