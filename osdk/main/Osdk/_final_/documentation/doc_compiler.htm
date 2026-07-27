@@ -113,6 +113,15 @@ void function_being_debugged(void)
 <p>The mixed/debug_type_zoo sample shows the pragma in action: the project builds at -O2 while the two functions meant to be inspected in the debugger are compiled at -O1.</p>
 
 
+<p id=chapter>Calling convention</p>
+
+<p>By default, arguments are passed on a software stack. A function can instead be declared <b>__fastcall</b>
+to receive its arguments in registers, which is significantly cheaper for small, frequently called functions.
+The register width comes from the prototype, so a char arrives in A, and a pointer or int in A:X. Most of the
+small library functions have been converted.
+</p>
+
+
 <p id=chapter>Data types</p>
 
 <p>Since the 6502 is an 8 bit processor, the data size are as follow:

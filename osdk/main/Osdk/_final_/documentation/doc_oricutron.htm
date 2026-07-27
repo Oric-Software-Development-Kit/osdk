@@ -50,7 +50,34 @@ pass an address, you can also use a symbol.
 		<li><b>F12:</b> Skip instruction</li>
   		</ul>
 
-<p id=chapter>Advanced features</p>	
+<p id=chapter>Debugging from an external debugger</p>
+
+<p>Since OSDK 2.0, Oricutron also embeds a <b>GDB compatible debug stub</b>. Instead of using the built-in
+monitor described above, an external debugger can connect to Oricutron over TCP and drive it using the standard
+GDB remote protocol: set and clear breakpoints, single step, run and halt, and read or write both memory and
+CPU registers.
+</p>
+
+<p>The stub is enabled by giving Oricutron a port to listen on:
+</p>
+
+<pre>
+oricutron --gdb_port 6502 mygame.dsk
+</pre>
+
+<p>This is what the Visual Studio Code extension uses to offer source level debugging of Oric programs. Combined
+with a program built using <b>OSDKDEBUG=-g1</b>, which makes the compiler emit source line and type information,
+and the extended symbol file produced by the assembler, the debugger can show you C source lines and typed
+variables rather than raw disassembly.
+</p>
+
+<p>There is also a <b>KVM protocol</b> (Keyboard and Video, there is no mouse on an Oric), which exposes the
+emulated screen buffer and accepts keyboard input, so external tooling can display the running program and
+interact with it.
+</p>
+
+
+<p id=chapter>Advanced features</p>
 
 		<p>You also have some more advanced commands:
 		</p>
@@ -89,10 +116,50 @@ pass an address, you can also use a symbol.
 <br>		
 
 
+<p id=chapter>Version numbering</p>
+
+<p>Upstream Oricutron has been called version 1.2 since November 2014. Development moved to git and
+releases are now identified by commit hash, which makes it impossible to tell which version was released
+when. The build shipped with the OSDK therefore uses its own scheme, and names itself after its compile
+date instead:
+</p>
+
+<pre>
+Oricutron 2026.07.25 OSDK (SDL1)
+</pre>
+
+<p>That string appears in the title bar and in the "About Oricutron" dialog. It tells you the compile date,
+that this is the OSDK variant rather than an upstream build, and which major version of SDL it was linked
+against. Please quote it when reporting a problem. Upstream builds are unaffected and keep reporting 1.2.
+</p>
+
+<p>The window title can be replaced with the <b>--title</b> option, so that each window says what it is
+running. That matters when you have a lot of them open at the same time, a test bench for instance, where
+otherwise every window looks identical:
+</p>
+
+<pre>
+oricutron --title "Playing Encounter" mygame.dsk
+</pre>
+
+<p>It can also be changed while the program is running, through the debug stub. Only the window title
+changes, the "About Oricutron" dialog keeps reporting the build identity above.
+</p>
+
+
 <p id=chapter>Historic</p>
 
 <p>Here is the list of all releases with a short description of things that changed:
 </p>
+
+
+<p id=dateentry>2026.07.25 OSDK</p>
+<ul>
+	<li>Added a <b>GDB compatible debug stub</b>, enabled with <b>--gdb_port</b>. An external debugger can connect over TCP and use the standard GDB remote protocol to set breakpoints, single step, run and halt, and read or write memory and CPU registers. This is what the Visual Studio Code extension uses for source level debugging of Oric programs
+	<li>Added a <b>KVM protocol</b> (Keyboard and Video, there is no mouse on an Oric), which exposes the emulated screen buffer and accepts keyboard input, so external tooling can display the running program and interact with it
+	<li>Added a <b>--title</b> option to change the window title, so each window can say what it is running when several are open at once. It can also be changed at runtime through the debug stub
+	<li>The OSDK build now names itself after its compile date, <b>Oricutron YYYY.MM.DD OSDK (SDLx)</b>, instead of reporting the upstream 1.2 which has not changed since 2014
+</ul>
 
 
 <p id=dateentry>Version 1.2.4 (14-Feb-2021)</p>

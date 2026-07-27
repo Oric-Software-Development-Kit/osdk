@@ -84,6 +84,7 @@ accessible from C source code.
 <li>Added the <b>ctype</b> family, and converted the small hot functions to <b>__fastcall</b> so they take their argument in a register</li>
 <li>The C runtime startup was slimmed down by nearly 400 bytes, and uninitialized statics are now reserved in <b>.bss</b> rather than stored in the executable as zeros, which the runtime clears at startup only when a module actually reserves any</li>
 <li>Ships the common portable C headers (<b>stdint.h</b>, <b>types.h</b>, <b>compat.h</b>) so third party C code has a better chance of compiling unmodified</li>
+<li>The C runtime stamps a module id byte at program entry when <b>OSDK_MODULE_ID</b> is defined at build time (a no-op otherwise), letting external tools identify which run time loaded overlay module is currently active</li>
 </ul>
 
 	</BODY>
