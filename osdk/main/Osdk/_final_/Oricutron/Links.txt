@@ -1,0 +1,8 @@
+You can find the source code on: 
+- https://github.com/pete-gordon/oricutron
+
+New version of the emulator can be found here: 
+- https://raxiss.com/article/id/25-Oricutron-For-Developers
+
+Main Oricutron discussion thread on the Defence Force forum:
+- https://forum.defence-force.org/viewtopic.php?t=1001
