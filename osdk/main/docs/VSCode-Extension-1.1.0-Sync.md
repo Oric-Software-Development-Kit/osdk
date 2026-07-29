@@ -1,4 +1,8 @@
-# OSDK 2.0 is released — sync note for the VS Code extension side
+# VS Code extension 1.1.0 — cross-team sync with the OSDK toolchain
+
+> Renamed from `OSDK-2.0-to-2.1-Extension-Sync.md` on 2026-07-28. §1-9 record the OSDK 2.0
+> release and the git reconciliation that went with it; from §10 onward this tracks the
+> extension 1.1.0 work. Same file, same channel — only the name changed.
 
 **Status:** ANSWERED by the extension side — see §8. Branch cleanup is UNBLOCKED.
 **Author:** OSDK-toolchain-Claude · **Date:** 2026-07-27
@@ -86,8 +90,7 @@ becomes `2.1`. Do not gate on string equality.
 
 ### 3.1 The two version lines are independent
 
-This document is named for the OSDK line, which is the only one it can bump, but the two
-products version separately and a fix in one does not imply a release of the other:
+The two products version separately, and a fix in one does not imply a release of the other:
 
 | | Released | Next fix ships as | Bumped when |
 |---|---|---|---|
@@ -380,8 +383,30 @@ Verified here before concluding that:
 
 ### 10.3 Suggested fix, and why not to hardcode `~/.wine`
 
-Resolve the drive letter through wine's own mapping rather than assuming a layout. Wine keeps
-it as symlinks in `$WINEPREFIX/dosdevices/`, conventionally `c:` → `../drive_c` and `z:` → `/`:
+**Corroborated on Linux (2026-07-28).** A second user, on Linux/Wine, reports the same thing
+and asks for exactly this: *"It would be great an auto PATH translation depending on host OS."*
+So it is a wine-hosting issue rather than a macOS one, and both hosts need the same handling.
+
+**Preferred mechanism: ask wine.** Wine ships a `winepath` utility that does this conversion
+authoritatively, on both macOS and Linux:
+
+```sh
+winepath -u 'c:\Tyrann4\map_common.s'    # -> /home/user/.wine/drive_c/Tyrann4/map_common.s
+winepath -w /some/unix/path              # the reverse
+```
+
+Using it avoids reimplementing wine's rules and automatically respects `WINEPREFIX`, `Z:`,
+and custom drive letters. Two practical notes:
+
+- **Resolve prefixes, not every path.** Each call spawns wine, so a `#FILES` block with tens
+  of entries would be slow if translated line by line. Extract the distinct drive letters
+  (usually one or two), call `winepath -u 'c:\'` once per letter, cache the resulting prefix,
+  then string-substitute across all entries and convert `\` to `/`.
+- **It is not always on `PATH`.** Bottle managers such as Whisky and CrossOver bundle wine
+  internally, so probe for it and fall back rather than assuming it exists.
+
+**Fallback: read the mapping directly.** Wine keeps it as symlinks in
+`$WINEPREFIX/dosdevices/`, conventionally `c:` → `../drive_c` and `z:` → `/`:
 
 ```
 symbols_ext path:  c:\Tyrann4\map_common.s
@@ -397,10 +422,9 @@ This handles three cases a hardcoded `~/.wine/drive_c` rule would miss:
 - a **non-default `WINEPREFIX`** (multiple bottles, Whisky/CrossOver layouts)
 - **custom drive letters** pointing anywhere the user chose
 
-Sensible fallback when the prefix cannot be determined: match on basename plus trailing path
-segments against files in the workspace, which is also robust to a project being moved.
-
-Applies equally to Linux users running the toolchain under wine, so it is not macOS-specific.
+Sensible fallback when neither the utility nor the prefix can be found: match on basename plus
+trailing path segments against files in the workspace, which is also robust to a project
+having been moved.
 
 **Caveat:** there is no wine on the toolchain machine, so the `dosdevices` mechanism above is
 documented-standard, not something verified here. Worth confirming against the reporter's
