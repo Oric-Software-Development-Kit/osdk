@@ -316,3 +316,81 @@ with `git worktree remove` without checking that first.
 
 Nothing further is blocking on either side: 2.0 is released, the extension ships against it,
 and a 2.1 only happens if a real bug turns up — via `feature/*` off `v2.0` per §3.
+
+---
+
+## 10. Field report: assembly breakpoints don't bind when the toolchain runs under wine
+
+**Status:** CONFIRMED by the reporter · diagnosed 2026-07-28 · **extension-side fix, no
+toolchain change** · owner: extension side
+
+First macOS user of the 2.0 + extension pair. They run the OSDK and Oricutron under wine and
+use *Attach to Oricutron*; stepping, the screen view and Oricutron interaction all work, but
+every breakpoint in a `.s` file reports **"no code at this line"**.
+
+### 10.1 Cause, confirmed by the reporter
+
+`symbols_ext` is generated correctly and contains the right lines. The paths in it are wine's
+view of the filesystem, and the extension resolves them against the native macOS filesystem:
+
+```
+in symbols_ext (written by XA under wine):  c:\Tyrann4\map_common.s
+what the Mac actually needs:                /Users/torguet/.wine/drive_c/Tyrann4/map_common.s
+```
+
+Reporter's own words: *"Looks like my problem is only about the paths."*
+
+### 10.2 The toolchain side is behaving correctly — do not change it
+
+Verified here before concluding that:
+
+- **Assembly line mapping is fully supported and is not the problem.** `xa -S` alone, with no
+  compiler and no linker in the pipeline, produces correct `#FILES` + `#LINES` for a
+  hand-written `.s`. On a 3-instruction test: `0600 0:4`, `0602 0:5`, `0605 0:7`, with
+  label-only lines correctly getting no entry.
+- **A user's own `.s` files get their real project paths**, not TMP paths, even though
+  `make.bat` copies them into TMP. Checked on `sample/mixed/debug_type_zoo`, whose
+  `asm_helpers.s` and `asm_data.s` appear with their project directory. Only the C-generated
+  module and `linked.s` are TMP paths, which the resolver drops by design per §4.
+- **XA always writes absolute paths, and it is not controllable.** Passing a relative path and
+  an absolute path both yield the same absolute entry. That is correct behaviour: XA is a
+  Windows program and under wine the only filesystem it can see is wine's.
+- `-g1` is irrelevant to this report. It is a C compiler flag; assembly breakpoints need only
+  `xa -S`. Worth stating explicitly to users, since "enable extended symbols" reads as if a
+  compiler flag were involved.
+
+### 10.3 Suggested fix, and why not to hardcode `~/.wine`
+
+Resolve the drive letter through wine's own mapping rather than assuming a layout. Wine keeps
+it as symlinks in `$WINEPREFIX/dosdevices/`, conventionally `c:` → `../drive_c` and `z:` → `/`:
+
+```
+symbols_ext path:  c:\Tyrann4\map_common.s
+                   ^^                              readlink $WINEPREFIX/dosdevices/c:
+                                                    -> <prefix>/drive_c
+       then join the remainder with \ converted to /
+```
+
+This handles three cases a hardcoded `~/.wine/drive_c` rule would miss:
+
+- **`Z:\`**, which maps to the real filesystem root — what a user gets when sources live
+  outside the bottle, and the case that needs no drive_c at all
+- a **non-default `WINEPREFIX`** (multiple bottles, Whisky/CrossOver layouts)
+- **custom drive letters** pointing anywhere the user chose
+
+Sensible fallback when the prefix cannot be determined: match on basename plus trailing path
+segments against files in the workspace, which is also robust to a project being moved.
+
+Applies equally to Linux users running the toolchain under wine, so it is not macOS-specific.
+
+**Caveat:** there is no wine on the toolchain machine, so the `dosdevices` mechanism above is
+documented-standard, not something verified here. Worth confirming against the reporter's
+prefix before shipping.
+
+### 10.4 On the reporter's own workaround
+
+They suggested a script rewriting the paths inside `symbols_ext`, which does work. Two things
+to tell any user doing that: it must run **after every XA invocation**, so it belongs in the
+build script immediately after `xa.exe` rather than being done once by hand; and a global
+search-and-replace is only safe because paths appear solely in the `#FILES` block — `#LINES`
+holds `index:line` pairs and must not be touched.
