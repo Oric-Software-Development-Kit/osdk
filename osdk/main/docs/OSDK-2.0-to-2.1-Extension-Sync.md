@@ -84,6 +84,24 @@ ship an extension against a known-good 2.0 and decide separately whether a 2.1 i
 numerically per component, so a `>= 2.0` gate in the extension keeps working when the file
 becomes `2.1`. Do not gate on string equality.
 
+### 3.1 The two version lines are independent
+
+This document is named for the OSDK line, which is the only one it can bump, but the two
+products version separately and a fix in one does not imply a release of the other:
+
+| | Released | Next fix ships as | Bumped when |
+|---|---|---|---|
+| **OSDK toolchain** | 2.0 | 2.1 | compiler, assembler, linker or library changes |
+| **VS Code extension** | 1.0 | 1.1 | anything in the extension itself |
+
+So an extension-only fix — path resolution, messages, adapter behaviour — is an **extension
+1.1** and leaves the toolchain at 2.0 with `version.txt` untouched. Only a genuine toolchain
+change triggers the §3 route above. Most items in §5 and §10 are extension-only by that test.
+
+The dependency runs one way: the extension requires OSDK **>= 2.0** for the debug information
+it consumes, and gates numerically on `version.txt`. The OSDK has no knowledge of the
+extension's version.
+
 ## 4. Contract that must not break
 
 Settled during the July 25th cross-review and still true; the extension depends on all of it:
@@ -322,7 +340,8 @@ and a 2.1 only happens if a real bug turns up — via `feature/*` off `v2.0` per
 ## 10. Field report: assembly breakpoints don't bind when the toolchain runs under wine
 
 **Status:** CONFIRMED by the reporter · diagnosed 2026-07-28 · **extension-side fix, no
-toolchain change** · owner: extension side
+toolchain change** · owner: extension side · ships as **extension 1.1**, not OSDK 2.1
+(see §3.1 — the two version lines are independent)
 
 First macOS user of the 2.0 + extension pair. They run the OSDK and Oricutron under wine and
 use *Attach to Oricutron*; stepping, the screen view and Oricutron interaction all work, but
