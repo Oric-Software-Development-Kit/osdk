@@ -1,0 +1,5 @@
+
+To get OSDK built for MacOS (Tahoe 26.5.2), you must first use homebrew thus:
+
+	$ brew install gcc-14 freeimage
+
