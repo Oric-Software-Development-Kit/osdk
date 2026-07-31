@@ -37,14 +37,13 @@ CXX := $(CROSS_COMPILE)$(CXX)
 AR := $(CROSS_COMPILE)$(AR)
 RANLIB := $(CROSS_COMPILE)$(RANLIB)
 WINDRES := $(CROSS_COMPILE)windres
+
 CPPFLAGS += -DWIN32
 
 %.exe: %.o
 	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
 %.exe: %.c
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
 endif
 
 # Haiku
@@ -85,24 +84,14 @@ CXXFLAGS := $(filter-out \
 
 CXXFLAGS += $(CXXSTD)
 
-#
 # POSIX compatibility
-#
 CPPFLAGS += -D__cdecl= -DPOSIX
 CFLAGS += -Wall
 endif # Non-Windows platforms
 
-
-#
 # OSDK installation support
-#
-
 ifneq ($(OSDK),)
-
-
 .PHONY: install
-
-
 install:
 	$(Q)install -d $(OSDK)/bin
 	$(Q)for B in $(BINS) $(EXECUTABLE); do \
@@ -115,6 +104,4 @@ install:
 			ln -sf "$$B" "$(OSDK)/bin/$$b"; \
 		fi; \
 	done
-
-
 endif
