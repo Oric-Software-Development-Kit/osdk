@@ -1,4 +1,3 @@
-
 # Quiet
 #Q ?= @
 
@@ -31,10 +30,10 @@ CPPFLAGS += -DWIN32
 
 # add default rules for exe files
 %.exe: %.o
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+    $(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 %.exe: %.c
-	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+    $(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 endif
 
@@ -45,9 +44,21 @@ endif
 
 ifneq ($(PLATFORM),win32)
 CURSES_LIB ?= -lcurses
+
+ifeq ($(PLATFORM),Darwin)
 STDCXX_LIB ?= -lstdc++
+CXXSTD     ?= -std=c++14
+CC         = gcc-14
+CXX        = g++-14
+# do NOT add -stdlib=libc++ here
+else
+STDCXX_LIB ?= -lstdc++
+CXXSTD     ?= -std=c++11
+endif
+
+
 COMMON_EXTRA_LDFLAGS += $(CURSES_LIB) $(STDCXX_LIB)
-CXXSTD ?= -std=c++11
+override CXXFLAGS := $(filter-out -std=c++11 -std=c++14 -std=c++17 -std=c++20,$(CXXFLAGS))
 CXXFLAGS += $(CXXSTD)
 CPPFLAGS += -D__cdecl=  -DPOSIX
 CFLAGS   += -Wall

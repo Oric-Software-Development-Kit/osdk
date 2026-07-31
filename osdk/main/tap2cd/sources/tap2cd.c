@@ -319,17 +319,36 @@ void emit_fast_prog(int start,int end)
   emit_standard_byte(0);	/* marker for last page */
 }
 
+
 void ask_name(char *name)
 {
-  char reply[80];
-  do {
-    if (name[0])
-      printf("Stored name is %s, enter new name (or RETURN to keep): ",name);
-    else
-      printf("Program has no stored name, enter a name: ");
-    gets_s(reply,sizeof(reply));
-    if (reply[0]) strcpy(name,reply);
-  } while (name[0]==0);
+    char reply[80];
+
+    do
+    {
+        if (name[0])
+            printf("Stored name is %s, enter new name (or RETURN to keep): ", name);
+        else
+            printf("Program has no stored name, enter a name: ");
+
+#ifdef _MSC_VER
+        gets_s(reply, sizeof(reply));
+#else
+        if (fgets(reply, sizeof(reply), stdin) == NULL)
+        {
+            reply[0] = '\0';
+        }
+        else
+        {
+            // Remove trailing newline (and optional CR for CRLF input)
+            reply[strcspn(reply, "\r\n")] = '\0';
+        }
+#endif
+
+        if (reply[0])
+            strcpy(name, reply);
+
+    } while (name[0] == 0);
 }
 
 int main(int argc,char *argv[])
