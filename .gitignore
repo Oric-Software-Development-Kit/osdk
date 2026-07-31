@@ -1,15 +1,12 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
-# see: https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
-
-*.user
+﻿*.user
 *.vcxproj.FileListAbsolute.txt
 *.vcxproj.filter
 *.pdb
 *.idb
 *.tmp
 *.obj
+*.o
+*.a
 *.db
 *.tlog
 *.recipe
@@ -53,3 +50,27 @@ osdk/main/Osdk/_final_/Oricutron/videos/
 osdk/OldVersions/
 osdk/main/Osdk/_final_/sample/assembly/known_issues/
 osdk/main/osdk_issues.md
+
+euphoric_tools/4k8/4k8totap
+euphoric_tools/4k8/4k8towav
+euphoric_tools/txt2bas/txt2bas
+osdk/main/DskTool/DskTool
+osdk/main/FloppyBuilder/FloppyBuilder
+osdk/main/MemMap/memmap
+osdk/main/TapTool/TapTool
+osdk/main/Ym2Mym/Ym2Mym
+osdk/main/bas2tap/bas2tap
+osdk/main/bin2txt/bin2txt
+osdk/main/common/libcommon.a
+osdk/main/compiler/compiler
+osdk/main/filepack/filepack
+osdk/main/header/header
+osdk/main/link65/link65
+osdk/main/macrosplitter/macrosplitter
+osdk/main/old2mfm/old2mfm
+osdk/main/opt65/opt65
+osdk/main/pictconv/pictconv
+osdk/main/tap2cd/tap2cd
+osdk/main/tap2dsk/tap2dsk
+osdk/main/xa/xa
+
