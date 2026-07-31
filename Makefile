@@ -17,6 +17,11 @@ LDFLAGS  =
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Darwin)
+
+ifeq (, $(shell which g++-14))
+$(error g++-14 not found. Run: brew install gcc@14 freeimage)
+endif
+
     # Force C++14 (required for multi-statement constexpr)
     CXXFLAGS += -std=c++14
 
