@@ -16,3 +16,12 @@ Then 'make' .. and to install in a local OSDK directory:
 
 	$ export PATH=$PATH:$OSDK/bin
 
+Note:
+
+	If OSDK is set, 'make' will attempt to install a build into it!
+	Only set the OSDK variable after a complete, successful build.
+	To build again, unset OSDK - i.e.
+	
+	$ export OSDK=
+	$ make # etc.
+
