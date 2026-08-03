@@ -9,6 +9,11 @@ ifeq ($(UNAME_S),Darwin)
     CC  := gcc-14
 endif
 
+ifeq ($(UNAME_S),Linux)
+    CXX := g++-14
+    CC  := gcc-14
+endif
+
 VPATH    = sources
 SOURCES := $(subst sources/,,$(wildcard sources/*.cpp))
 OBJS    := $(SOURCES:.cpp=.o)

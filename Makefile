@@ -33,6 +33,16 @@ endif
     # CFLAGS += -std=gnu99
 endif
 
+# Linux also:
+ifeq ($(UNAME_S),Linux)
+    # Force C++14 (required for multi-statement constexpr)
+    CXXFLAGS += -std=c++14
+
+    # Optional but useful for older codebases on modern macOS
+    CFLAGS   += -Wno-implicit-function-declaration
+    CXXFLAGS += -Wno-implicit-function-declaration
+endif
+
 # Make sure the sub-makes see the flags
 export CC CXX CFLAGS CXXFLAGS LDFLAGS
 

@@ -64,7 +64,11 @@ CC := gcc-14
 CXX := g++-14
 STDCXX_LIB ?= -lstdc++
 CXXSTD ?= -std=c++14
-else
+endif
+
+ifeq ($(PLATFORM),Linux)
+CC := gcc-14
+CXX := g++-14
 # Linux 
 STDCXX_LIB ?= -lstdc++
 CXXSTD ?= -std=c++11

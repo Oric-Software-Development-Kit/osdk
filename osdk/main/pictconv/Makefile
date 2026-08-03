@@ -10,6 +10,12 @@ ifeq ($(UNAME_S),Darwin)
     CC  := gcc-14
 endif
 
+# Same on Linux
+ifeq ($(UNAME_S),Linux)
+    CXX := g++-14
+    CC  := gcc-14
+endif
+
 CPPFLAGS += -I ../common/includes
 CPPFLAGS += -DFREEIMAGE_LIB
 
@@ -40,6 +46,12 @@ endif
 
 # macOS-specific extras (append, do not overwrite flags from rules.mk)
 ifeq ($(UNAME_S),Darwin)
+    CXXFLAGS += -std=c++14
+    CFLAGS   += -Wno-implicit-function-declaration
+    # CFLAGS += -std=gnu99   # uncomment if C23 keyword problems appear
+endif
+
+ifeq ($(UNAME_S),Linux)
     CXXFLAGS += -std=c++14
     CFLAGS   += -Wno-implicit-function-declaration
     # CFLAGS += -std=gnu99   # uncomment if C23 keyword problems appear

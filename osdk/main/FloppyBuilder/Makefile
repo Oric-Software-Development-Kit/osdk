@@ -10,6 +10,11 @@ ifeq ($(UNAME_S),Darwin)
     CC  := gcc-14
 endif
 
+ifeq ($(UNAME_S),Linux)
+    CXX := g++-14
+    CC  := gcc-14
+endif
+
 CPPFLAGS += -Wall -Iincludes
 CPPFLAGS += -I ../common/includes
 
