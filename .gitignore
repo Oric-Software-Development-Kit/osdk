@@ -79,3 +79,4 @@ osdk/main/xa/xa
 cmake-build-release/
 cmake-build-debug/
 build/
+.idea/
