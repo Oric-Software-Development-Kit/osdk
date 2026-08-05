@@ -11,7 +11,7 @@ if(NOT DEFINED OSDK_ROOT)
     endif()
 endif()
 
-add_custom_target(FloppyBuilderSample
+add_custom_target(FloppyBuilderSample ALL
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/build/files"
     COMMAND "${OSDK_ROOT}/bin/pictconv" -f0 -d0 -o2 "${CMAKE_CURRENT_SOURCE_DIR}/data/Font6x8.png" "${CMAKE_CURRENT_BINARY_DIR}/build/files/Font6x8.hir"
     COMMAND "${OSDK_ROOT}/bin/pictconv" -f1 -d0 -o2 "${CMAKE_CURRENT_SOURCE_DIR}/data/FirstProgram.png" "${CMAKE_CURRENT_BINARY_DIR}/build/files/FirstProgram.hir"

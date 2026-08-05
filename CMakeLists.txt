@@ -139,6 +139,11 @@ configure_file(
     "${CMAKE_BINARY_DIR}/BuildAndInstall.cmake"
     @ONLY
 )
+configure_file(
+    "${CMAKE_SOURCE_DIR}/cmake/BuildSamples.cmake.in"
+    "${CMAKE_BINARY_DIR}/BuildSamples.cmake"
+    @ONLY
+)
 
 # Invoke with: cmake --build <build-dir> --target build_and_install
 add_custom_target(build_and_install
@@ -146,3 +151,12 @@ add_custom_target(build_and_install
     COMMENT "Building all targets and installing OSDK"
     VERBATIM
 )
+
+# Build every CMake-based example from the toolchain just installed by the
+# target above. Invoke with: cmake --build <build-dir> --target samples
+add_custom_target(samples
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/BuildSamples.cmake"
+    COMMENT "Configuring and building installed OSDK samples"
+    VERBATIM
+)
+add_dependencies(samples build_and_install)

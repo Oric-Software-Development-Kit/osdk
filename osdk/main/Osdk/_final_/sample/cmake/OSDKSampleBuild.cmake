@@ -1,5 +1,5 @@
 function(run)
-    execute_process(COMMAND ${ARGV} WORKING_DIRECTORY "${OSDK_ROOT}/lib" RESULT_VARIABLE result)
+    execute_process(COMMAND ${ARGV} WORKING_DIRECTORY "${BUILD_DIR}" RESULT_VARIABLE result)
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "OSDK command failed (${result}): ${ARGV}")
     endif()
@@ -66,9 +66,19 @@ foreach(source IN LISTS SOURCES)
 endforeach()
 
 if(link_inputs)
-    run("${OSDK_ROOT}/bin/link65" ${LINK_FLAGS} -d ./ -i ./ -o "${tmp}/linked.s" -f -q ${link_inputs})
+    execute_process(
+        COMMAND "${OSDK_ROOT}/bin/link65" ${LINK_FLAGS} -d ./ -i ./ -o "${tmp}/linked.s" -f -q ${link_inputs}
+        WORKING_DIRECTORY "${OSDK_ROOT}/lib"
+        RESULT_VARIABLE result
+    )
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "OSDK linker failed (${result})")
+    endif()
     run("${OSDK_ROOT}/bin/xa" "-I${OSDK_ROOT}/lib" "${tmp}/linked.s" -o "${BUILD_DIR}/final.out" -e "${BUILD_DIR}/xaerr.txt" -l "${BUILD_DIR}/symbols" "-bt${ADDRESS}" -DASSEMBLER=XA -W -C ${XA_FLAGS})
     run("${OSDK_ROOT}/bin/header" "-n${TAP_NAME}" "${BUILD_DIR}/final.out" "${BUILD_DIR}/${NAME}.tap" "${ADDRESS}")
+    # Bas2Tap resolves build/symbols relative to its working directory.
+    file(MAKE_DIRECTORY "${BUILD_DIR}/build")
+    file(COPY "${BUILD_DIR}/symbols" DESTINATION "${BUILD_DIR}/build")
 endif()
 
 if(basic_files)

@@ -1,0 +1,39 @@
+# Resolve the same destination used by build_and_install at target execution.
+if(DEFINED ENV{DESTINATION} AND NOT "$ENV{DESTINATION}" STREQUAL "")
+    set(_osdk_root "$ENV{DESTINATION}")
+elseif(DEFINED ENV{OSDK} AND NOT "$ENV{OSDK}" STREQUAL "")
+    set(_osdk_root "$ENV{OSDK}")
+else()
+    set(_osdk_root "@CMAKE_INSTALL_PREFIX@")
+endif()
+
+set(_sample_root "${_osdk_root}/sample")
+if(NOT EXISTS "${_sample_root}")
+    message(FATAL_ERROR "Installed sample directory was not found: ${_sample_root}")
+endif()
+
+string(SHA256 _osdk_root_hash "${_osdk_root}")
+string(SUBSTRING "${_osdk_root_hash}" 0 12 _osdk_root_hash)
+
+file(GLOB_RECURSE _sample_cmake_files LIST_DIRECTORIES FALSE "${_sample_root}/CMakeLists.txt")
+foreach(_sample_cmake IN LISTS _sample_cmake_files)
+    get_filename_component(_sample_dir "${_sample_cmake}" DIRECTORY)
+    file(RELATIVE_PATH _sample_name "${_sample_root}" "${_sample_dir}")
+    set(_sample_build_dir "@CMAKE_BINARY_DIR@/samples/${_osdk_root_hash}/${_sample_name}")
+
+    message(STATUS "Building sample: ${_sample_name}")
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" -S "${_sample_dir}" -B "${_sample_build_dir}" "-DOSDK_ROOT=${_osdk_root}"
+        RESULT_VARIABLE _configure_result
+    )
+    if(NOT _configure_result EQUAL 0)
+        message(FATAL_ERROR "Failed to configure sample ${_sample_name}")
+    endif()
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" --build "${_sample_build_dir}"
+        RESULT_VARIABLE _build_result
+    )
+    if(NOT _build_result EQUAL 0)
+        message(FATAL_ERROR "Failed to build sample ${_sample_name}")
+    endif()
+endforeach()

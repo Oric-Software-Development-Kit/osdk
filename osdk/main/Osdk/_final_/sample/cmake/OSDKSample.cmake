@@ -1,12 +1,18 @@
 include_guard(GLOBAL)
 set(OSDK_SAMPLE_MODULE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
-# Set OSDK_ROOT explicitly, or export OSDK before configuring a sample.
+# Set OSDK_ROOT explicitly, export OSDK, or use an installed sample tree.
 if(NOT DEFINED OSDK_ROOT)
     if(DEFINED ENV{OSDK} AND NOT "$ENV{OSDK}" STREQUAL "")
         set(OSDK_ROOT "$ENV{OSDK}")
     else()
-        message(FATAL_ERROR "Set OSDK_ROOT or the OSDK environment variable to an installed OSDK directory")
+        get_filename_component(_osdk_sample_dir "${OSDK_SAMPLE_MODULE_DIR}" DIRECTORY)
+        get_filename_component(_osdk_installed_root "${_osdk_sample_dir}" DIRECTORY)
+        if(EXISTS "${_osdk_installed_root}/bin/compiler")
+            set(OSDK_ROOT "${_osdk_installed_root}")
+        else()
+            message(FATAL_ERROR "Set OSDK_ROOT or the OSDK environment variable to an installed OSDK directory")
+        endif()
     endif()
 endif()
 
