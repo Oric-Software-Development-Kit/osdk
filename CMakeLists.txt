@@ -130,3 +130,19 @@ endif()
 add_subdirectory(shared_libraries)
 add_subdirectory(euphoric_tools)
 add_subdirectory(osdk)
+
+# Build the complete project, then install it.  The generated script resolves
+# DESTINATION and OSDK when this target is invoked, so an existing build tree
+# never falls back to its cached /tmp/osdk prefix when the environment changes.
+configure_file(
+    "${CMAKE_SOURCE_DIR}/cmake/BuildAndInstall.cmake.in"
+    "${CMAKE_BINARY_DIR}/BuildAndInstall.cmake"
+    @ONLY
+)
+
+# Invoke with: cmake --build <build-dir> --target build_and_install
+add_custom_target(build_and_install
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_BINARY_DIR}/BuildAndInstall.cmake"
+    COMMENT "Building all targets and installing OSDK"
+    VERBATIM
+)

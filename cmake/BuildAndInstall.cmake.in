@@ -1,0 +1,27 @@
+# Resolve the install directory at target execution time.  This allows an
+# existing build tree to be installed with a newly supplied environment value.
+if(DEFINED ENV{DESTINATION} AND NOT "$ENV{DESTINATION}" STREQUAL "")
+    set(_osdk_install_prefix "$ENV{DESTINATION}")
+elseif(DEFINED ENV{OSDK} AND NOT "$ENV{OSDK}" STREQUAL "")
+    set(_osdk_install_prefix "$ENV{OSDK}")
+else()
+    set(_osdk_install_prefix "@CMAKE_INSTALL_PREFIX@")
+endif()
+
+message(STATUS "OSDK installation prefix: ${_osdk_install_prefix}")
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "@CMAKE_BINARY_DIR@"
+    RESULT_VARIABLE _osdk_build_result
+)
+if(NOT _osdk_build_result EQUAL 0)
+    message(FATAL_ERROR "OSDK build failed with exit code ${_osdk_build_result}")
+endif()
+
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --install "@CMAKE_BINARY_DIR@" --prefix "${_osdk_install_prefix}"
+    RESULT_VARIABLE _osdk_install_result
+)
+if(NOT _osdk_install_result EQUAL 0)
+    message(FATAL_ERROR "OSDK installation failed with exit code ${_osdk_install_result}")
+endif()
