@@ -1,0 +1,36 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/shared_libraries/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/4k8/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/Bin2Tap/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/dsk/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/old2mfm/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/tap2dsk/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/euphoric_tools/txt2bas/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/common/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/bas2tap/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/bin2txt/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/compiler/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/DskTool/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/filepack/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/FloppyBuilder/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/header/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/link65/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/macrosplitter/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/MemMap/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/old2mfm/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/opt65/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/pictconv/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/tap2cd/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/tap2dsk/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/TapTool/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/xa/cmake_install.cmake",
+		"/Users/j/Documents/Development/seclorum/retro/oric/osdk/osdk.seclorum/build/osdk/main/Ym2Mym/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

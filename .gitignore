@@ -1,4 +1,4 @@
-﻿*.user
+*.user
 *.vcxproj.FileListAbsolute.txt
 *.vcxproj.filter
 *.pdb
@@ -17,6 +17,7 @@
 *.mp4
 *.sna
 *.txt
+!CMakeLists.txt
 # The blanket *.txt above is aimed at build output, but the release tree ships a
 # few genuine text files. They stay tracked once added, however a delete followed
 # by a restore is silently dropped again, so name them explicitly.
