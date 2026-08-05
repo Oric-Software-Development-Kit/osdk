@@ -323,13 +323,17 @@ void ask_name(char *name)
 {
   char reply[80];
   do {
-    if (name[0])
-      printf("Stored name is %s, enter new name (or RETURN to keep): ",name);
-    else
-      printf("Program has no stored name, enter a name: ");
-    gets_s(reply,sizeof(reply));
-    if (reply[0]) strcpy(name,reply);
-  } while (name[0]==0);
+    if (name[0]) { printf("Stored name is %s, enter new name (or RETURN to keep): ", name); }
+    else { printf("Program has no stored name, enter a name: "); }
+#ifdef _MSC_VER
+    gets_s(reply, sizeof(reply));
+#else
+    if (fgets(reply, sizeof(reply), stdin) == NULL) { reply[0] = '\0'; }
+    else { reply[strcspn(reply, "\r\n")] = '\0'; }
+    // Remove trailing newline (and optional CR for CRLF input)
+#endif
+    if (reply[0]) { strcpy(name, reply); }
+  } while (name[0] == 0);
 }
 
 int main(int argc,char *argv[])

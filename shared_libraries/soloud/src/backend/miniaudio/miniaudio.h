@@ -495,7 +495,7 @@ extern "C" {
     #include <pthread.h>    /* Unfortunate #include, but needed for pthread_t, pthread_mutex_t and pthread_cond_t types. */
     #include <semaphore.h>
 
-    #ifdef __unix__
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
         #define MA_UNIX
         #if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
             #define MA_BSD
