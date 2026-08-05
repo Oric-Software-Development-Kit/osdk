@@ -41,7 +41,11 @@ if(EXISTS "${OSDK_FINAL_DIR}")
         message(STATUS "Creating OSDK symlinks in ${CMAKE_INSTALL_PREFIX}...")
         if(UNIX)
             execute_process(COMMAND ln -sfn bin "${CMAKE_INSTALL_PREFIX}/Bin" ERROR_QUIET)
-            execute_process(COMMAND ln -sfn MACROS.H "${CMAKE_INSTALL_PREFIX}/macro/macros.h" ERROR_QUIET)
+            # macOS filesystems are commonly case-insensitive: creating this
+            # compatibility link there replaces MACROS.H with a self-link.
+            if(NOT APPLE)
+                execute_process(COMMAND ln -sfn MACROS.H "${CMAKE_INSTALL_PREFIX}/macro/macros.h" ERROR_QUIET)
+            endif()
             execute_process(COMMAND ln -sfn Roms "${CMAKE_INSTALL_PREFIX}/roms" ERROR_QUIET)
             execute_process(COMMAND ln -sfn TMP "${CMAKE_INSTALL_PREFIX}/tmp" ERROR_QUIET)
         else()
