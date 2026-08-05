@@ -1,10 +1,12 @@
 # Building OSDK
 
-OSDK uses CMake to build the toolchain, install it, and build the sample programs with the installed tools.
+OSDK developers can use CMake to build the toolchain, install it, and build the sample programs with the installed tools.
+
+It is also possible to build the OSDK with 'plain old make' and the master Makefile.
 
 ## Dependencies
 
-Install a C/C++ compiler, CMake, Curses, and FreeImage development files.
+Either way, you must install a C/C++ compiler, CMake, Curses, and FreeImage development files.
 
 On Debian or Ubuntu:
 
