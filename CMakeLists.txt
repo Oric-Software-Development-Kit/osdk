@@ -131,6 +131,7 @@ add_subdirectory(shared_libraries)
 add_subdirectory(euphoric_tools)
 add_subdirectory(osdk)
 add_subdirectory(oricutron.seclorum)
+install(TARGETS Oricutron DESTINATION Oricutron)
 
 # Build the complete project, then install it.  The generated script resolves
 # DESTINATION and OSDK when this target is invoked, so an existing build tree

@@ -31,9 +31,10 @@ if(EXISTS "${OSDK_FINAL_DIR}")
     install(DIRECTORY "${OSDK_FINAL_DIR}/include" DESTINATION .)
     install(DIRECTORY "${OSDK_FINAL_DIR}/lib" DESTINATION .)
     install(DIRECTORY "${OSDK_FINAL_DIR}/macro" DESTINATION .)
-    install(DIRECTORY "${OSDK_FINAL_DIR}/Roms" DESTINATION .)
     install(DIRECTORY "${OSDK_FINAL_DIR}/sample" DESTINATION .)
     install(DIRECTORY "${OSDK_FINAL_DIR}/TMP" DESTINATION .)
+    install(DIRECTORY "${OSDK_FINAL_DIR}/Oricutron" DESTINATION .)
+    install(DIRECTORY "${OSDK_FINAL_DIR}/Roms" DESTINATION Oricutron)
     install(FILES "${OSDK_FINAL_DIR}/read me.txt" DESTINATION .)
 
     # Create directory symlinks and lowercase binary symlinks
