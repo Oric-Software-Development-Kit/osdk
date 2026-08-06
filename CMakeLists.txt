@@ -16,7 +16,7 @@ project(OSDK LANGUAGES C CXX)
 if(DEFINED ENV{OSDK} AND NOT "$ENV{OSDK}" STREQUAL "")
     set(CMAKE_INSTALL_PREFIX "$ENV{OSDK}" CACHE PATH "OSDK Installation Directory" FORCE)
 elseif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-    set(CMAKE_INSTALL_PREFIX "/tmp/osdk" CACHE PATH "OSDK Installation Directory" FORCE)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/distributable/OSDK2.0/" CACHE PATH "OSDK Installation Directory" FORCE)
 endif()
 
 message(STATUS "OSDK Installation Prefix: ${CMAKE_INSTALL_PREFIX}")
