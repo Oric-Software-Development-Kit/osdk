@@ -1,0 +1,3 @@
+[submodule "oricutron.seclorum"]
+	path = oricutron.seclorum
+	url = https://github.com/seclorum/oricutron.seclorum.git
