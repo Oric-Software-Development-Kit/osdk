@@ -1,21 +1,40 @@
 include ../../../rules.mk
 
-CPPFLAGS += -Wall -Iincludes
-CPPFLAGS += -Wno-deprecated-declarations
+# ------------------------------------------------------------------
+# Force Homebrew GCC on macOS – never use system g++ (Apple Clang)
+# ------------------------------------------------------------------
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    CXX := g++-14
+    CC  := gcc-14
+endif
 
+ifeq ($(UNAME_S),Linux)
+    CXX := g++-14
+    CC  := gcc-14
+endif
+
+CPPFLAGS += -Wall -Iincludes
 CPPFLAGS += -I ../common/includes
-LDLIBS += -L ../common -lcommon $(COMMON_EXTRA_LDFLAGS)
+
+LDLIBS   += -L ../common -lcommon $(COMMON_EXTRA_LDFLAGS)
+
+CXXFLAGS += -Wno-unknown-pragmas
 
 SOURCES=sources/tap2cd.c
-
-OBJECTS=$(SOURCES:.c=.o)
+ 
+OBJECTS    = $(SOURCES:.c=.o)
 EXECUTABLE=tap2cd$(EXE)
 
-all: $(SOURCES) $(EXECUTABLE)
+.PHONY: all clean
+
+all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS)
-	$(LINK.o) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+sources/Link65.o: sources/Link65.cpp
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 clean:
 	rm -f $(EXECUTABLE) $(OBJECTS)
-

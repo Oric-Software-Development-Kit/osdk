@@ -2,7 +2,7 @@
 
 #include "c.h"
 #include <string.h>
-#ifdef __unix__
+#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #include <unistd.h>
 #elif defined(_WIN32) || defined(_WIN64)
 #include <io.h>

@@ -378,7 +378,7 @@ int __cdecl main(int argc,char *argv[])
     ImageContainer sourceImage;
     if (!sourceImage.LoadPicture(source_name))
     {
-      ShowError("Could not load the source picture (%s)",source_name);
+      ShowError("Could not load the source picture (%s)",source_name.c_str());
     }
 
     //

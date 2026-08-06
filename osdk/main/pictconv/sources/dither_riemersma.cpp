@@ -8,7 +8,7 @@
 * large memory model. For other compilers, you may have to replace the
 * calls to malloc() and _ffree() with straight malloc() and free() calls.
 */
-#include <malloc.h>     // for malloc() and _ffree()
+#include <stdlib.h>     // for malloc() and _ffree()
 #include <math.h>		// for exp() and log()
 #include <string.h>		// memmove()
 

@@ -1,19 +1,38 @@
 include ../../../rules.mk
 
-#LDFLAGS += -lstdc++
+# ------------------------------------------------------------------
+# Force Homebrew GCC on macOS – never use system g++ (Apple Clang)
+# ------------------------------------------------------------------
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    CXX := g++-14
+    CC  := gcc-14
+endif
 
-VPATH = sources
+ifeq ($(UNAME_S),Linux)
+    CXX := g++-14
+    CC  := gcc-14
+endif
+
+VPATH    = sources
 SOURCES := $(subst sources/,,$(wildcard sources/*.cpp))
-OBJS := $(subst .cpp,.o,$(SOURCES))
+OBJS    := $(SOURCES:.cpp=.o)
+
 CPPFLAGS += -I sources -I includes
 CPPFLAGS += -D_LIB
 
+# macOS extras (append only)
+ifeq ($(UNAME_S),Darwin)
+    CXXFLAGS += -std=c++14
+endif
+
+.PHONY: all clean
+
 all: libcommon.a
 
-clean:
-	rm -f libcommon.a *.o
-
 libcommon.a: $(OBJS)
-	$(AR) $(ARFLAGS) $@ $(^)
+	$(AR) $(ARFLAGS) $@ $^
+	# $(RANLIB) $@          # uncomment if you need ranlib
 
-#	$(RANLIB) $@
+clean:
+	rm -f libcommon.a $(OBJS)

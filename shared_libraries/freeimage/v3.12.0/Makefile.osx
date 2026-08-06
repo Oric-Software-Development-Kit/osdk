@@ -5,10 +5,10 @@
 include Makefile.srcs
 
 # General configuration variables:
-CC_PPC = gcc-4.0
-CC_I386 = gcc-4.0
-CPP_PPC = g++-4.0
-CPP_I386 = g++-4.0
+CC_PPC = gcc
+CC_I386 = gcc
+CPP_PPC = g++
+CPP_I386 = g++
 COMPILERFLAGS = -Os -fexceptions -fvisibility=hidden
 COMPILERFLAGS_PPC = -arch ppc
 COMPILERFLAGS_I386 = -arch i386
