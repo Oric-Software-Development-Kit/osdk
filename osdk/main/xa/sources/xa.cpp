@@ -648,6 +648,11 @@ int main(int argc,char *argv[])
 		 syms.DefineValueLabel("__zero_size",  SectionZeroLenght,                   eSEGMENT_ABS);
 	 }
 
+	 // Segments are now where they will stay, so the #print lines that were held back
+	 // because their expression rested on a provisional .data/.bss address can be
+	 // answered. Outside the auto-chain path (relocatable mode) nothing is ever queued.
+	 gPreprocessor.FlushDeferredPrints();
+
 
 	 //
 	 // Pass 2

@@ -32,6 +32,24 @@ struct List
 
 
 
+// A #print whose expression resolves a .data/.bss label that automatic segment chaining
+// may still move cannot be answered during pass 1: the label only receives its final
+// address once every segment has been measured and relocated. Such a line is queued and
+// flushed right after that relocation. It is the TOKEN stream that is kept, not the source
+// text: the tokens hold auto-chained labels symbolically and re-tokenising later would
+// resolve names outside the block / cheap-local scope the directive stood in.
+struct DeferredPrint
+{
+	std::string					m_Label;		//!< text left of the '=', printed verbatim
+	std::string					m_Expression;	//!< macro-expanded expression text
+	std::vector<signed char>	m_Tokens;		//!< tokenised expression, ready to re-evaluate
+	int							m_Pc;			//!< PC at the directive, so a '*' keeps its meaning
+	SEGMENT_e					m_Segment;		//!< segment it stood in, for error reporting
+	std::string					m_File;			//!< source location, for error reporting
+	int							m_Line;
+};
+
+
 class Preprocessor
 {
 public:
@@ -65,6 +83,8 @@ public:
 
 	void PushConditional();		//!< record an opened #if/#ifdef (its source location)
 	void PopConditional();		//!< close the innermost #if, or note a stray #endif
+
+	void FlushDeferredPrints();	//!< emit the #print lines held back until segment chaining had run
 
 	ErrorCode GetLine(char *t);
 
@@ -132,6 +152,7 @@ public:
 	int       			m_UnmatchedEndifCount = 0;	//!< #endif seen with no matching open #if
 	std::string 		m_FirstStrayEndifFile;		//!< source location of the first such stray #endif
 	int       			m_FirstStrayEndifLine = 0;
+	std::vector<DeferredPrint> m_DeferredPrints;	//!< #print lines awaiting the final auto-chained addresses
 	char      			m_BufferLine[MAXLINE];
 };
 

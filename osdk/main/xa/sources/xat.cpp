@@ -1880,11 +1880,17 @@ ErrorCode t_p2(signed char *t,int *ll,int fl,int *al)
 int b_term(char *s, int *v, int *l, int pc)
 {
 	static signed char t[MAXLINE];
+	return b_term_tokens(s,v,l,pc,t);
+}
+
+
+int b_term_tokens(char *s, int *v, int *l, int pc, signed char *ptr_tokens)
+{
 	int er,i,afl, label;
-	
-	if (!(er=t_conv((signed char*)s,t,l,pc,&i,&i,&i,1)))
+
+	if (!(er=t_conv((signed char*)s,ptr_tokens,l,pc,&i,&i,&i,1)))
 	{
-		er=evaluate_expression(t,v,&i,pc,&afl,&label,0);		
+		er=evaluate_expression(ptr_tokens,v,&i,pc,&afl,&label,0);
 	}
 	return er;
 }

@@ -12,6 +12,7 @@
 
 #include "xar.h"
 #include "xa.h"
+#include "xaa.h"
 #include "xam.h"
 #include "xal.h"
 #include "xat.h"
@@ -222,53 +223,137 @@ ErrorCode Preprocessor::command_error(char *t)
 	return E_USERERROR;
 }
 
+// Emit one #print result. Shared by the immediate and the deferred path so both produce
+// the identical "label = expression= value" line.
+static void print_result(const char *ptr_label,const char *ptr_expression,int value)
+{
+	logout((char*)ptr_label);
+	logout("=");
+	logout((char*)ptr_expression);
+	logout("= ");
+	sprintf(BufferLine,"%d\n",value);
+	logout(BufferLine);
+}
+
+
+// The expression failed to evaluate: the label and the expression are still reported, so
+// the error line that follows has the context of which #print produced it.
+static void print_failure(const char *ptr_label,const char *ptr_expression)
+{
+	logout((char*)ptr_label);
+	logout("=");
+	logout((char*)ptr_expression);
+	logout("= \n");
+}
+
+
 // There are now two possible syntaxes:
 // #print expression
 // #print some stuff to print = expression 
 ErrorCode Preprocessor::command_print(char *t)
 {
-	int f,a,er;
-	
+	static signed char tokens[MAXLINE];
+	int a,er;
+	int token_lenght=0;
+	char *ptr_expression=t;
+
 	char* equalPtr = strchr(t, '=');
 	if (equalPtr)
 	{
-		// Found a "=" symbol: We print out the left hand side expression as is, and move the pointer to after the expression
-    *equalPtr++ = 0;
-    logout(t);
-    t = equalPtr;
-	}
-	else
-	{
-		// No "=" symbol found
-    logout(t);
+		// Found a "=" symbol: the left hand side is printed as is, the expression is what follows
+		*equalPtr++ = 0;
+		ptr_expression = equalPtr;
 	}
 
-	if ((er=pp_replace(BufferLine,t,-1,m_CurrentListIndex)))
+	if ((er=pp_replace(BufferLine,ptr_expression,-1,m_CurrentListIndex)))
 	{
+		logout(t);
 		logout("\n");
 		errout(er);
+		return E_OK;
 	}
-	else
+
+	// Tokenise and evaluate in one go, keeping the tokens: should the expression turn out to
+	// depend on an address automatic segment chaining has not settled yet, the very same token
+	// stream is re-evaluated after the relocation instead of being tokenised a second time.
+	gChainedRefSeen=0;
+	gDsbLen = 1;	// Suppress pointer arithmetic check — #print doesn't emit code
+	er=b_term_tokens(BufferLine,&a,&token_lenght,TablePcSegment[gCurrentSegment],tokens);
+	gDsbLen = 0;
+
+	if (er)
 	{
-		logout("=");
-		logout(BufferLine);
-		logout("= ");
+		print_failure(t,BufferLine);
+		errout(er);
+		return E_OK;
+	}
+
+	if (gChainedRefSeen && !relmode)
+	{
+		// The value just computed is provisional - a .data/.bss label in the expression is
+		// still sitting at its pass-1 base. #print emits no bytes, so nothing downstream
+		// depends on the answer and the line can simply wait for the final layout.
+		DeferredPrint cDeferred;
+		cDeferred.m_Label=t;
+		cDeferred.m_Expression=BufferLine;
+		cDeferred.m_Tokens.assign(tokens,tokens+token_lenght);
+		cDeferred.m_Pc=TablePcSegment[gCurrentSegment];
+		cDeferred.m_Segment=gCurrentSegment;
+		cDeferred.m_File=m_CurrentFile->GetCurrentFileName();
+		cDeferred.m_Line=(int)m_CurrentFile->GetCurrentLine();
+		m_DeferredPrints.push_back(cDeferred);
+		return E_OK;
+	}
+
+	print_result(t,BufferLine,a);
+
+	return E_OK;
+}
+
+
+// Called once, after automatic segment chaining has relocated .data/.bss and published the
+// boundary labels, and before pass 2. Every queued expression is re-evaluated from its stored
+// token stream, which now resolves to final addresses, and printed in source order.
+void Preprocessor::FlushDeferredPrints()
+{
+	for (size_t i=0;i<m_DeferredPrints.size();i++)
+	{
+		DeferredPrint& cDeferred=m_DeferredPrints[i];
+
+		// Pass 1 is over: restore the position the directive stood on, so anything the
+		// evaluation reports names that line and not wherever assembly happened to stop.
+		std::string  cSavedFile=m_CurrentFile->GetCurrentFileName();
+		unsigned int saved_line=m_CurrentFile->GetCurrentLine();
+		SEGMENT_e    saved_segment=gCurrentSegment;
+		int          saved_pc=TablePcSegment[cDeferred.m_Segment];
+
+		m_CurrentFile->SetCurrentFileName(cDeferred.m_File);
+		m_CurrentFile->SetCurrentLine(cDeferred.m_Line);
+		gCurrentSegment=cDeferred.m_Segment;
+		TablePcSegment[cDeferred.m_Segment]=cDeferred.m_Pc;
+
+		int a,l,afl,label;
 		gDsbLen = 1;	// Suppress pointer arithmetic check — #print doesn't emit code
-		er=b_term(BufferLine,&a,&f,TablePcSegment[gCurrentSegment]);
+		ErrorCode er=evaluate_expression(&cDeferred.m_Tokens[0],&a,&l,cDeferred.m_Pc,&afl,&label,0);
 		gDsbLen = 0;
+
 		if (er)
 		{
-			logout("\n");
+			print_failure(cDeferred.m_Label.c_str(),cDeferred.m_Expression.c_str());
 			errout(er);
 		}
 		else
-		{ 
-			sprintf(BufferLine,"%d\n",a); 
-			logout(BufferLine); 
+		{
+			print_result(cDeferred.m_Label.c_str(),cDeferred.m_Expression.c_str(),a);
 		}
+
+		TablePcSegment[cDeferred.m_Segment]=saved_pc;
+		gCurrentSegment=saved_segment;
+		m_CurrentFile->SetCurrentLine(saved_line);
+		m_CurrentFile->SetCurrentFileName(cSavedFile);
 	}
-	
-	return E_OK;
+
+	m_DeferredPrints.clear();
 }
 
 ErrorCode Preprocessor::command_if(char *t)

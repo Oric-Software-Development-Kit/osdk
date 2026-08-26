@@ -225,12 +225,33 @@ Change history for XA
   ".text" at the top of a file assembled after one that ended in .bss. Mirrors the
   existing .zero rule; .dsb and .align remain allowed.
 
+2.4.2
+- #print now reports the FINAL address of an auto-chained .data/.bss label instead of the
+  provisional one. Being a pass-1 construct, #print used to evaluate before segment
+  chaining had moved .data and .bss into place, so it printed the pass-1 base ($4000 for
+  .bss) plus the label's offset within the segment: a project asking "#print Main RAM used
+  up to = _EndBSS" was told $64F4 while the symbol file and the running program agreed on
+  $83F4, and the number did not even change between builds of different sizes. The value
+  was then used to compute remaining memory, which made the report actively misleading.
+  Since #print emits no bytes, nothing downstream depends on when it is answered: a line
+  whose expression resolves a label auto-chaining may still move is now queued and printed
+  once the segments have been relocated, immediately before pass 2. Everything else prints
+  where it always did, so a #print of "*", of a .text label or of a pinned address keeps
+  its position in the log next to the #echo lines around it. What is queued is the TOKEN
+  stream produced at the directive, not the source text - re-tokenising after pass 1 would
+  resolve the names outside the block and cheap-local scope the directive stood in - and
+  the PC of the directive is captured with it, so a '*' in a mixed expression still means
+  the address the #print stood at. Nothing is deferred in relocatable mode (-R), where no
+  chaining happens. #if / #error / .dsb are deliberately untouched: they gate what pass 1
+  assembles and therefore cannot be deferred, so a guard such as "#if _EndBSS > $9900"
+  still compares the provisional value.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	2
 #define TOOL_VERSION_MINOR	4
-#define TOOL_VERSION_PATCH	1
+#define TOOL_VERSION_PATCH	2
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s
