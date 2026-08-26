@@ -219,6 +219,11 @@ Change history for XA
   and its bytes are replayed verbatim. Such a reference is now kept symbolic so pass 2
   resolves it against the final address. Constructs that legitimately need a value during
   pass 1 (#if, "*=", .dsb, .assert, "=") are untouched and still resolve as before.
+- Output in a .bss segment is now an error instead of being silently dropped. .bss
+  reserves without emitting, so a .byt / .word / .asc / instruction there produces nothing
+  and is then zeroed by a C runtime that clears the section. The usual cause is a missing
+  ".text" at the top of a file assembled after one that ended in .bss. Mirrors the
+  existing .zero rule; .dsb and .align remain allowed.
 
 */
 

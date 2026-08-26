@@ -1030,7 +1030,7 @@ static int pass1(void)
 
 
 
-#define   ANZERR	46
+#define   ANZERR	47
 #define   ANZWARN	0
 
 /*
@@ -1092,7 +1092,8 @@ static char *ertxt[] =
 	"Illegal quantity",
 	"Unresolved unnamed label reference",
 	"Illegal output in .zero segment (only .dsb reservations allowed)",
-	"Address exceeds zero page ($00-$FF) for indirect/direct page mode"
+	"Address exceeds zero page ($00-$FF) for indirect/direct page mode",
+	"Illegal output in .bss segment (only .dsb reservations allowed) - a missing '.text' after a preceding segment?"
 };
 
 static int gFlagMasmCompatibilityWeirdSwitch;

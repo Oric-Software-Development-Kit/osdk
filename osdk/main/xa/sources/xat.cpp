@@ -993,6 +993,15 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 	{
 		er = E_ZERODATA;
 	}
+	// .bss reserves without emitting, so anything that produces bytes there is silently
+	// dropped - and then zeroed by a C runtime that clears the section. The usual cause
+	// is a missing ".text" at the top of a file assembled after one that ended in .bss.
+	// Tested on *ptr_size_written rather than the local bl, because an instruction or a
+	// .byt/.word went through t_p2, which counted its own bytes and left bl at zero.
+	if (gCurrentSegment==eSEGMENT_BSS && *ptr_size_written > 0 && n!=Kdsb && n!=Kalign)
+	{
+		er = E_BSSDATA;
+	}
 	if (bl > 0 && (TablePcSegment[gCurrentSegment] + bl) > 0x10000 && !gFlag_w65816)
 	{
 		er = E_PCOVERFLOW;
