@@ -1536,19 +1536,27 @@ int Linker::Main()
   }
 
   // === Emit the linked source ============================================
-  // On-demand library modules are code and assume .text is active. They are
-  // appended after the user files, each prefixed with an explicit .text so a
-  // library can never inherit whatever segment the previous module left active
-  // (e.g. .bss -> "Label not defined"). Position inside .text is irrelevant: XA
-  // auto-chains .bss/.data after the whole .text, so segment sizes and the stack
-  // land correctly regardless of link order. Resolution stays deferred until all
-  // user files are parsed; this only controls emission.
+  // Every module starts in .text, whatever the previous one left active. A module is
+  // an independent unit: its author cannot know what will be linked ahead of it, so
+  // inheriting a segment across a module boundary is never intentional - it is how
+  // a file whose data belongs in .text silently ends up reserved in .bss instead
+  // (and then zeroed by the C runtime's bss clear). A file pulled in with #include
+  // is different: it is placed inside a module on purpose and must keep inheriting,
+  // which it does, because XA treats inclusion as textual and we do not touch it.
+  //
+  // Position inside .text is irrelevant: XA auto-chains .bss/.data after the whole
+  // .text, so segment sizes and the stack land correctly regardless of link order.
+  // A repeated .text only selects the segment - it does not reset the PC - so this
+  // is safe next to a -t origin. Resolution stays deferred until all user files are
+  // parsed; this only controls emission.
 
-  // Emit one file: its #file directive + content, honouring dead-code stripping.
+  // Emit one file: .text, its #file directive + content, honouring dead-code stripping.
   auto emitFile = [&](const FileEntry& inputFile)
   {
     if (m_FlagVerbose)
       printf("Linking %s\n", inputFile.m_FileName.c_str());
+
+    fprintf(gofile,".text\r\n");
 
     //
     // Then insert the name of the included file
@@ -1612,8 +1620,6 @@ int Linker::Main()
   // BEFORE that marker. Emitting them at the tail leaves library code beyond it, so
   // whatever is loaded at the marker overwrites live code at runtime. Order is
   // therefore: user files, the libraries, then the final user module and tail.s.
-  // Each library is prefixed with .text so it can't inherit a previous module's
-  // segment; XA's auto-chaining places .bss/.data after the whole .text.
   size_t emitLastUserFile = 0;
   bool   haveUserFile = false;
   for (size_t k=0;k<m_InputFileList.size();k++)
@@ -1630,7 +1636,6 @@ int Linker::Main()
     {
       if (!inputFile.m_IsLibrary)
         continue;
-      fprintf(gofile,".text\r\n");
       emitFile(inputFile);
     }
   };

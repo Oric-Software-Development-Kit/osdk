@@ -128,8 +128,21 @@ Fixed a number of issues in the linker:
   tail.s; library-to-library dependencies still resolve in the same single
   pass.
 
+1.6
+- Every module is now emitted with an explicit ".text" ahead of it, not just the
+  on-demand library modules. A module is an independent unit: its author cannot know
+  what will be linked before it, so inheriting a segment across a module boundary is
+  never intentional. Since the compiler ends each C module with its .bss block, a
+  following hand-written or generated .s that did not open with its own segment
+  directive inherited .bss - its data was reserved instead of emitted and then zeroed
+  by the CRT clear, silently. Whether a given file was hit depended on whether a
+  library happened to be emitted in between, which made it arbitrary. Files pulled in
+  with #include are unaffected and still inherit, which is correct: they are placed
+  inside a module deliberately. A repeated ".text" only selects the segment and does
+  not reset the PC, so this is safe alongside a "-t" text origin.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	5
+#define TOOL_VERSION_MINOR	6
