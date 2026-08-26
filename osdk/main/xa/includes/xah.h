@@ -205,6 +205,16 @@ public:
 	LabelType_e GetLabelType() const	{ return m_label_type; }
 	void SetLabelType(LabelType_e t)	{ m_label_type=t; }
 
+	// True when auto-chaining may still move this label, i.e. it would be shifted by
+	// SymbolData::RelocateSegment once pass 1 has measured the segments. Its value is
+	// therefore NOT final during pass 1, and any line resolved against it has to be
+	// re-assembled in pass 2. Mirrors the RelocateSegment filter exactly.
+	bool AutoChainMayMove() const
+	{
+		return symbol_status==eSYMBOLSTATUS_VALID && m_relocatable &&
+		       (program_section==eSEGMENT_DATA || program_section==eSEGMENT_BSS);
+	}
+
 	int GetBlockNext() const			{ return m_blknext; }
 	void SetBlockNext(int n)			{ m_blknext=n; }
 	int GetBlockPrev() const			{ return m_blkprev; }

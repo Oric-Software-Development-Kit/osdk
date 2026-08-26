@@ -205,12 +205,27 @@ Change history for XA
   used in pass-1 constructs (#if / #print / #error / .dsb count); a #print of "*"
   or a label in .text is unaffected (the text base never moves).
 
+2.4.1
+- Fixed auto-chaining emitting a stale address for any reference to a .data/.bss label
+  that appeared AFTER the block defining it. Such a label was already in the symbol table
+  when t_conv tokenised the reference, so its provisional value - SectionBssBase ($4000)
+  plus the offset within the segment - was substituted into the token stream and from
+  there into the machine code. Auto-chaining then relocated the symbol TABLE only, so the
+  binary and the exported symbols disagreed with no error reported: a project could
+  execute "inc $401C" against a variable the symbol file placed at $121C. References
+  appearing BEFORE the defining block were unaffected, which made the failure look
+  arbitrary. The note above is precise that pass 2 "re-evaluates operands", but that only
+  holds for operands pass 1 could not resolve; a resolvable line is assembled in pass 1
+  and its bytes are replayed verbatim. Such a reference is now kept symbolic so pass 2
+  resolves it against the final address. Constructs that legitimately need a value during
+  pass 1 (#if, "*=", .dsb, .assert, "=") are untouched and still resolve as before.
+
 */
 
 
 #define TOOL_VERSION_MAJOR	2
 #define TOOL_VERSION_MINOR	4
-#define TOOL_VERSION_PATCH	0
+#define TOOL_VERSION_PATCH	1
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s

@@ -96,6 +96,10 @@ int relmode=0;
 int TablePcSegment[_eSEGMENT_MAX_];	/* segments */
 int gSegmentPcOverridden[_eSEGMENT_MAX_];	/* per-segment: has a `*=` pinned the PC? */
 
+/* Set by evaluate_term when an expression resolves a label auto-chaining may still move
+   (SymbolEntry::AutoChainMayMove), i.e. one whose value is still provisional in pass 1. */
+int gChainedRefSeen=0;
+
 
 
 static const char *copyright=

@@ -153,11 +153,15 @@ static ErrorCode evaluate_term(signed char *s,int operator_priority, int *v, int
 			{
 				SymbolEntry& resolved_entry = afile->m_cSymbolData.GetSymbolEntry(resolved);
 				er = resolved_entry.Get(v,&afl);
+				if (resolved_entry.AutoChainMayMove()) gChainedRefSeen=1;
 			}
 		}
 		else
 		{
 			er=symbol_entry.Get(v,&afl);
+			// Flag it: the value just read is provisional while auto-chaining is pending.
+			// t_p1 uses this to keep an emitting line out of the pass-1 byte cache.
+			if (symbol_entry.AutoChainMayMove()) gChainedRefSeen=1;
 		}
 
 		if (er==ERR_UNDEFINED_LABEL && (gCurrentSegment!=eSEGMENT_ABS) && fundef )

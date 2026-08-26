@@ -16,6 +16,7 @@ extern int nolink;
 extern int noglob;
 extern int gFlag_ShowBlocks;
 extern int relmode;
+extern int gChainedRefSeen;
 
 extern int SectionTextLenght;
 extern int SectionTextBase;

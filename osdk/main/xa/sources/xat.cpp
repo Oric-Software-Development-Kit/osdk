@@ -1,6 +1,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "xah.h"
 #include "xah2.h"
@@ -14,6 +15,10 @@
 #include "xap.h"
 
 int gDsbLen = 0;
+
+// Token form of the line t_p1 is about to assemble, so it can be put back when the line
+// turns out to reference a label auto-chaining will still move (see t_p1).
+static signed char gLineTokens[MAXLINE];
 
 static ErrorCode t_conv(signed char*,signed char*,int*,int,int*,int*,int*,int);
 static ErrorCode t_keyword(signed char *ptr_src, int *keyword_lenght, int *keyword_index);
@@ -831,7 +836,23 @@ ErrorCode t_p1(signed char *ptr_text,signed char *ptr_output,int *ll,int *ptr_si
 		}
 		else
 		{
+			// Assembling here freezes the line's bytes: pass 2 copies them through without
+			// re-evaluating the operand (the `*ll<0` test at the top of t_p2). Safe only
+			// while every label it used holds its final value, which a .data/.bss label
+			// does not until auto-chaining has run. Keep the token form and report E_OKDEF
+			// so pass 2 re-assembles against the final addresses - the same treatment a
+			// forward reference gets. The size measured here still stands, because t_p2 has
+			// already set *ptr_size_written and advanced the PC.
+			int saved_ll=*ll;
+			memcpy(gLineTokens,ptr_output,saved_ll);
+			gChainedRefSeen=0;
 			er=t_p2(ptr_output,ll,1, ptr_size_written);
+			if (!er && gChainedRefSeen)
+			{
+				memcpy(ptr_output,gLineTokens,saved_ll);
+				*ll=saved_ll;
+				er=E_OKDEF;
+			}
 		}
 	}
 	else
@@ -2009,6 +2030,27 @@ static ErrorCode t_conv(signed char *s,signed char *ptr_output,int *l,int pc,int
 					{
 						// This token is alphanumeric (or @cheap / :unnamed), check if it exists in the list of known labels
 						er=afile->m_cSymbolData.l_such((char*)s+p,&ll,&n,&v,&afl);
+						// A label auto-chaining may still move does NOT yet hold its final
+						// value: RelocateSegment shifts .data/.bss labels once pass 1 has
+						// measured every segment. Substituting the value here would freeze
+						// the pre-relocation address into the token stream, and from there
+						// into the emitted bytes - while the symbol table gets fixed up, so
+						// the binary and the exported symbols would disagree with no error
+						// reported. Keep the reference symbolic so pass 2 can resolve it.
+						//
+						// flag_undefined_label is deliberately NOT set: the label IS
+						// defined, it merely has a provisional value, and the constructs
+						// that need a value during pass 1 (#if, '*=', .dsb, .assert) must
+						// keep resolving it exactly as before. Turning a symbolic reference
+						// into a pass-2 re-assembly is t_p1's job, and only for the lines
+						// that emit bytes.
+						if (!er && !relmode && afile->m_cSymbolData.GetSymbolEntry(n).AutoChainMayMove())
+						{
+							ptr_output[q++]=T_LABEL;
+							ptr_output[q++]=n & 255;
+							ptr_output[q++]=(n>>8) & 255;
+						}
+						else
 						if (!er)
 						{
 							// No error, store the label information
