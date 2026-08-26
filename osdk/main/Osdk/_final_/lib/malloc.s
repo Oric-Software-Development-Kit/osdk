@@ -28,10 +28,10 @@ _heapsize
 _heapinit               ; initialise the _heapstart pointer.
         clc
         lda _stacksize  ; _heapstart=osdk_stack+_stacksize
-        adc osdk_stack
+        adc #<osdk_stack
         sta _heapstart
         lda _stacksize+1
-        adc osdk_stack+1
+        adc #>osdk_stack
         sta _heapstart+1
 
         lda #0          ; nheapdesc=nheapbytes=heapdesc=0
