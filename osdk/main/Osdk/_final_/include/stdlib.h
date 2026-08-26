@@ -20,7 +20,9 @@
 
 /* The NULL pointer. */
 
+#ifndef NULL
 #define NULL ((void*)0x0000)
+#endif
 
 
 /* Exit the program. Return an exit code of retval. */

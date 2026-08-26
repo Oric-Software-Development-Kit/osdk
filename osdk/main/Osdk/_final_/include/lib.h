@@ -1,27 +1,21 @@
 #ifndef __LIB_H_
 #define __LIB_H_
-__fastcall void exit(int retval);
 
-#ifndef _STDIO_
-__fastcall int getchar(void);
-__fastcall void putchar(char c);	/* impl tail-calls ROM; returns nothing */
-void printf(const char *format,...);	/* impl returns no count -> void */
-#endif
-char *itoa(int n);
-
-/* The character classification / conversion functions are __fastcall (arg in
-   A); pull in their single canonical declaration rather than duplicating it
-   here, so lib.h and ctype.h can never disagree on the calling convention. */
+/* lib.h is the "I don't care which header it lives in" convenience header: include
+   this one and you get everything. It therefore declares nothing that another header
+   already declares - it includes them instead. That way each function has exactly one
+   declaration, lib.h and the individual headers can never drift apart on a signature
+   or a calling convention, and including any of them directly in the standard way
+   still works (they all have include guards, so the order does not matter). */
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 char* sbrk();
 char* brk();
 
-char *strcpy(char *s1,const char * s2);
-int strcmp(const char *s1,const char * s2);
-__fastcall int strlen(const char *s);
-
-int memcpy(void *dst, void *src, int n);
+int memcpy(void *dst, void *src, int n);	/* string.h declares memset but not this */
 
 /* Oric specific routines, added by Vaggelis Blathras */
 
