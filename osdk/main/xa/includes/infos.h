@@ -120,7 +120,7 @@ Change history for XA
   instead of the generic "Overflow", making it clear the address exceeds the $00-$FF range.
 - Improved error message formatting: consistent "file(line):addr: message" layout.
 
-2.4.0
+2.4.0 - 2026/07/27
 - The twelve section boundary labels are excluded from -E symbol export. They describe the
   layout of one assembly unit, so exporting them injected one unit's boundaries into every
   unit that included the generated header, where they silently collided with that unit's

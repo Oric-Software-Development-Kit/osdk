@@ -87,7 +87,7 @@ Fixed a number of issues in the linker:
   - & (block escape prefix) recognized as token delimiter for correct label name extraction
   - : unnamed label definitions (bare colon at line start) are skipped to prevent misparse
 
-1.5
+1.5 - 2026/07/27
 - Fixed label references being silently dropped on lines with multiple
   ':'-separated statements: the statement scanner (strtok based) could run
   past the current statement and poke NUL bytes into the following ones,

@@ -21,7 +21,7 @@ Change history for MacroSplitter
 - Parenthesis-balanced argument parsing for args like (ap), (fp), (sp)
 - New OSDKMACROEXPAND=1 environment variable in osdk_config.bat enables the new pipeline
 
-1.0
+1.0 - 2026/07/27
 - First version considered production rather than experimental, hence 1.0 rather than 0.3.
 - The -g1 debug directives (.csource / .ctype) are now transparent to the optimizer. They were
   treated as ordinary directives, and a directive is a barrier, so with a .csource sitting
