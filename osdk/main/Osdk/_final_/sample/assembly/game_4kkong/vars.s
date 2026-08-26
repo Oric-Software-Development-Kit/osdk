@@ -624,10 +624,10 @@ _BssStart_
 
 _SpriteDisplayState		.dsb 256		; 0=not displayed 1=displayed
 
-_GameGirderTick			.byt 0			; Current movement counter
-_GameGirderSpawnTick	.byt 0			; Current spawning counter
+_GameGirderTick			.dsb 1			; Current movement counter
+_GameGirderSpawnTick	.dsb 1			; Current spawning counter
 
-_KongFlagThrow			.byt 0			; Indicate if a throw movement is started
-_GameCurrentTick		.byt 0
+_KongFlagThrow			.dsb 1			; Indicate if a throw movement is started
+_GameCurrentTick		.dsb 1
 
 _BssEnd_
