@@ -2,6 +2,7 @@
 _strlen
 	sta tmp			; __fastcall: string pointer in A:X (low:high)
 	stx tmp+1
+	ldy #0
 	ldx #0
 	
 looplen
