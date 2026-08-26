@@ -51,6 +51,7 @@ need the Oricutron build that has these flags in the sandbox.
 | t_binlit.c | 0b binary literals (added in Compiler 1.41) |
 | t_float.c | float arithmetic/compares/conversions (regression-fixed in 1.41) |
 | t_frame.c | frame-resident -O3 shapes (SUBW_YYY etc., fixed in MACROS.H 2026-07) |
+| t_peephole.c | MacroSplitter `-O` temp liveness: byte locals read either side of a short-circuit branch (run with `-Peephole`) |
 | t_ptr.c | pointers, multi-dim arrays, the 2019 forum -O3 copy loop |
 | t_struct.c | struct copies in all ASGNS addressing shapes, struct params/returns |
 

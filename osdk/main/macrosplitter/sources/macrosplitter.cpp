@@ -1393,46 +1393,6 @@ static bool PrevSetsFlagsFromA(const std::vector<Token>& toks, size_t i)
 	return false;
 }
 
-// Statement-scoped temp deadness. Compiler temporaries (tmp*) never carry a
-// value across a statement boundary, and every label / branch / jump / call
-// in compiler-generated code IS a statement boundary (calls save any still-
-// live temps explicitly, which reads them). So a temp is dead when the
-// forward scan reaches a flow boundary - or a pure overwrite - without a
-// read. The peephole only ever processes compiler output, never hand
-// assembler, so the axiom holds by construction.
-static bool TempDeadAfter(const std::vector<Token>& toks, size_t from,
-                          const std::string& T)
-{
-	// Scan for the temp's BASE name ("tmp0" for "tmp0+2"): the 32-bit shells
-	// consume whole pairs indirectly by taking the base address (lda #<tmp0 /
-	// (tmp0),y), which must count as a read of every pair member.
-	std::string base = T;
-	size_t plus = base.find('+');
-	if (plus != std::string::npos) base.erase(plus);
-
-	for (size_t s = from; ; )
-	{
-		s = NextRealInstr(toks, s + 1);
-		if (s == (size_t)-1) return true;             // label/directive boundary
-		const std::string& m = toks[s].mnemonic;
-		const std::string& op = toks[s].operand;
-		if (m == "jsr" || m == "jmp" || m == "rts" || m == "rti"
-			|| m == "beq" || m == "bne" || m == "bmi" || m == "bpl"
-			|| m == "bcc" || m == "bcs" || m == "bvc" || m == "bvs")
-			return true;                              // statement over
-		if (m == "sta" || m == "stx" || m == "sty")
-		{
-			if (op == T) return true;                 // pure overwrite
-			if (PlainDirect(op) && op.find(base) == std::string::npos)
-				continue;                             // unrelated location
-			if (op.find(base) != std::string::npos && op != T)
-				return false;                         // pair mate / pointer take
-			continue;
-		}
-		if (op.find(base) != std::string::npos) return false;   // any read
-	}
-}
-
 // Transfer + store -> direct store (Mike's find):  tya : sta X  ->  sty X
 // (same for txa). One byte and two cycles per site. The transfer set N/Z
 // from the value while st* sets no flags, so the fold requires N/Z dead -
@@ -1485,11 +1445,13 @@ static int FoldTransferStore(std::vector<Token>& toks, int& bytesSaved)
 }
 
 // ---------------------------------------------------------------------------
-// Dead temp-store elimination v2: a real (tiny) backward liveness analysis
-// over the token CFG, tracking only the scratch temp bytes (tmp0..tmp7 and
-// their +1..+3 pair members). The v1 straight-line "statement boundary"
-// heuristic was proven wrong by the suite: ?:/&&/|| join temps cross labels
-// and branches. Here:
+// Temp liveness: a real (tiny) backward liveness analysis over the token CFG,
+// tracking only the scratch temp bytes (tmp0..tmp7 and their +1..+3 pair
+// members). It answers every "is this temp dead here?" question in the
+// optimiser - dead-store elimination and the folds that reroute a staged temp
+// alike. The straight-line "statement boundary" heuristic it replaced was
+// proven wrong twice over: ?:/&&/|| join temps cross labels and branches.
+// Here:
 //   - blocks split at labels and after branches/jumps/returns
 //   - successors = fallthrough + branch target (by label name)
 //   - an indirect jmp (switch tables) makes every temp live (unknown targets)
@@ -1567,30 +1529,122 @@ static uint64_t TempLooseMask(const std::string& op)
 	return mask;
 }
 
-static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
+// Resolve a branch target the way the assembler does. XA gives a local name two
+// possible scopes, and a file-wide name -> position map respects neither: it
+// collapses every same-named label onto whichever came last and wires the CFG to
+// the wrong block. MACROS.H alone reuses `skip` 410 times.
+//   - a label inside a `.( .)` block is local to that block and its sub-blocks,
+//     so look in the referring block first, then outward
+//   - a cheap local label (`@name`) belongs to the nearest preceding STANDARD
+//     label; the scope resets at every standard label and at each `.)`, which is
+//     what lets routines reuse `@loop` freely. No outward walk: cheap locals do
+//     not nest.
+// Returns -1 when the name is not visible, or is defined twice in one scope: the
+// caller then drops the edge and treats the block as opaque rather than trusting
+// a guess.
+typedef std::map<std::pair<int, std::string>, size_t> ScopedLabelMap;
+typedef std::set<std::pair<int, std::string> >        ScopedLabelSet;
+static bool IsCheapLocalLabel(const std::string& name)
 {
+	return !name.empty() && name[0] == '@';
+}
+static size_t ResolveLabelTarget(const ScopedLabelMap& labelAt,
+                                 const ScopedLabelSet& labelDup,
+                                 const ScopedLabelMap& cheapAt,
+                                 const ScopedLabelSet& cheapDup,
+                                 const std::vector<int>& scopeParent,
+                                 int scope, int cllScope, const std::string& name)
+{
+	if (IsCheapLocalLabel(name))
+	{
+		std::pair<int, std::string> key(cllScope, name);
+		if (cheapDup.find(key) != cheapDup.end()) return (size_t)-1;   // ambiguous
+		ScopedLabelMap::const_iterator it = cheapAt.find(key);
+		return (it != cheapAt.end()) ? it->second : (size_t)-1;
+	}
+	for (int sc = scope; sc >= 0; sc = scopeParent[sc])
+	{
+		std::pair<int, std::string> key(sc, name);
+		if (labelDup.find(key) != labelDup.end()) return (size_t)-1;   // ambiguous
+		ScopedLabelMap::const_iterator it = labelAt.find(key);
+		if (it != labelAt.end()) return it->second;
+	}
+	return (size_t)-1;
+}
+
+// Shared temp-byte liveness. Solves the backward analysis described above over
+// the token CFG and hands back, for every token, the mask of tracked bytes live
+// IMMEDIATELY AFTER it. Blocks the analysis cannot see through (a directive, an
+// indirect jmp, a branch to a label out of view) report every byte live, so a
+// caller asking "is this temp dead here?" is told "no" and leaves the code be.
+//
+// Every peephole that wants to drop or reroute a temp must ask this, never a
+// straight-line forward scan: a temp's live range does not end at a branch or a
+// label. ?:/&&/|| stage one value and test it in pieces either side of a
+// short-circuit branch, so "the scan reached a flow boundary" says only that the
+// scan stopped - not that the value is dead. Dropping a temp's store on that
+// basis is a silent miscompile (docs/macrosplitter-stale-tmp-bug.md).
+static void ComputeTempLiveAfter(const std::vector<Token>& toks,
+                                 std::vector<uint64_t>& liveAfter)
+{
+	liveAfter.assign(toks.size(), ~(uint64_t)0);
+
 	// ---- collect block leaders ------------------------------------------
 	std::vector<size_t> order;                 // real tokens in order
-	std::map<std::string, size_t> labelAt;     // label name -> order index
+	std::vector<int>    scopeOf;               // fold scope of each order entry
+	std::vector<int>    cllOf;                 // cheap-local scope of each entry
+	std::vector<int>    scopeParent(1, -1);    // scope 0 = file scope
+	std::vector<int>    scopeStack;
+	ScopedLabelMap      labelAt;               // (block,name)  -> order index
+	ScopedLabelSet      labelDup;              // one name twice in one block
+	ScopedLabelMap      cheapAt;               // (cll,@name)   -> order index
+	ScopedLabelSet      cheapDup;
+	int curScope = 0, cllScope = 0;
 	for (size_t i = 0; i < toks.size(); i++)
 	{
 		if (toks[i].eliminated) continue;
 		TokenType tt = toks[i].type;
-		if (tt == TokenType::Comment || tt == TokenType::Empty
-			|| tt == TokenType::FoldOpen || tt == TokenType::FoldClose) continue;
+		if (tt == TokenType::FoldOpen)
+		{
+			scopeStack.push_back(curScope);
+			scopeParent.push_back(curScope);
+			curScope = (int)scopeParent.size() - 1;
+			continue;
+		}
+		if (tt == TokenType::FoldClose)
+		{
+			if (!scopeStack.empty())
+			{ curScope = scopeStack.back(); scopeStack.pop_back(); }
+			cllScope++;                            // `.)` ends the cheap scope
+			continue;
+		}
+		if (tt == TokenType::Comment || tt == TokenType::Empty) continue;
 		if (tt == TokenType::Label)
-			labelAt[toks[i].text] = order.size();  // position of next real token
-		if (tt == TokenType::Instruction)
-			order.push_back(i);
-		if (tt == TokenType::Directive || tt == TokenType::Other)
-			order.push_back(i);                    // barrier token, kept in order
+		{
+			bool cheap = IsCheapLocalLabel(toks[i].text);
+			ScopedLabelMap& at  = cheap ? cheapAt  : labelAt;
+			ScopedLabelSet& dup = cheap ? cheapDup : labelDup;
+			std::pair<int, std::string> key(cheap ? cllScope : curScope, toks[i].text);
+			if (at.find(key) != at.end()) dup.insert(key);
+			else at[key] = order.size();           // position of next real token
+			if (!cheap) cllScope++;                // a standard label opens a new one
+			continue;
+		}
+		if (tt == TokenType::Instruction
+			|| tt == TokenType::Directive || tt == TokenType::Other)
+		{
+			order.push_back(i);                    // barrier tokens kept in order
+			scopeOf.push_back(curScope);
+			cllOf.push_back(cllScope);
+		}
 	}
-	if (order.empty()) return 0;
+	if (order.empty()) return;
 
 	std::vector<char> leader(order.size(), 0);
 	leader[0] = 1;
-	for (std::map<std::string, size_t>::iterator it = labelAt.begin();
-	     it != labelAt.end(); ++it)
+	for (ScopedLabelMap::iterator it = labelAt.begin(); it != labelAt.end(); ++it)
+		if (it->second < order.size()) leader[it->second] = 1;
+	for (ScopedLabelMap::iterator it = cheapAt.begin(); it != cheapAt.end(); ++it)
 		if (it->second < order.size()) leader[it->second] = 1;
 	for (size_t k = 0; k < order.size(); k++)
 	{
@@ -1662,9 +1716,10 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 				if (!op.empty() && op[0]=='(') b.allLive = true;   // switch
 				else
 				{
-					std::map<std::string, size_t>::iterator it = labelAt.find(op);
-					if (it != labelAt.end() && it->second < order.size())
-						b.succ[1] = blockOf[it->second];
+					size_t tgt = ResolveLabelTarget(labelAt, labelDup, cheapAt, cheapDup,
+					                                scopeParent, scopeOf[k], cllOf[k], op);
+					if (tgt < order.size())
+						b.succ[1] = blockOf[tgt];
 					else
 						b.allLive = true;           // target outside view
 				}
@@ -1674,9 +1729,10 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 			else if (m=="beq"||m=="bne"||m=="bmi"||m=="bpl"
 				||m=="bcc"||m=="bcs"||m=="bvc"||m=="bvs")
 			{
-				std::map<std::string, size_t>::iterator it = labelAt.find(op);
-				if (it != labelAt.end() && it->second < order.size())
-					b.succ[1] = blockOf[it->second];
+				size_t tgt = ResolveLabelTarget(labelAt, labelDup, cheapAt, cheapDup,
+				                                scopeParent, scopeOf[k], cllOf[k], op);
+				if (tgt < order.size())
+					b.succ[1] = blockOf[tgt];
 				else
 					b.allLive = true;
 			}
@@ -1701,16 +1757,16 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 		}
 	}
 
-	// ---- eliminate stores to bytes dead right after them -------------------
-	int changed = 0;
+	// ---- per-token live-after, walking each block backwards ---------------
 	for (size_t bi = 0; bi < blocks.size(); bi++)
 	{
 		TempLiveBlock& b = blocks[bi];
-		if (b.allLive) continue;
+		if (b.allLive) continue;                     // stays all-live, as assigned
 		uint64_t live = b.liveOut;
 		for (size_t k = b.last + 1; k-- > b.first; )
 		{
-			Token& t = toks[order[k]];
+			const Token& t = toks[order[k]];
+			liveAfter[order[k]] = live;              // liveness AFTER this token
 			if (t.type != TokenType::Instruction) { live = ~(uint64_t)0; continue; }
 			const std::string& m = t.mnemonic;
 			const std::string& op = t.operand;
@@ -1720,22 +1776,53 @@ static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
 			bool isStore = (m=="sta"||m=="stx"||m=="sty");
 			if (exact >= 0 && isStore)
 			{
-				uint64_t bit = (uint64_t)1 << exact;
-				if (!(live & bit) && !t.frozen)
-				{
-					bytesSaved += EstimateInstructionSize(m, op);
-					t.eliminated = true;
-					changed++;
-					continue;                        // liveness unchanged
-				}
-				live &= ~bit;                        // killed above the store
+				live &= ~((uint64_t)1 << exact);     // killed above the store
 				continue;
 			}
 			if (exact >= 0)
 			{ live |= (uint64_t)1 << exact; continue; }  // read (incl. RMW)
 			uint64_t loose = TempLooseMask(op);
 			if (loose) live |= loose;
-			if (op.empty() && b.first == k) break;
+		}
+	}
+}
+
+// True when the tracked temp byte T is dead immediately after token `at`, per a
+// table ComputeTempLiveAfter filled in. A name the analysis does not track
+// (tmp8+, an offset past a pair) answers "live", so callers stay conservative.
+static bool TempByteDeadAfter(const std::vector<uint64_t>& liveAfter,
+                              size_t at, const std::string& T)
+{
+	int bit = TempByteIndex(T);
+	if (bit < 0 || at >= liveAfter.size()) return false;
+	return (liveAfter[at] & ((uint64_t)1 << bit)) == 0;
+}
+
+// A store to a tracked byte that is dead right after it is pure waste.
+static int DropDeadTempStores(std::vector<Token>& toks, int& bytesSaved)
+{
+	std::vector<uint64_t> liveAfter;
+	ComputeTempLiveAfter(toks, liveAfter);
+
+	int changed = 0;
+	for (size_t i = 0; i < toks.size(); i++)
+	{
+		Token& t = toks[i];
+		if (t.eliminated || t.type != TokenType::Instruction || t.frozen) continue;
+		const std::string& m = t.mnemonic;
+		if (m != "sta" && m != "stx" && m != "sty") continue;
+		if (TempByteIndex(t.operand) < 0) continue;
+		if (!TempByteDeadAfter(liveAfter, i, t.operand)) continue;
+		// Removing a dead store cannot revive the byte anywhere (the value had
+		// no reader), so the rest of the table stays valid for this sweep.
+		int bytes = EstimateInstructionSize(m, t.operand);
+		bytesSaved += bytes;
+		t.eliminated = true;
+		changed++;
+		if (g_verbosity >= 3)
+		{
+			printf("MacroSplitter: [line %d] Dead temp store eliminated: %s (%d byte%s)\n",
+				t.lineIndex + 1, t.text.c_str(), bytes, (bytes != 1) ? "s" : "");
 		}
 	}
 	return changed;
@@ -1823,11 +1910,19 @@ static int SinkStagingStore(std::vector<Token>& toks, int& bytesSaved)
 // bitwise op through a scratch temp even when both live in memory:
 //     lda X : sta T : lda Y : eor T     ->      lda Y : eor X
 // (same for ora/and). The reordering of the X/Y reads is safe - nothing is
-// written in between and I/O locations are excluded; the temp must be
-// statement-dead. X may be an immediate (folds lda #n : sta T : lda Y :
-// eor T into lda Y : eor #n).
+// written in between and I/O locations are excluded; the temp must be dead
+// after the op, on every path (CFG liveness, not a straight-line scan: the
+// second half of a short-circuit test reads T past the branch). X may be an
+// immediate (folds lda #n : sta T : lda Y : eor T into lda Y : eor #n).
 static int FoldCommutativeStage(std::vector<Token>& toks, int& bytesSaved)
 {
+	// One liveness table serves the whole sweep. A fold removes T's store and
+	// T's read together, in one straight-line run with T dead after it, so T's
+	// live range is unchanged everywhere; the X read only moves from i to i3
+	// inside that same run, and no other candidate's query point sits between.
+	std::vector<uint64_t> liveAfter;
+	ComputeTempLiveAfter(toks, liveAfter);
+
 	int changed = 0;
 	for (size_t i = 0; i < toks.size(); i++)
 	{
@@ -1857,7 +1952,7 @@ static int FoldCommutativeStage(std::vector<Token>& toks, int& bytesSaved)
 		if (m3 != "eor" && m3 != "ora" && m3 != "and") continue;
 		if (toks[i3].operand != T) continue;
 
-		if (!TempDeadAfter(toks, i3, T)) continue;
+		if (!TempByteDeadAfter(liveAfter, i3, T)) continue;
 
 		bytesSaved += EstimateInstructionSize(toks[i].mnemonic, X);
 		bytesSaved += EstimateInstructionSize(toks[i1].mnemonic, T);
@@ -1868,6 +1963,12 @@ static int FoldCommutativeStage(std::vector<Token>& toks, int& bytesSaved)
 		toks[i3].operand = X;
 		toks[i3].text = m3 + " " + X;
 		changed++;
+		if (g_verbosity >= 3)
+		{
+			printf("MacroSplitter: [line %d] Commutative stage folded: %s %s -> %s %s (%s dead)\n",
+				toks[i3].lineIndex + 1, m3.c_str(), T.c_str(),
+				m3.c_str(), X.c_str(), T.c_str());
+		}
 	}
 	return changed;
 }
@@ -1877,13 +1978,21 @@ static int FoldCommutativeStage(std::vector<Token>& toks, int& bytesSaved)
 // the carry holds bit 7 of the PRE-shift value, which is exactly what a
 // following  lda #128 : and P  (or lda P : and #128) recomputes. When only
 // C-preserving instructions sit in between and the AND result feeds nothing
-// but the flags (an optional statement-dead tmp store and the branch), the
-// whole test collapses into the branch itself:
+// but the flags (an optional store to a dead tmp, and the branch), the whole
+// test collapses into the branch itself:
 //     beq L -> bcc L        bne L -> bcs L
 // A and the other flags are dead past the branch by the macro-seam
-// convention (every macro loads its registers before use).
+// convention (every macro loads its registers before use). The tmp store is
+// only droppable when the byte really is dead past it - CFG liveness, since a
+// short-circuit branch does not end a temp's live range.
 static int FoldCarryBranch(std::vector<Token>& toks, int& bytesSaved)
 {
+	// Valid for the whole sweep: the only temp write this pass removes is one
+	// already proven dead, and removing reads (the folded `and P`) can only
+	// shrink a live range, which leaves the table conservative.
+	std::vector<uint64_t> liveAfter;
+	ComputeTempLiveAfter(toks, liveAfter);
+
 	int changed = 0;
 	for (size_t i = 0; i < toks.size(); i++)
 	{
@@ -1952,7 +2061,9 @@ static int FoldCarryBranch(std::vector<Token>& toks, int& bytesSaved)
 		if (toks[c3].mnemonic == "sta"
 			&& toks[c3].operand.compare(0, 3, "tmp") == 0)
 		{
-			deadStore = c3;                          // statement-dead temp
+			// the AND result goes to a temp: foldable only if nothing reads it
+			if (!TempByteDeadAfter(liveAfter, c3, toks[c3].operand)) continue;
+			deadStore = c3;
 			br = NextRealInstr(toks, c3 + 1);
 			if (br == (size_t)-1 || toks[br].frozen) continue;
 		}

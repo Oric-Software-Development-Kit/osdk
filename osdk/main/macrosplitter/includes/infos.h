@@ -41,8 +41,31 @@ Change history for MacroSplitter
 - Removed the blank lines left behind where instructions were deleted, so the generated
   assembly stays readable when inspecting what the optimizer did.
 
+1.1
+- Peephole: fixed a silent miscompile in the commutative staging fold. It asked whether the
+  scratch temp was dead with a straight-line scan that stopped at the first branch and
+  reported "dead", so in "if ((t & a) || ((t & b) == c))" the reload in front of the second
+  test was dropped while only the first read was rewritten: the second test then read the
+  first test's result. Byte-typed locals are what expose it (the word path reloads through
+  CSBW and overwrites the stale value first), which is how an unsigned char cell type made
+  every open door read as shut in Oric DungeonMaster. The fold now asks the CFG liveness
+  analysis, which is what the dead-store pass already used.
+- Peephole: the carry-branch fold used the same straight-line assumption, dropping the store
+  of the AND result to a temp with no liveness test at all. It now checks.
+- Peephole: branch targets are resolved with the assembler's own scoping rules. Labels were
+  keyed by name in a file-wide map, so the 410 reuses of "skip" in MACROS.H all collapsed onto
+  whichever came last and every "bne skip" got an edge to the wrong block - wrong liveness in
+  both directions. A label in a ".( .)" block is now looked up in that block and then outward,
+  and a cheap local label ("@name") in the scope of its nearest preceding standard label; an
+  unresolvable or ambiguous name makes the block opaque instead of guessing. Recovering that
+  precision more than pays for the two stores the fixes above keep.
+- New TestSuite/compiler test t_peephole.c covers byte locals read either side of a
+  short-circuit branch (run the suite with -Peephole).
+- The optimizer now reports the commutative staging folds and dead temp stores it removes at
+  OSDKVERBOSITY=3. Both were silent, which is why the miscompile above was hard to place.
+
 */
 
 #define TOOL_VERSION_MAJOR	1
-#define TOOL_VERSION_MINOR	0
+#define TOOL_VERSION_MINOR	1
 
