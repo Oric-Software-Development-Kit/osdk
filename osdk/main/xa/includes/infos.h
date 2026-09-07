@@ -224,8 +224,6 @@ Change history for XA
   and is then zeroed by a C runtime that clears the section. The usual cause is a missing
   ".text" at the top of a file assembled after one that ended in .bss. Mirrors the
   existing .zero rule; .dsb and .align remain allowed.
-
-2.4.2
 - #print now reports the FINAL address of an auto-chained .data/.bss label instead of the
   provisional one. Being a pass-1 construct, #print used to evaluate before segment
   chaining had moved .data and .bss into place, so it printed the pass-1 base ($4000 for
@@ -245,13 +243,23 @@ Change history for XA
   chaining happens. #if / #error / .dsb are deliberately untouched: they gate what pass 1
   assembles and therefore cannot be deferred, so a guard such as "#if _EndBSS > $9900"
   still compares the provisional value.
+- __bss_end / __bss_size now describe the auto-chained .bss run only, matching the
+  __bss_clear_* pair added in 2.4.0, instead of start+total-length. A "* = $XXXX" block
+  inside .bss is a deliberate hand placement (screen, overlay, hardware) that opts out of
+  chaining, so its bytes belong to no run and must not push the end of one: with a pack
+  pinned at $C000, __bss_end landed in unrelated RAM and every size or free-memory figure
+  derived from it read garbage. The total reservation is still counted for the
+  relocatable-mode (-R) object header, which describes the whole segment.
+- The "auto-chain: .bss runs past the top of memory" check no longer counts *=-pinned
+  bytes either. Only the chained run is placed at the computed base, so including the
+  pinned blocks in the sum reported an overflow for a layout that fits.
 
 */
 
 
 #define TOOL_VERSION_MAJOR	2
 #define TOOL_VERSION_MINOR	4
-#define TOOL_VERSION_PATCH	2
+#define TOOL_VERSION_PATCH	1
 
 #define _TOOL_XSTR(s)	_TOOL_STR(s)
 #define _TOOL_STR(s)	#s

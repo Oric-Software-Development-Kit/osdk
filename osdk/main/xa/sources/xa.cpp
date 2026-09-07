@@ -608,10 +608,12 @@ int main(int argc,char *argv[])
 			 logout(out);
 			 ner++;
 		 }
-		 if (SectionBssLenght && newBssBase + SectionBssLenght > 0x10000)
+		 // Only the auto-chained run is placed at newBssBase; a `*=` block is pinned at
+		 // its own absolute address, so the total would give a bogus overflow verdict.
+		 if (SectionBssNaturalLenght && newBssBase + SectionBssNaturalLenght > 0x10000)
 		 {
 			 sprintf(out,"auto-chain: .bss (%d bytes at $%04x) runs past the top of memory\n",
-				 SectionBssLenght, newBssBase);
+				 SectionBssNaturalLenght, newBssBase);
 			 logout(out);
 			 ner++;
 		 }
@@ -633,16 +635,19 @@ int main(int argc,char *argv[])
 		 syms.DefineValueLabel("__data_start", SectionDataBase,                     eSEGMENT_ABS);
 		 syms.DefineValueLabel("__data_end",   SectionDataBase + SectionDataLenght, eSEGMENT_ABS);
 		 syms.DefineValueLabel("__data_size",  SectionDataLenght,                   eSEGMENT_ABS);
-		 syms.DefineValueLabel("__bss_start",  SectionBssBase,                      eSEGMENT_ABS);
-		 syms.DefineValueLabel("__bss_end",    SectionBssBase + SectionBssLenght,   eSEGMENT_ABS);
-		 syms.DefineValueLabel("__bss_size",   SectionBssLenght,                    eSEGMENT_ABS);
-		 // Range a C runtime may safely zero at startup. This is the AUTO-CHAINED run
-		 // only: reservations made before any `*=` pinned the .bss PC. __bss_end is
-		 // start+total-length and therefore spans pinned blocks too (screen, overlay,
-		 // hardware placements), so it is NOT a valid thing to clear. These two are.
-		 syms.DefineValueLabel("__bss_clear_start", SectionBssBase,                              eSEGMENT_ABS);
-		 syms.DefineValueLabel("__bss_clear_end",   SectionBssBase + SectionBssNaturalLenght,    eSEGMENT_ABS);
-		 syms.DefineValueLabel("__bss_clear_size",  SectionBssNaturalLenght,                     eSEGMENT_ABS);
+		 // The __bss_* labels describe the AUTO-CHAINED run ONLY - reservations made
+		 // before any `*=` pinned the .bss PC. A `* = $XXXX` block is a deliberate hand
+		 // placement (screen, overlay, hardware) that opts out of chaining, so it must
+		 // not move these labels: use SectionBssNaturalLenght, never the total
+		 // SectionBssLenght (which still counts pinned bytes for the relocatable header).
+		 syms.DefineValueLabel("__bss_start",  SectionBssBase,                             eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_end",    SectionBssBase + SectionBssNaturalLenght,   eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_size",   SectionBssNaturalLenght,                    eSEGMENT_ABS);
+		 // The clearable range coincides with that auto-chained run: the CRT may zero
+		 // exactly what chaining placed, and nothing a `*=` pinned by hand.
+		 syms.DefineValueLabel("__bss_clear_start", SectionBssBase,                             eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_clear_end",   SectionBssBase + SectionBssNaturalLenght,   eSEGMENT_ABS);
+		 syms.DefineValueLabel("__bss_clear_size",  SectionBssNaturalLenght,                    eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_start", SectionZeroBase,                     eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_end",   SectionZeroBase + SectionZeroLenght, eSEGMENT_ABS);
 		 syms.DefineValueLabel("__zero_size",  SectionZeroLenght,                   eSEGMENT_ABS);
